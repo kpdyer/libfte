@@ -1,17 +1,17 @@
-# This file is part of fteproxy.
+# This file is part of libfte.
 #
-# fteproxy is free software: you can redistribute it and/or modify
+# libfte is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation,either version 3 of the License,or
 # (at your option) any later version.
 #
-# fteproxy is distributed in the hope that it will be useful,
+# libfte is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with fteproxy.  If not,see <http://www.gnu.org/licenses/>.
+# along with libfte.  If not,see <http://www.gnu.org/licenses/>.
 
 
 # Automatically figure out what we're doing
@@ -48,25 +48,25 @@ endif
 default: $(CDFA_BINARY)
 
 dist-deb:
-	@rm -rfv debian/fteproxy
+	@rm -rfv debian/libfte
 	DEB_CPPFLAGS_SET="-fPIC" dpkg-buildpackage -b -us -uc
 	mkdir -p dist
 	cp ../*deb dist/
 	cp ../*changes dist/
 	
 clean:
-	@rm -rfv fteproxy.egg-info
+	@rm -rfv libfte.egg-info
 	@rm -rvf build
 	@rm -vf fte/*.so
 	@rm -vf fte/*.pyd
 	@rm -vf *.pyc
 	@rm -vf */*.pyc
 	@rm -vf */*/*.pyc
-	@rm -rvf debian/fteproxy
+	@rm -rvf debian/libfte
 	
+
 test:
-	@PATH=./bin:$(PATH) $(PYTHON) ./bin/fteproxy --mode test --quiet
-	@PATH=./bin:$(PATH) $(PYTHON) ./systemtests
+	$(PYTHON) setup.py test
 
 
 $(CDFA_BINARY): $(THIRD_PARTY_DIR)/re2/obj/libre2.a

@@ -1,5 +1,5 @@
 # Updated by Kevin P. Dyer 2013-12-07
-# for use with fteproxy
+# for use with libfte
 
 # Original banner:
 #  python-automata, the Python DFA library

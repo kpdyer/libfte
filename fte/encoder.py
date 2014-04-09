@@ -22,7 +22,6 @@ import math
 import fte.conf
 import fte.bit_ops
 import fte.dfa
-import fte.defs
 import fte.encrypter
 
 

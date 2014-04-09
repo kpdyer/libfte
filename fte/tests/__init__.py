@@ -23,6 +23,7 @@ import test_dfa
 import test_encoder
 import test_encrypter
 
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTests(test_bit_ops.suite())
@@ -31,3 +32,6 @@ def suite():
     suite.addTests(test_encoder.suite())
     suite.addTests(test_encrypter.suite())
     return suite
+
+if __name__ == '__main__':
+    unittest.TextTestRunner(verbosity=2).run(suite())

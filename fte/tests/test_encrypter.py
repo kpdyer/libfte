@@ -59,6 +59,7 @@ class Tests(unittest.TestCase):
             H_out = self.encrypter.decryptOneBlock(retval)
             self.assertEquals(M1, H_out)
 
+
 def suite():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()

@@ -55,6 +55,7 @@ dist-deb:
 	cp ../*changes dist/
 	
 clean:
+	@rm -rfv fteproxy.egg-info
 	@rm -rvf build
 	@rm -vf fte/*.so
 	@rm -vf fte/*.pyd

@@ -64,4 +64,3 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest(loader.loadTestsFromTestCase(Tests))
     return suite
-

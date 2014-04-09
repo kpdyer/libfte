@@ -44,6 +44,7 @@ class Tests(unittest.TestCase):
                 M = dfa.rank(X)
                 self.assertEquals(N, M)
 
+
 def suite():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()

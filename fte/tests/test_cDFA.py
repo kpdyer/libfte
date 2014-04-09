@@ -44,6 +44,7 @@ class Tests(unittest.TestCase):
 
             self.assertEquals(actual_fst, expected_fst)
 
+
 def suite():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()

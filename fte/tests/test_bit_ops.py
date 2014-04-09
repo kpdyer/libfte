@@ -21,7 +21,7 @@ import random
 import fte.bit_ops
 
 
-class TestEncoders(unittest.TestCase):
+class Tests(unittest.TestCase):
 
     def _testMSB(self):
         self.assertEquals(15, fte.bit_ops.msb(0xFF, 4))
@@ -59,5 +59,9 @@ class TestEncoders(unittest.TestCase):
             self.assertEquals(N, M)
 
 
-if __name__ == '__main__':
-    unittest.main()
+def suite():
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+    suite.addTest(loader.loadTestsFromTestCase(Tests))
+    return suite
+

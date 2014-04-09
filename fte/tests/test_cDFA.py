@@ -24,7 +24,7 @@ import fte.conf
 import fte.cDFA
 
 
-class TestcDFA(unittest.TestCase):
+class Tests(unittest.TestCase):
 
     def testMakeDFA(self):
         base_dir = fte.conf.getValue('general.base_dir')
@@ -44,5 +44,8 @@ class TestcDFA(unittest.TestCase):
 
             self.assertEquals(actual_fst, expected_fst)
 
-if __name__ == '__main__':
-    unittest.main()
+def suite():
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+    suite.addTest(loader.loadTestsFromTestCase(Tests))
+    return suite

@@ -15,8 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with fteproxy.  If not, see <http://www.gnu.org/licenses/>.
 
-from distutils.core import setup
-from distutils.core import Extension
+#from distutils.core import setup
+#from distutils.core import Extension
+from setuptools import setup
+from setuptools import Extension
 
 import glob
 import sys
@@ -56,6 +58,7 @@ if os.name == 'nt':
 
 setup(name='fteproxy',
       console=['./bin/fteproxy'],
+      test_suite = 'fte.tests.suite',
       zipfile="fteproxy.zip",
       data_files=data_files,
       options={"py2exe": {
@@ -70,5 +73,5 @@ setup(name='fteproxy',
       author_email='kpdyer@gmail.com',
       url='https://github.com/kpdyer/fteproxy',
       ext_modules=[fte_cDFA],
-      packages=['fte', 'fte.tests', 'fte.tests.dfas'],
+      #packages=['fte', 'fte.tests', 'fte.tests.dfas'],
       )

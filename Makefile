@@ -30,10 +30,11 @@ endif
 VERSION=$(shell cat fte/VERSION)
 FTEPROXY_RELEASE=$(VERSION)-$(PLATFORM)-$(ARCH)
 THIRD_PARTY_DIR=thirdparty
-RE2_VERSION=20140111
-RE2_VERSION_WIN32=20110930
+ifeq ($(WINDOWS_BUILD),1)
+RE2_DIR=$(THIRD_PARTY_DIR)/re2-win32
+else
 RE2_DIR=$(THIRD_PARTY_DIR)/re2
-BINARY_ARCHIVE=dist/fteproxy-$(FTEPROXY_RELEASE).tar.gz
+endif
 CDFA_BINARY=fte/cDFA.so
 
 ifeq ($(PYTHON),)
@@ -41,49 +42,10 @@ PYTHON="python"
 endif
 
 ifeq ($(WINDOWS_BUILD),1)
-BINARY_ARCHIVE=dist/fteproxy-$(FTEPROXY_RELEASE).zip
 CDFA_BINARY=fte/cDFA.pyd
 endif
 
 default: $(CDFA_BINARY)
-
-dist: do-dist
-
-dist-windows-i386:
-	LDFLAGS="$(LDFLAGS) -m32" \
-	CFLAGS="$(CFLAGS) -m32" \
-	CXXFLAGS="$(CXXFLAGS) -m32" \
-	CROSS_COMPILE=1 \
-	WINDOWS_BUILD=1 \
-	PLATFORM='windows' \
-	ARCH='i386' \
-	BINARY_ARCHIVE=dist/fteproxy-$(FTEPROXY_RELEASE).zip \
-	CDFA_BINARY=fte/cDFA.pyd \
-	$(MAKE) do-dist-windows-i386
-	
-dist-osx-i386:
-	LDFLAGS="$(LDFLAGS) -m32" \
-	CFLAGS="$(CFLAGS) -m32" \
-	CXXFLAGS="$(CXXFLAGS) -m32" \
-	CROSS_COMPILE=1 \
-	PLATFORM='darwin' \
-	ARCH='i386' \
-	$(MAKE) do-dist-osx-i386
-	
-dist-linux-i386:
-	LDFLAGS="$(LDFLAGS) -m32" \
-	CFLAGS="$(CFLAGS) -m32" \
-	CXXFLAGS="$(CXXFLAGS) -m32" \
-	CROSS_COMPILE=1 \
-	PLATFORM='linux' \
-	ARCH='i386' \
-	$(MAKE) do-dist-linux-i386
-
-dist-linux-x86_64:
-	CROSS_COMPILE=1 \
-	PLATFORM='linux' \
-	ARCH='x86_64' \
-	$(MAKE) do-dist-linux-x86_64
 
 dist-deb:
 	@rm -rfv debian/fteproxy
@@ -92,18 +54,6 @@ dist-deb:
 	cp ../*deb dist/
 	cp ../*changes dist/
 	
-# Our high-level targets that can be called directly
-do-dist: $(BINARY_ARCHIVE)
-do-dist-windows-i386: $(BINARY_ARCHIVE)
-do-dist-osx-i386: $(BINARY_ARCHIVE)
-do-dist-linux-i386: $(BINARY_ARCHIVE)
-do-dist-linux-x86_64: $(BINARY_ARCHIVE)
-
-install:
-	mkdir -p $(DESTDIR)/usr/bin
-	cp -an bin/fteproxy $(DESTDIR)/usr/bin/
-	python setup.py install --root=$(DESTDIR) --install-layout=deb
-
 clean:
 	@rm -rvf build
 	@rm -vf fte/*.so
@@ -111,63 +61,11 @@ clean:
 	@rm -vf *.pyc
 	@rm -vf */*.pyc
 	@rm -vf */*/*.pyc
-	@rm -rvf $(THIRD_PARTY_DIR)/re2
 	@rm -rvf debian/fteproxy
 	
 test:
 	@PATH=./bin:$(PATH) $(PYTHON) ./bin/fteproxy --mode test --quiet
 	@PATH=./bin:$(PATH) $(PYTHON) ./systemtests
-
-
-# Supporting targets
-$(BINARY_ARCHIVE): $(CDFA_BINARY)
-	mkdir -p dist/fteproxy-$(FTEPROXY_RELEASE)
-	
-ifeq ($(WINDOWS_BUILD),1)
-	$(PYTHON) setup.py py2exe
-	
-	cd dist && mv *.dll fteproxy-$(FTEPROXY_RELEASE)/
-	cd dist && mv *.zip fteproxy-$(FTEPROXY_RELEASE)/
-	cd dist && mv *.exe fteproxy-$(FTEPROXY_RELEASE)/
-
-	cp README.md dist/fteproxy-$(FTEPROXY_RELEASE)
-	cp COPYING dist/fteproxy-$(FTEPROXY_RELEASE)
-
-	mkdir -p dist/fteproxy-$(FTEPROXY_RELEASE)/fte
-	cp fte/VERSION dist/fteproxy-$(FTEPROXY_RELEASE)/fte
-	cp -rfv fte/defs dist/fteproxy-$(FTEPROXY_RELEASE)/fte
-	cp -rfv fte/tests dist/fteproxy-$(FTEPROXY_RELEASE)/fte
-
-	cd dist && zip -9 -r fteproxy-$(FTEPROXY_RELEASE).zip fteproxy-$(FTEPROXY_RELEASE)
-	cd dist && rm -rf fteproxy-$(FTEPROXY_RELEASE)
-else
-	pyinstaller fteproxy.spec
-	cd dist && mv fteproxy fteproxy-$(FTEPROXY_RELEASE)/fteproxy
-
-	mkdir -p dist/fteproxy-$(FTEPROXY_RELEASE)/fte/tests/dfas
-	cp fte/tests/dfas/*.dfa dist/fteproxy-$(FTEPROXY_RELEASE)/fte/tests/dfas
-	cp fte/tests/dfas/*.regex dist/fteproxy-$(FTEPROXY_RELEASE)/fte/tests/dfas
-
-	mkdir -p dist/fteproxy-$(FTEPROXY_RELEASE)/fte
-	cp fte/VERSION dist/fteproxy-$(FTEPROXY_RELEASE)/fte
-
-	mkdir -p dist/fteproxy-$(FTEPROXY_RELEASE)/fte/defs
-	cp fte/defs/*.json dist/fteproxy-$(FTEPROXY_RELEASE)/fte/defs/
-
-	mkdir -p dist/fteproxy-$(FTEPROXY_RELEASE)/fte/tests/dfas
-	cp fte/tests/dfas/*.dfa dist/fteproxy-$(FTEPROXY_RELEASE)/fte/tests/dfas
-	cp fte/tests/dfas/*.regex dist/fteproxy-$(FTEPROXY_RELEASE)/fte/tests/dfas
-
-	cp README.md dist/fteproxy-$(FTEPROXY_RELEASE)
-	cp COPYING dist/fteproxy-$(FTEPROXY_RELEASE)
-
-	cp README.md dist/fteproxy-$(FTEPROXY_RELEASE)
-	cp COPYING dist/fteproxy-$(FTEPROXY_RELEASE)
-	
-	cd dist && tar cvf fteproxy-$(FTEPROXY_RELEASE).tar fteproxy-$(FTEPROXY_RELEASE)
-	cd dist && gzip -9 fteproxy-$(FTEPROXY_RELEASE).tar
-	cd dist && rm -rf fteproxy-$(FTEPROXY_RELEASE)
-endif
 
 
 $(CDFA_BINARY): $(THIRD_PARTY_DIR)/re2/obj/libre2.a
@@ -179,26 +77,9 @@ else
 endif
 
 
-$(THIRD_PARTY_DIR)/re2/obj/libre2.a: $(RE2_DIR)
+$(THIRD_PARTY_DIR)/re2/obj/libre2.a:
 	cd $(RE2_DIR) && $(MAKE) obj/libre2.a
 
-
-$(RE2_DIR):
-ifeq ($(WINDOWS_BUILD),1)
-	cd $(THIRD_PARTY_DIR) && unzip re2-$(RE2_VERSION_WIN32)-src-win32.zip
-	cd $(THIRD_PARTY_DIR) && patch --verbose -p0 -i re2-core.patch
-
-ifeq ($(CROSS_COMPILE),1)
-	cd $(THIRD_PARTY_DIR) && patch --verbose -p0 -i re2-crosscompile.patch
-else
-	cd $(THIRD_PARTY_DIR) && patch --verbose -p0 -i re2-mingw.patch
-endif
-
-else
-	cd $(THIRD_PARTY_DIR) && tar zxvf re2-$(RE2_VERSION)-src-linux.tgz
-	cd $(THIRD_PARTY_DIR) && patch --verbose -p0 -i re2-core.patch
-	cd $(THIRD_PARTY_DIR) && patch --verbose -p0 -R -i re2-nix.patch
-endif
 
 
 doc: phantom

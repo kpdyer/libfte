@@ -33,7 +33,7 @@ _regexs = [
 ]
 
 
-class TestDFA(unittest.TestCase):
+class Tests(unittest.TestCase):
 
     def testUnrankRank(self):
         for regex in _regexs:
@@ -44,5 +44,8 @@ class TestDFA(unittest.TestCase):
                 M = dfa.rank(X)
                 self.assertEquals(N, M)
 
-if __name__ == '__main__':
-    unittest.main()
+def suite():
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+    suite.addTest(loader.loadTestsFromTestCase(Tests))
+    return suite

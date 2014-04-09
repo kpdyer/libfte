@@ -24,7 +24,7 @@ import fte.encrypter
 TRIALS = 2 ** 8
 
 
-class TestEncoders(unittest.TestCase):
+class Tests(unittest.TestCase):
 
     def setUp(self):
         self.encrypter = fte.encrypter.Encrypter()
@@ -59,6 +59,8 @@ class TestEncoders(unittest.TestCase):
             H_out = self.encrypter.decryptOneBlock(retval)
             self.assertEquals(M1, H_out)
 
-
-if __name__ == '__main__':
-    unittest.main()
+def suite():
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+    suite.addTest(loader.loadTestsFromTestCase(Tests))
+    return suite

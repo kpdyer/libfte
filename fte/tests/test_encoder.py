@@ -21,29 +21,15 @@ import random
 
 import fte.encoder
 import fte.bit_ops
-import fte.defs
 
 
-NUM_TRIALS = 2 ** 8
-
-
-class TestEncoders(unittest.TestCase):
+class Tests(unittest.TestCase):
 
     def testRegexEncoderRequest(self):
-        definitions = fte.defs.load_definitions()
-        for language in definitions.keys():
-            regex = fte.defs.getRegex(language)
-            fixed_slice = fte.defs.getFixedSlice(language)
-            encoder = fte.encoder.RegexEncoder(regex, fixed_slice)
-            self.doTestEncoder(encoder, 0.5)
-            self.doTestEncoder(encoder, 1)
-            self.doTestEncoder(encoder, 2)
+        pass # todo
 
-    def doTestEncoder(self, encoder, factor=1):
-        for i in range(NUM_TRIALS):
-            N = int(encoder.getCapacity() * factor)
-            C = random.randint(0, (1 << N) - 1)
-            C = fte.bit_ops.long_to_bytes(C)
-            X = encoder.encode(C)
-            D = encoder.decode(X)
-            self.assertEquals(C, D)
+def suite():
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+    suite.addTest(loader.loadTestsFromTestCase(Tests))
+    return suite

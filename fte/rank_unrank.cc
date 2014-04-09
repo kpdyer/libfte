@@ -15,7 +15,7 @@
 
 #include <rank_unrank.h>
 
-#ifdef(WIN32)
+#if defined (__WIN32__)
 #include "re2-win32/re2.h"
 #include "re2-win32/regexp.h"
 #include "re2-win32/prog.h"

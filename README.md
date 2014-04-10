@@ -15,7 +15,7 @@ Dependencies
 * Build tools (e.g., gcc, g++, etc.)
 * GMP 5.1.x (https://gmplib.org/)
 
-Building/Installation
+Installation
 ---------------------
 
 To install libfte as a python module, do the following:

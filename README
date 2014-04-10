@@ -1,1 +1,7 @@
-README.md
+Requires: GMP 5.1.x (https://gmplib.org/)
+
+Format-Transforming Encryption (FTE) is a cryptographic primitive explored in the paper *Protocol Misidentiﬁcation Made Easy with Format-Transforming Encryption* [1]. FTE allows a user to specify the format of their ouput ciphertexts using regular expressions. The libfte library implements the primitive presented in [1].
+
+If you are interested in the *proxy system* that uses FTE to bypass DPI systems, please see fteproxy (https://github.com/kpdyer/fteproxy).
+
+[1] Protocol Misidentification Made Easy with Format-Transforming Encryption, Kevin P. Dyer, Scott E. Coull, Thomas Ristenpart and Thomas Shrimpton, https://kpdyer.com/publications/ccs2013-fte.pdf

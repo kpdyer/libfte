@@ -1,4 +1,4 @@
-Requires: GMP 5.1.x (https://gmplib.org/)
+Requires: GMP 5.1.x (https://gmplib.org/), PyCrypto (https://www.dlitz.net/software/pycrypto/)
 
 Format-Transforming Encryption (FTE) is a cryptographic primitive explored in the paper *Protocol Misidentiﬁcation Made Easy with Format-Transforming Encryption* [1]. FTE allows a user to specify the format of their ouput ciphertexts using regular expressions. The libfte library implements the primitive presented in [1].
 

@@ -1,15 +1,15 @@
 Source: python-fte
 Section: unknown
 Priority: optional
-Maintainer: Kevin P Dyer <kpdyer@unknown>
+Maintainer: Kevin P. Dyer <kpdyer@gmail.com>
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.4
-Homepage: <insert the upstream URL, if relevant>
+Homepage: https://github.com/kpdyer/libfte
 #Vcs-Git: git://git.debian.org/collab-maint/python-fte.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/python-fte.git;a=summary
 
 Package: python-fte
 Architecture: all
-Depends: ${misc:Depends}
+Depends: python, libgmp-dev, python-crypto
 Description: <insert up to 60 chars description>
  <insert long description, indented with spaces>

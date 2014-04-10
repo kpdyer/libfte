@@ -77,6 +77,7 @@ with open('README') as fh:
     long_description = fh.read()
 
 setup(name='fte',
+      install_requires=['pycrypto'],
       data_files=[('fte',['fte/VERSION'])],
       test_suite = 'fte.tests.suite',
       version=LIBFTE_RELEASE,

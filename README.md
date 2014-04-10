@@ -9,11 +9,16 @@ Format-Transforming Encryption (FTE) is a cryptographic primitive explored in th
 
 If you are interested in the *proxy system* that uses FTE to bypass DPI systems, please see [fteproxy](https://github.com/kpdyer/fteproxy).
 
+Dependencies
+------------
+
+* Build tools (e.g., gcc, g++, etc.)
+* GMP 5.1.x (https://gmplib.org/)
 
 Building/Installation
 ---------------------
 
-The libfte library has no dependencies, but does require standard build tools. (e.g., gcc, g++) To install libfte as a python module, do the following:
+To install libfte as a python module, do the following:
 
 ```python
 python setup.py install

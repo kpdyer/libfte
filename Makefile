@@ -55,7 +55,7 @@ dist-deb:
 	cp ../*changes dist/
 	
 clean:
-	@rm -rfv libfte.egg-info
+	@rm -rfv fte.egg-info
 	@rm -rvf build
 	@rm -vf fte/*.so
 	@rm -vf fte/*.pyd

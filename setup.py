@@ -58,4 +58,5 @@ setup(name='fte',
       author_email='kpdyer@gmail.com',
       url='https://github.com/kpdyer/libfte',
       ext_modules=[fte_cDFA],
+      packages=['fte'],
       )

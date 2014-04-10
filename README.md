@@ -13,6 +13,7 @@ Dependencies
 ------------
 
 * Build tools (e.g., gcc, g++, etc.)
+* Python 2.6.x/2.7.x (https://python.org/)
 * GMP 5.1.x (https://gmplib.org/)
 * PyCrypto 2.6.x (https://www.dlitz.net/software/pycrypto/)
 
@@ -21,13 +22,13 @@ Installation
 
 To install libfte as a python module, do the following:
 
-```python
+```
 python setup.py install
 ```
 
 You can verify that libfte was built correctly by running:
 
-```python
+```
 python setup.py test
 ```
 

@@ -63,7 +63,7 @@ clean:
 	@rm -vf *.pyc
 	@rm -vf */*.pyc
 	@rm -vf */*/*.pyc
-	@rm -rvf debian/libfte
+	@rm -rvf debian/python-fte
 	@cd $(RE2_DIR) && make clean
 	
 
@@ -84,4 +84,4 @@ $(THIRD_PARTY_DIR)/re2/obj/libre2.a:
 
 
 install:
-	$(PYTHON) setup.py install
+	$(PYTHON) setup.py install --root=$(DESTDIR) --install-layout=deb

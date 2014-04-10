@@ -25,6 +25,11 @@ import fte.dfa
 import fte.encrypter
 
 
+class InsufficientCapacityException(Exception):
+    """Raised when the language doesn't have enough capacity to support a payload"""
+    pass
+
+
 class InvalidInputException(Exception):
 
     """Raised when the input to ``fte.encoder.RegexEncoder.encode`` or
@@ -98,6 +103,9 @@ class RegexEncoderObject(object):
         unrank_payload_len = (
             maximumBytesToRank - RegexEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT)
         unrank_payload_len = min(len(X), unrank_payload_len)
+
+        if unrank_payload_len <= 0:
+            raise InsufficientCapacityException('Language doesn\'t have enough capacity')
 
         msg_len_header = fte.bit_ops.long_to_bytes(unrank_payload_len)
         msg_len_header = string.rjust(

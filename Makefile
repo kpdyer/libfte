@@ -74,17 +74,14 @@ test:
 libre2.a: $(THIRD_PARTY_DIR)/re2/obj/libre2.a
 $(CDFA_BINARY): $(THIRD_PARTY_DIR)/re2/obj/libre2.a
 ifeq ($(WINDOWS_BUILD),1)
-	$(PYTHON) setup.py build_ext --inplace -c mingw32
+	$(PYTHON) setup.py build_ext -c mingw32
 else
-	$(PYTHON) setup.py build_ext --inplace
+	$(PYTHON) setup.py build_ext
 endif
-
 
 $(THIRD_PARTY_DIR)/re2/obj/libre2.a:
 	cd $(RE2_DIR) && $(MAKE) obj/libre2.a
 
 
-
-doc: phantom
-phantom:
-	@cd doc && $(MAKE) html
+install:
+	$(PYTHON) setup.py install

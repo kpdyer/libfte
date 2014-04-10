@@ -1,0 +1,15 @@
+Source: python-fte
+Section: unknown
+Priority: optional
+Maintainer: Kevin P Dyer <kpdyer@unknown>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Git: git://git.debian.org/collab-maint/python-fte.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/python-fte.git;a=summary
+
+Package: python-fte
+Architecture: all
+Depends: ${misc:Depends}
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>

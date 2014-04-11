@@ -25,13 +25,15 @@ import sys
 import os
 
 def do_pre_build_py_stuff():
-    os.system('make libre2.a')
+    if os.name == 'nt':
+        os.system('make libre2.a')
 
 def do_post_build_py_stuff():
     pass
 
 def do_pre_install_stuff():
-    os.system('make libre2.a')
+    if os.name == 'nt':
+        os.system('make libre2.a')
 
 def do_post_install_stuff():
     pass
@@ -58,8 +60,10 @@ else:
 fte_cDFA = Extension('fte.cDFA',
                      include_dirs=['fte',
                                    'thirdparty/'+re2_dir,
+                                   'thirdparty/gmp/include',
                                    ],
                      library_dirs=['thirdparty/'+re2_dir+'/obj',
+                                   'thirdparty/gmp/bin',
                                    ],
                      extra_compile_args=['-O3',
                                          '-fPIE',

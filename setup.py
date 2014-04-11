@@ -25,14 +25,14 @@ import sys
 import os
 
 def do_pre_build_py_stuff():
-    if os.name == 'nt':
+    if os.name != 'nt':
         os.system('make libre2.a')
 
 def do_post_build_py_stuff():
     pass
 
 def do_pre_install_stuff():
-    if os.name == 'nt':
+    if os.name != 'nt':
         os.system('make libre2.a')
 
 def do_post_install_stuff():

@@ -51,10 +51,10 @@ class FTEInstall(DistutilsInstall):
         do_post_install_stuff()
 
 if os.name == 'nt':
-    libraries = ['gmp.dll', 'gmpxx.dll']
+    libraries = ['gmp.dll']
     re2_dir = 're2-win32'
 else:
-    libraries = ['gmp', 'gmpxx']
+    libraries = ['gmp']
     re2_dir = 're2'
 
 fte_cDFA = Extension('fte.cDFA',
@@ -64,6 +64,7 @@ fte_cDFA = Extension('fte.cDFA',
                                    ],
                      library_dirs=['thirdparty/'+re2_dir+'/obj',
                                    'thirdparty/gmp/bin',
+                                   'thirdparty/gmp/lib',
                                    ],
                      extra_compile_args=['-O3',
                                          '-fPIE',

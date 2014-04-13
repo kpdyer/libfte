@@ -150,7 +150,7 @@ class Encrypter(object):
         ciphertext_length = self.getCiphertextLen(ciphertext)
         ciphertext_complete = (len(ciphertext) >= ciphertext_length)
         if ciphertext_complete is False:
-            raise RecoverableDecryptionError('Incomplete ciphertext.')
+            raise RecoverableDecryptionError('Incomplete ciphertext: ('+str(len(ciphertext))+' of '+str(ciphertext_length)+').')
 
         ciphertext = ciphertext[:ciphertext_length]
 

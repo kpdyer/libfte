@@ -95,7 +95,7 @@ class Encrypter(object):
         self._ecb_enc_K1 = AES.new(self.K1, AES.MODE_ECB)
         self._ecb_enc_K2 = AES.new(self.K2, AES.MODE_ECB)
 
-    def encrypt(self, plaintext):
+    def encrypt(self, plaintext, iv_bytes=None):
         """Given ``plaintext``, returns a ``ciphertext`` encrypted with an authenticated-encryption scheme, using the keys specified in ``__init__``.
         Ciphertext expansion is deterministic, the output ciphertext is always 42 bytes longer than the input ``plaintext``.
         The input ``plaintext`` can be ``''``.
@@ -106,7 +106,9 @@ class Encrypter(object):
         if not isinstance(plaintext, str):
             raise PlaintextTypeError("Input plaintext is not of type string")
 
-        iv_bytes = fte.bit_ops.random_bytes(Encrypter._IV_LENGTH)
+        if iv_bytes is None:
+            iv_bytes = fte.bit_ops.random_bytes(Encrypter._IV_LENGTH)
+
         iv1_bytes = '\x01' + iv_bytes
         iv2_bytes = '\x02' + iv_bytes
 

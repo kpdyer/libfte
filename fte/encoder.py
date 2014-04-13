@@ -25,6 +25,11 @@ import fte.dfa
 import fte.encrypter
 
 
+class InvalidSeedLength(Exception):
+    """Seed is not the right length."""
+    pass
+
+
 class InsufficientCapacityException(Exception):
     """Raised when the language doesn't have enough capacity to support a payload"""
     pass
@@ -89,20 +94,28 @@ class RegexEncoderObject(object):
 
         return self._dfa._capacity
 
-    def encode(self, X):
+    def encode(self, X, seed=None):
         """Given a string ``X``, returns ``unrank(X[:n]) || X[n:]`` where ``n``
         is the the maximum number of bytes that can be unranked w.r.t. the
         capacity of the input ``regex`` and ``unrank`` is w.r.t. to the input
         ``regex``.
         """
 
+        if not X:
+            return ''
+
         if not isinstance(X, str):
             raise InvalidInputException('Input must be of type string.')
+
+        if seed is not None and len(seed) != 8:
+            raise InvalidSeedLength('The seed is not 8 bytes long, seed length: '+str(len(seed)))
+
+        ciphertext = self._encrypter.encrypt(X)
 
         maximumBytesToRank = int(math.floor(self.getCapacity() / 8.0))
         unrank_payload_len = (
             maximumBytesToRank - RegexEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT)
-        unrank_payload_len = min(len(X), unrank_payload_len)
+        unrank_payload_len = min(len(ciphertext), unrank_payload_len)
 
         if unrank_payload_len <= 0:
             raise InsufficientCapacityException('Language doesn\'t have enough capacity')
@@ -110,11 +123,12 @@ class RegexEncoderObject(object):
         msg_len_header = fte.bit_ops.long_to_bytes(unrank_payload_len)
         msg_len_header = string.rjust(
             msg_len_header, RegexEncoderObject._COVERTEXT_HEADER_LEN_PLAINTEXT, '\x00')
-        msg_len_header = fte.bit_ops.random_bytes(8) + msg_len_header
+        random_bytes = seed if seed is not None else fte.bit_ops.random_bytes(8)
+        msg_len_header = random_bytes + msg_len_header
         msg_len_header = self._encrypter.encryptOneBlock(msg_len_header)
 
         unrank_payload = msg_len_header + \
-            X[:maximumBytesToRank -
+            ciphertext[:maximumBytesToRank -
                 RegexEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT]
 
         random_padding_bytes = maximumBytesToRank - len(unrank_payload)
@@ -124,7 +138,7 @@ class RegexEncoderObject(object):
         unrank_payload = fte.bit_ops.bytes_to_long(unrank_payload)
 
         formatted_covertext_header = self._dfa.unrank(unrank_payload)
-        unformatted_covertext_body = X[
+        unformatted_covertext_body = ciphertext[
             maximumBytesToRank - RegexEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTTEXT:]
 
         covertext = formatted_covertext_header + unformatted_covertext_body
@@ -157,5 +171,9 @@ class RegexEncoderObject(object):
 
         retval = X[16:16 + msg_len]
         retval += covertext[self._fixed_slice:]
+        ctxt_len = self._encrypter.getCiphertextLen(retval)
+        remaining_buffer = retval[ctxt_len:]
+        retval = retval[:ctxt_len]
+        retval = self._encrypter.decrypt(retval)
 
-        return retval
+        return retval, remaining_buffer

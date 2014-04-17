@@ -1,5 +1,5 @@
 Low-Level fteproxy API
-*****************
+**********************
 
 libfte Python API
 

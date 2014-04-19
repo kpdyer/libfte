@@ -6,7 +6,8 @@ Ubuntu/Debian
 
 Install the following packages.
 ```
-sudo apt-get install python-dev libgmp-dev python-crypto git
+sudo apt-get install python-dev python-pip libgmp-dev git
+sudo pip install crypto
 ```
 
 Then, clone and build libfte.
@@ -28,7 +29,7 @@ ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
 Install the following packages.
 ```
 brew install --build-from-source python gmp git
-pip install --upgrade crypto
+sudo pip install --upgrade crypto
 ```
 
 Then, clone and build libfte.

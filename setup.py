@@ -84,7 +84,7 @@ with open('README') as fh:
 
 setup(name='fte',
       install_requires=['pycrypto'],
-      data_files=[('fte',['fte/VERSION'])],
+      package_data = {'fte': ['VERSION']},
       test_suite = 'fte.tests.suite',
       version=LIBFTE_RELEASE,
       description='Format-Transforming Encryption',

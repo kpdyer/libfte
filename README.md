@@ -1,6 +1,7 @@
 libfte
 ======
 
+[![Build Status](https://travis-ci.org/kpdyer/libfte.svg?branch=master)](https://travis-ci.org/kpdyer/libfte)
 
 Overview
 --------

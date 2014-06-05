@@ -21,7 +21,7 @@ Dependencies
 Installation
 ---------------------
 
-To install libfte as a python module, do the following:
+To install libfte as a python module, please do the following:
 
 ```
 python setup.py install

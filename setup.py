@@ -72,6 +72,7 @@ fte_cDFA = Extension('fte.cDFA',
                                          ],
                      extra_link_args=['thirdparty/'+re2_dir+'/obj/libre2.a',
                                       '-Wl,-undefined,dynamic_lookup',
+                                      '-fPIC',
                                       ],
                      libraries=libraries,
                      sources=['fte/rank_unrank.cc', 'fte/cDFA.cc'])

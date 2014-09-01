@@ -1,0 +1,5 @@
+python-fte (0.0.2-1) unstable; urgency=low
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Kevin P Dyer <kpdyer@unknown>  Thu, 10 Apr 2014 11:14:58 -0700

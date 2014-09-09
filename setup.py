@@ -1,20 +1,5 @@
 #!/usr/bin/env python
 
-# This file is part of libfte.
-#
-# libfte is free software: you can resetuptools it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# libfte is setuptoolsd in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with libfte.  If not, see <http://www.gnu.org/licenses/>.
-
 from setuptools import setup
 from setuptools import Extension
 from setuptools.command.build_py import build_py as DistutilsBuild

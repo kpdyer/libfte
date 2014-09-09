@@ -75,8 +75,18 @@ static PyObject * DFA__unrank(PyObject *self, PyObject *args) {
     //PyNumber to mpz_class
     int base = 16;
     PyObject* b64 = PyNumber_ToBase(c, base);
+    if (!b64) {
+        return NULL;
+    }
     const char* the_c_str = PyString_AsString(b64);
+    if (!the_c_str) {
+        Py_DECREF(b64);
+        return NULL;
+    }
     mpz_class to_unrank(the_c_str, 0);
+
+    Py_DECREF(b64);
+    Py_DECREF(the_c_str);
     
     // Verify our environment is sane and perform unranking.
     DFAObject *pDFAObject = (DFAObject*)self;

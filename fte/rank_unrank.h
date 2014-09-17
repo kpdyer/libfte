@@ -1,19 +1,3 @@
-// This file is part of libfte.
-//
-// libfte is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// libfte is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with libfte.  If not, see <http://www.gnu.org/licenses/>.
-
-
 /*
  * Please see Appendix A of "Protocol Misidentification Made Easy with Format-Transforming Encryption"
  * url: http://dl.acm.org/citation.cfm?id=2516657
@@ -112,9 +96,5 @@ public:
     // DFA that are at least length n and no greater than length m
     mpz_class getNumWordsInLanguage( const uint32_t, const uint32_t );
 };
-
-// given a perl-compatiable regular-expression
-// returns a (non-minimized) ATT FST formatted DFA
-std::string attFstFromRegex( const std::string );
 
 #endif /* _RANK_UNRANK_H */

@@ -1,18 +1,3 @@
-// This file is part of libfte.
-//
-// libfte is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// libfte is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with libfte.  If not, see <http://www.gnu.org/licenses/>.
-
 #include <Python.h>
 #include <structmember.h>
 
@@ -90,8 +75,18 @@ static PyObject * DFA__unrank(PyObject *self, PyObject *args) {
     //PyNumber to mpz_class
     int base = 16;
     PyObject* b64 = PyNumber_ToBase(c, base);
+    if (!b64) {
+        return NULL;
+    }
     const char* the_c_str = PyString_AsString(b64);
+    if (!the_c_str) {
+        Py_DECREF(b64);
+        return NULL;
+    }
     mpz_class to_unrank(the_c_str, 0);
+
+    Py_DECREF(b64);
+    Py_DECREF(the_c_str);
     
     // Verify our environment is sane and perform unranking.
     DFAObject *pDFAObject = (DFAObject*)self;
@@ -141,24 +136,6 @@ static PyObject * DFA__getNumWordsInLanguage(PyObject *self, PyObject *args) {
 
     // cleanup
     delete [] num_words_str;
-
-    return retval;
-}
-
-
-// On input of a PCRE, outputs a non-minimized AT&T FST-formated DFA.
-static PyObject *
-__attFstFromRegex(PyObject *self, PyObject *args) {
-    const char *regex;
-    if (!PyArg_ParseTuple(args, "s", &regex))
-        return NULL;
-
-    // Convert our input char* to a string and call attFstFromRegex.
-    const std::string str_regex = std::string(regex);
-    std::string result = attFstFromRegex(str_regex);
-
-    // Return the result as a python string.
-    PyObject* retval = Py_BuildValue("s", result.c_str());
 
     return retval;
 }
@@ -274,7 +251,6 @@ static PyTypeObject DFAType = {
 
 // Methods in our fte.cDFA package
 static PyMethodDef ftecDFAMethods[] = {
-    {"attFstFromRegex",  __attFstFromRegex, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
 

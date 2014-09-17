@@ -1,24 +1,10 @@
-// This file is part of libfte.
-//
-// libfte is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// libfte is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with libfte.  If not, see <http://www.gnu.org/licenses/>.
-
 #include <rank_unrank.h>
 
-#include "re2/re2.h"
-#include "re2/regexp.h"
-#include "re2/prog.h"
+#include <sstream>
+#include <algorithm>
 
+#include <stdlib.h> 
+#include <assert.h>
 
 /*
  * Please see rank_unrank.h for a detailed explantion of the
@@ -410,39 +396,3 @@ mpz_class DFA::getNumWordsInLanguage( const uint32_t min_word_length,
     return num_words;
 }
 
-std::string attFstFromRegex( const std::string regex )
-{
-    std::string retval;
-
-    // specify compile flags for re2
-    re2::Regexp::ParseFlags re_flags;
-    re_flags = re2::Regexp::ClassNL;
-    re_flags = re_flags | re2::Regexp::OneLine;
-    re_flags = re_flags | re2::Regexp::PerlClasses;
-    re_flags = re_flags | re2::Regexp::PerlB;
-    re_flags = re_flags | re2::Regexp::PerlX;
-    re_flags = re_flags | re2::Regexp::Latin1;
-
-    re2::RegexpStatus status;
-
-    // compile regex to DFA
-    re2::Regexp* re = NULL;
-    re2::Prog* prog = NULL;
-
-    try {
-        RE2::Options opt;
-        re2::Regexp* re = re2::Regexp::Parse( regex, re_flags, &status );
-        re2::Prog* prog = re->CompileToProg( opt.max_mem() );
-        retval = prog->PrintEntireDFA( re2::Prog::kFullMatch );
-    } catch (int e) {
-        // do nothing, we return the empty string
-    }
-
-    // cleanup
-    if (prog!=NULL)
-        delete prog;
-    if (re!=NULL)
-        re->Decref();
-
-    return retval;
-}

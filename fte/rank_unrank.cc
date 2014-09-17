@@ -1,10 +1,10 @@
+#include <rank_unrank.h>
+
 #include <sstream>
+#include <algorithm>
 
 #include <stdlib.h> 
 #include <assert.h>
-
-
-#include <rank_unrank.h>
 
 /*
  * Please see rank_unrank.h for a detailed explantion of the

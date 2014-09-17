@@ -141,24 +141,6 @@ static PyObject * DFA__getNumWordsInLanguage(PyObject *self, PyObject *args) {
 }
 
 
-// On input of a PCRE, outputs a non-minimized AT&T FST-formated DFA.
-static PyObject *
-__attFstFromRegex(PyObject *self, PyObject *args) {
-    const char *regex;
-    if (!PyArg_ParseTuple(args, "s", &regex))
-        return NULL;
-
-    // Convert our input char* to a string and call attFstFromRegex.
-    const std::string str_regex = std::string(regex);
-    std::string result = attFstFromRegex(str_regex);
-
-    // Return the result as a python string.
-    PyObject* retval = Py_BuildValue("s", result.c_str());
-
-    return retval;
-}
-
-
 // Boilerplat python object alloc.
 static PyObject *
 DFA_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -269,7 +251,6 @@ static PyTypeObject DFAType = {
 
 // Methods in our fte.cDFA package
 static PyMethodDef ftecDFAMethods[] = {
-    {"attFstFromRegex",  __attFstFromRegex, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
 

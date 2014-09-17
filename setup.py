@@ -9,54 +9,17 @@ import glob
 import sys
 import os
 
-def do_pre_build_py_stuff():
-    if os.name != 'nt':
-        os.system('make libre2.a')
-
-def do_post_build_py_stuff():
-    pass
-
-def do_pre_install_stuff():
-    if os.name != 'nt':
-        os.system('make libre2.a')
-
-def do_post_install_stuff():
-    pass
-
-class FTEBuild(DistutilsBuild):
-    def run(self):
-        do_pre_install_stuff()
-        DistutilsBuild.run(self)
-        do_post_install_stuff()
-
-class FTEInstall(DistutilsInstall):
-    def run(self):
-        do_pre_install_stuff()
-        DistutilsInstall.run(self)
-        do_post_install_stuff()
-
 if os.name == 'nt':
     libraries = ['gmp.dll']
-    re2_dir = 're2-win32'
 else:
     libraries = ['gmp']
-    re2_dir = 're2'
 
 fte_cDFA = Extension('fte.cDFA',
                      include_dirs=['fte',
-                                   'thirdparty/'+re2_dir,
-                                   'thirdparty/gmp/include',
-                                   ],
-                     library_dirs=['thirdparty/'+re2_dir+'/obj',
-                                   'thirdparty/gmp/bin',
-                                   'thirdparty/gmp/lib',
                                    ],
                      extra_compile_args=['-O3',
                                          '-fPIC',
                                          ],
-                     extra_link_args=['thirdparty/'+re2_dir+'/obj/libre2.a',
-                                      '-Wl,-undefined,dynamic_lookup',
-                                      ],
                      libraries=libraries,
                      sources=['fte/rank_unrank.cc', 'fte/cDFA.cc'])
 
@@ -78,6 +41,4 @@ setup(name='fte',
       url='https://github.com/kpdyer/libfte',
       ext_modules=[fte_cDFA],
       packages=['fte'],
-      cmdclass={'build_py': FTEBuild,
-                'install': FTEInstall},
       )

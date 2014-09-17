@@ -5,8 +5,6 @@
 
 import unittest
 import test_bit_ops
-import test_cDFA
-import test_dfa
 import test_encoder
 import test_encrypter
 
@@ -14,8 +12,6 @@ import test_encrypter
 def suite():
     suite = unittest.TestSuite()
     suite.addTests(test_bit_ops.suite())
-    suite.addTests(test_cDFA.suite())
-    suite.addTests(test_dfa.suite())
     suite.addTests(test_encoder.suite())
     suite.addTests(test_encrypter.suite())
     return suite

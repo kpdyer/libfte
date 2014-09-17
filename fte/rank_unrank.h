@@ -97,8 +97,4 @@ public:
     mpz_class getNumWordsInLanguage( const uint32_t, const uint32_t );
 };
 
-// given a perl-compatiable regular-expression
-// returns a (non-minimized) ATT FST formatted DFA
-std::string attFstFromRegex( const std::string );
-
 #endif /* _RANK_UNRANK_H */

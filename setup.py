@@ -16,10 +16,14 @@ else:
 
 fte_cDFA = Extension('fte.cDFA',
                      include_dirs=['fte',
+                                   'thirdparty/gmp/include',
                                    ],
                      extra_compile_args=['-O3',
                                          '-fPIC',
                                          ],
+                     library_dirs=['thirdparty/gmp/bin',
+                                   'thirdparty/gmp/lib',
+                                   ],
                      libraries=libraries,
                      sources=['fte/rank_unrank.cc', 'fte/cDFA.cc'])
 

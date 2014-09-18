@@ -48,7 +48,7 @@ clean:
 test:
 	$(PYTHON) setup.py test
 
-
+$(CDFA_BINARY):
 ifeq ($(WINDOWS_BUILD),1)
 	$(PYTHON) setup.py build_ext -c mingw32
 else

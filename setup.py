@@ -24,6 +24,8 @@ fte_cDFA = Extension('fte.cDFA',
                      library_dirs=['thirdparty/gmp/bin',
                                    'thirdparty/gmp/lib',
                                    ],
+                     extra_link_args=['-Wl,-undefined,dynamic_lookup',
+                                      ],
                      libraries=libraries,
                      sources=['fte/rank_unrank.cc', 'fte/cDFA.cc'])
 

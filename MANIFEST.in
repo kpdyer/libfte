@@ -1,5 +1,4 @@
 recursive-include examples *
-recursive-include thirdparty *
 include Makefile
 include fte/VERSION
 include fte/*.cc

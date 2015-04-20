@@ -17,6 +17,7 @@ Dependencies
 * Python 2.6.x/2.7.x (https://python.org/)
 * GMP 5.1.x (https://gmplib.org/)
 * PyCrypto 2.6.x (https://www.dlitz.net/software/pycrypto/)
+* regex2dfa (https://github.com/kpdyer/regex2dfa)
 
 Installation
 ---------------------
@@ -42,17 +43,19 @@ Example Usage
 The following is an example usage of libfte.
 
 ```python
+import regex2dfa
 import fte.encoder
-
+ 
 regex = '^(a|b)+$'
-fixed_slice = 256
+fixed_slice = 512
 input_plaintext = 'test'
-
-fteObj = fte.encoder.RegexEncoder(regex, fixed_slice)
-
+ 
+dfa = regex2dfa.regex2dfa(regex)
+fteObj = fte.encoder.DfaEncoder(dfa, fixed_slice)
+ 
 ciphertext = fteObj.encode(input_plaintext)
-output_plaintext = fteObj.decode(ciphertext)
-
+[output_plaintext, remainder] = fteObj.decode(ciphertext)
+ 
 print 'input_plaintext='+input_plaintext
 print 'ciphertext='+ciphertext[:16]+'...'+ciphertext[-16:]
 print 'output_plaintext='+output_plaintext

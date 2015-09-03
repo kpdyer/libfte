@@ -85,8 +85,8 @@ static PyObject * DFA__unrank(PyObject *self, PyObject *args) {
     }
     mpz_class to_unrank(the_c_str, 0);
 
+    the_c_str = NULL;
     Py_DECREF(b64);
-    Py_DECREF(the_c_str);
     
     // Verify our environment is sane and perform unranking.
     DFAObject *pDFAObject = (DFAObject*)self;

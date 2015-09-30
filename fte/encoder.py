@@ -59,7 +59,7 @@ class DfaEncoderObject(object):
     _COVERTEXT_HEADER_LEN_PLAINTEXT = 8
     _COVERTEXT_HEADER_LEN_CIPHERTTEXT = 16
 
-    def __init__(self, dfa, fixed_slice):
+    def __init__(self, dfa, fixed_slice, K1=None, K2=None):
         """Constructs a new object that can be used for encoding/decoding.
         The value ``dfa`` is our regular language. The value ``fixed_slice`` is the subset of the language
         we will use for (un)ranking. That is, ``encode`` will output strings of the
@@ -69,7 +69,7 @@ class DfaEncoderObject(object):
         self._fixed_slice = fixed_slice
         cDFA = fte.cDFA.DFA(dfa, fixed_slice)
         self._dfa = fte.dfa.DFA(cDFA, self._fixed_slice)
-        self._encrypter = fte.encrypter.Encrypter()
+        self._encrypter = fte.encrypter.Encrypter(K1, K2)
 
     def getCapacity(self):
         """Returns the size, in bits, of the language of our input ``dfa``.

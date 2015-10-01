@@ -47,12 +47,13 @@ class DfaEncoder(object):
     ``DfaEncoderObject.__init__`` only once.
     """
 
-    def __new__(self, dfa, fixed_slice):
+    def __new__(self, dfa, fixed_slice, K1=None, K2=None):
         global _instance
-        if not _instance.get((dfa, fixed_slice)):
-            _instance[(dfa, fixed_slice)] = DfaEncoderObject(
-                dfa, fixed_slice)
-        return _instance[(dfa, fixed_slice)]
+        key = (dfa, fixed_slice, K1, K2)
+        if not _instance.get(key):
+            _instance[key] = DfaEncoderObject(
+                dfa, fixed_slice, K1, K2)
+        return _instance[key]
 
 
 class DfaEncoderObject(object):

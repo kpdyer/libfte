@@ -64,20 +64,19 @@ class Encrypter(object):
 
     def __init__(self, K1=None, K2=None):
 
-        if K1 is not None:
-            is_correct_length = (len(K1) == AES.block_size)
-            if not is_correct_length:
-                raise InvalidKeyLengthError(
-                    'K1 must be exactly 16 bytes long.')
+        if K1 is None or K2 is None:
+            key = fte.conf.getValue('runtime.fte.encrypter.key')
+            if K1 is None:
+                self.K1 = key[0:len(key)/2]
+            if K2 is None:
+                self.K2 = key[len(key)/2:]
+        else:
+            self.K1 = K1
+            self.K2 = K2
 
-        if K2 is not None:
-            is_correct_length = (len(K2) == AES.block_size)
-            if not is_correct_length:
-                raise InvalidKeyLengthError(
-                    'K2 must be exactly 16 bytes long.')
-
-        self.K1 = K1 if K1 else '\xFF' * AES.block_size
-        self.K2 = K2 if K2 else '\x00' * AES.block_size
+        if (len(self.K1) is not AES.block_size or
+                len(self.K2) is not AES.block_size):
+            raise InvalidKeyLengthError('each key must be 16 bytes long.')
 
         self._ecb_enc_K1 = AES.new(self.K1, AES.MODE_ECB)
         self._ecb_enc_K2 = AES.new(self.K2, AES.MODE_ECB)

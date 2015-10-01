@@ -49,4 +49,4 @@ conf['runtime.loglevel'] = 1
 
 
 """The default AE scheme key."""
-conf['runtime.fte.encrypter.key'] = 'FF' * 16 + '00' * 16
+conf['runtime.fte.encrypter.key'] = '\xFF' * 16 + '\x00' * 16

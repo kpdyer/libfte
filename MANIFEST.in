@@ -4,4 +4,3 @@ include BUILDING.md
 include fte/_version.txt
 include fte/*.h
 include fte/*.cc
-recursive-exclude fte/tests/dfas *

@@ -10,91 +10,74 @@
  * for details about (un)ranking for regular languages.
  */
 
-
 #ifndef _RANK_UNRANK_H
 #define _RANK_UNRANK_H
 
-#include <map>
+#include <cstdint>
+#include <string>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
-#include <stdint.h>
 #include <gmpxx.h>
-
-typedef std::vector<char> array_type_char_t1;
-typedef std::vector<bool> array_type_bool_t1;
-typedef std::vector<uint32_t> array_type_uint32_t1;
-typedef std::vector< std::vector<uint32_t> > array_type_uint32_t2;
-typedef std::vector< std::vector<mpz_class> > array_type_mpz_t2;
-typedef std::vector< std::string > array_type_string_t1;
 
 class DFA {
 
 private:
-    // the maximum value for which buildTable is computed
+    // The maximum length for which buildTable is computed
     uint32_t _fixed_slice;
 
-    // our DFA start state
+    // DFA start state
     uint32_t _start_state;
 
-    // the number of states in our DFA
+    // Number of states in the DFA
     uint32_t _num_states;
 
-    // the number of symbols in our DFA alphabet
+    // Number of symbols in the DFA alphabet
     uint32_t _num_symbols;
 
-    // the symbols of our DFA alphabet
-    array_type_uint32_t1 _symbols;
+    // Symbols of the DFA alphabet
+    std::vector<uint32_t> _symbols;
 
-    // our mapping between integers and the symbols in our alphabet; ints -> chars
-    std::map<uint32_t, char> _sigma;
+    // Mapping from symbol index to byte value
+    std::unordered_map<uint32_t, char> _sigma;
 
-    // the reverse mapping of sigma, chars -> ints
-    std::map<char, uint32_t> _sigma_reverse;
+    // Mapping from byte value to symbol index
+    std::unordered_map<char, uint32_t> _sigma_reverse;
 
-    // the states in our DFA
-    array_type_uint32_t1 _states;
+    // States in the DFA
+    std::vector<uint32_t> _states;
 
-    // our transitions table
-    array_type_uint32_t2 _delta;
+    // Transition table: _delta[state][symbol] = next_state
+    std::vector<std::vector<uint32_t>> _delta;
 
-    // a lookup table used for additional performance gain
-    // for each state we detect if all outgoing transitions are to the same state
-    array_type_bool_t1 _delta_dense;
+    // Optimization flag: true if all transitions from state go to same destination
+    std::vector<bool> _delta_dense;
 
-    // the set of final states in our DFA
-    array_type_uint32_t1 _final_states;
+    // Set of final (accepting) states - unordered_set for O(1) lookup
+    std::unordered_set<uint32_t> _final_states;
 
-    // buildTable builds a mapping from [q, i] -> n
-    //   q: a state in our DFA
-    //   i: an integer
-    //   n: the number of words in our language that have a path to a final
-    //      state that is exactly length i
+    // Counting table: _T[q][i] = number of accepting paths of length i from state q
+    std::vector<std::vector<mpz_class>> _T;
+
+    // Build the counting table
     void _buildTable();
 
-    // Checks the properties of our DFA, to ensure that we meet all constraints.
-    // Throws an exception upon failure.
+    // Validate DFA properties, throws on failure
     void _validate();
 
-    // _T is our cached table, the output of buildTable
-    // For a state q and integer i, the value _T[q][i] is the number of unique
-    // accepting paths of length exactly i from state q.
-    array_type_mpz_t2 _T;
-
 public:
-    // The constructor of our rank/urank DFA class
-    DFA( const std::string, const uint32_t );
+    // Construct DFA from AT&T FST format string
+    DFA(const std::string& dfa_str, uint32_t max_len);
 
-    // our unrank function an int -> str mapping
-    // given an integer i, return the ith lexicographically ordered string in
-    // the language accepted by the DFA
-    std::string unrank( const mpz_class );
+    // Convert integer rank to string (unrank operation)
+    std::string unrank(const mpz_class& c) const;
 
-    // our rank function performs the inverse operation of unrank
-    mpz_class rank( const std::string );
+    // Convert string to integer rank (rank operation)
+    mpz_class rank(const std::string& X) const;
 
-    // given integers [n,m] returns the number of words accepted by the
-    // DFA that are at least length n and no greater than length m
-    mpz_class getNumWordsInLanguage( const uint32_t, const uint32_t );
+    // Get number of words in language within length range [min_len, max_len]
+    mpz_class getNumWordsInLanguage(uint32_t min_len, uint32_t max_len) const;
 };
 
 #endif /* _RANK_UNRANK_H */

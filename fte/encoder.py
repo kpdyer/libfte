@@ -12,6 +12,7 @@ import math
 import fte.conf
 import fte.bit_ops
 import fte.dfa
+from fte.dfa import create_dfa
 import fte.encrypter
 
 
@@ -81,7 +82,7 @@ class DfaEncoderObject:
             K2: Optional 16-byte MAC key.
         """
         self._fixed_slice = fixed_slice
-        cDFA = fte.cDFA.DFA(dfa, fixed_slice)
+        cDFA = create_dfa(dfa, fixed_slice)
         self._dfa = fte.dfa.DFA(cDFA, self._fixed_slice)
         self._encrypter = fte.encrypter.Encrypter(K1, K2)
 

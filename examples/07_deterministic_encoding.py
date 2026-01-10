@@ -6,20 +6,13 @@ This example shows how to use seeds to get reproducible
 ciphertexts, useful for testing or when determinism is required.
 """
 
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def main():
-    regex = '^[a-z]+$'
-    fixed_slice = 128
-    
-    dfa = regex2dfa.regex2dfa(regex)
-    
-    # Use fixed keys for reproducibility
-    K1 = b'1234567890abcdef'
-    K2 = b'fedcba0987654321'
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice, K1=K1, K2=K2)
+    # Use fixed key for reproducibility
+    key = b'1234567890abcdeffedcba0987654321'
+    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=key)
     
     plaintext = b'Hello'
     
@@ -40,10 +33,10 @@ def main():
         ct = encoder.encode(plaintext, seed=seed)
         print(f"  Encoding {i+1}: {ct[:40].decode('latin-1')}...")
     
-    print("\nNote: With the same seed, keys, and plaintext,")
+    print("\nNote: With the same seed, key, and plaintext,")
     print("the ciphertext is identical every time!")
     
-    # Verify all decode correctly
+    # Verify decoding works
     ct_seeded = encoder.encode(plaintext, seed=seed)
     recovered, _ = encoder.decode(ct_seeded)
     print(f"\nRecovered: {recovered}")

@@ -6,17 +6,12 @@ This example creates ciphertext that looks like random IDs,
 session tokens, or API keys.
 """
 
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def main():
-    # Alphanumeric regex (like base62 encoding)
-    regex = '^[A-Za-z0-9]+$'
-    fixed_slice = 64
-    
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    # Alphanumeric format (like base62)
+    encoder = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64)
     
     plaintext = b'Sensitive data'
     ciphertext = encoder.encode(plaintext)

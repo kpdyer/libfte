@@ -6,7 +6,7 @@ This example shows how to handle various error conditions
 that can occur when using the FTE library.
 """
 
-import regex2dfa
+import fte
 import fte.encoder
 import fte.dfa
 
@@ -14,10 +14,7 @@ import fte.dfa
 def main():
     print("=== Error Handling ===\n")
     
-    regex = '^[a-z]+$'
-    fixed_slice = 64
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=64)
     
     # 1. Invalid input type
     print("1. Invalid input type:")
@@ -47,16 +44,21 @@ def main():
     except fte.encoder.InvalidInputException as e:
         print(f"   Caught InvalidInputException: {e}")
     
-    # 5. Language capacity exceeded (need very small language)
-    print("\n5. Insufficient capacity:")
-    tiny_regex = '^(ab)+$'  # Very limited language
-    tiny_dfa = regex2dfa.regex2dfa(tiny_regex)
+    # 5. Invalid key length
+    print("\n5. Invalid key length:")
     try:
-        tiny_encoder = fte.encoder.DfaEncoder(tiny_dfa, 8)
+        fte.Encoder(regex='^[a-z]+$', fixed_slice=64, key=b'tooshort')
+    except ValueError as e:
+        print(f"   Caught ValueError: {e}")
+    
+    # 6. Language capacity exceeded
+    print("\n6. Insufficient capacity:")
+    try:
+        tiny_encoder = fte.Encoder(regex='^(ab)+$', fixed_slice=8)
         tiny_encoder.encode(b'x' * 100)
     except fte.encoder.InsufficientCapacityException as e:
         print(f"   Caught InsufficientCapacityException: {e}")
-    except fte.dfa.LanguageIsEmptySetException as e:
+    except fte.dfa.LanguageIsEmptySetException:
         print(f"   Caught LanguageIsEmptySetException: Language too small")
     
     # Correct usage
@@ -66,7 +68,7 @@ def main():
     plaintext = b'Hello, World!'
     try:
         ciphertext = encoder.encode(plaintext)
-        recovered, remainder = encoder.decode(ciphertext)
+        recovered, _ = encoder.decode(ciphertext)
         print(f"   Encoded and decoded successfully!")
         print(f"   Original: {plaintext}")
         print(f"   Recovered: {recovered}")

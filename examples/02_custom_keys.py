@@ -2,47 +2,44 @@
 # -*- coding: utf-8 -*-
 """Example: Using custom encryption keys.
 
-This example shows how to use your own encryption and MAC keys
+This example shows how to use your own encryption key
 for deterministic, reproducible encryption.
 """
 
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def main():
-    # Define a simple regex
-    regex = '^[a-z]+$'
-    fixed_slice = 256
+    # 32-byte key (16 bytes encryption + 16 bytes MAC)
+    # In production, use secure random keys!
+    key = b'0123456789abcdeffedcba9876543210'
     
-    # Custom 16-byte keys (in production, use secure random keys!)
-    K1 = b'0123456789abcdef'  # Encryption key
-    K2 = b'fedcba9876543210'  # MAC key
-    
-    # Create encoder with custom keys
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice, K1=K1, K2=K2)
+    # Create encoder with custom key
+    encoder = fte.Encoder(
+        regex='^[a-z]+$',
+        fixed_slice=256,
+        key=key
+    )
     
     plaintext = b'Hello, World!'
     
-    # Encode with custom keys
+    # Encode with custom key
     ciphertext = encoder.encode(plaintext)
     print(f"Plaintext: {plaintext}")
-    print(f"Ciphertext (first 50 chars): {ciphertext[:50].decode('latin-1')}...")
+    print(f"Ciphertext: {ciphertext[:50].decode()}...")
     
-    # Decode - must use same keys
+    # Decode - must use same key
     recovered, _ = encoder.decode(ciphertext)
     print(f"Recovered: {recovered}")
     
-    # Demonstrate that different keys produce different ciphertexts
-    K1_alt = b'different_key!!!'
-    K2_alt = b'another_mac_key!'
-    encoder_alt = fte.encoder.DfaEncoder(dfa, fixed_slice, K1=K1_alt, K2=K2_alt)
+    # Different key produces different ciphertext
+    key_alt = b'different_key!!!another_mac_key!'
+    encoder_alt = fte.Encoder(regex='^[a-z]+$', fixed_slice=256, key=key_alt)
     ciphertext_alt = encoder_alt.encode(plaintext)
     
-    print(f"\nWith different keys:")
-    print(f"Ciphertext (first 50 chars): {ciphertext_alt[:50].decode('latin-1')}...")
-    print(f"Ciphertexts are different: {ciphertext[:50] != ciphertext_alt[:50]}")
+    print(f"\nWith different key:")
+    print(f"Ciphertext: {ciphertext_alt[:50].decode()}...")
+    print(f"Ciphertexts differ: {ciphertext[:50] != ciphertext_alt[:50]}")
 
 
 if __name__ == '__main__':

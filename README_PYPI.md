@@ -24,12 +24,10 @@ Works out of the box with pure Python—no compilation required.
 Encrypt a secret so the ciphertext looks like hex:
 
 ```python
-import regex2dfa
-import fte.encoder
+import fte
 
-# Output format: only hex characters
-dfa = regex2dfa.regex2dfa('^[0-9a-f]+$')
-encoder = fte.encoder.DfaEncoder(dfa, 128)
+# Create encoder: output will be 128 hex characters
+encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128)
 
 # Encrypt
 ciphertext = encoder.encode(b'Attack at dawn')

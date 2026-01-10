@@ -1,42 +1,33 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Example usage of the libfte library.
+"""Example: Basic FTE usage.
 
-This example demonstrates encoding and decoding a message using
-Format-Transforming Encryption with a simple regex that matches
-strings of 'a' and 'b' characters.
+This example demonstrates the simplest way to use FTE -
+encoding and decoding a message with a regex format.
 """
 
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def main():
-    # Define a regex that matches strings of 'a' and 'b' characters
-    regex = '^(a|b)+$'
-    fixed_slice = 512
-    input_plaintext = b'test'
-
-    # Convert regex to DFA format
-    dfa = regex2dfa.regex2dfa(regex)
+    # Create an encoder with a regex and output length
+    encoder = fte.Encoder(regex='^(a|b)+$', fixed_slice=512)
     
-    # Create the FTE encoder
-    fteObj = fte.encoder.DfaEncoder(dfa, fixed_slice)
-
-    # Encode the plaintext
-    ciphertext = fteObj.encode(input_plaintext)
+    # Encode a message
+    plaintext = b'Hello, World!'
+    ciphertext = encoder.encode(plaintext)
     
-    # Decode the ciphertext
-    output_plaintext, remainder = fteObj.decode(ciphertext)
-
+    # Decode it back
+    recovered, remainder = encoder.decode(ciphertext)
+    
     # Display results
-    print(f'input_plaintext={input_plaintext}')
-    print(f'ciphertext={ciphertext[:16]}...{ciphertext[-16:]}')
-    print(f'output_plaintext={output_plaintext}')
+    print(f'Plaintext: {plaintext}')
+    print(f'Ciphertext: {ciphertext[:32].decode()}...{ciphertext[-32:].decode()}')
+    print(f'Recovered: {recovered}')
     
-    # Verify the roundtrip
-    assert input_plaintext == output_plaintext, "Roundtrip failed!"
-    print("\nSuccess! Plaintext was correctly encoded and decoded.")
+    # Verify roundtrip
+    assert plaintext == recovered, "Roundtrip failed!"
+    print("\nSuccess! Message was correctly encoded and decoded.")
 
 
 if __name__ == '__main__':

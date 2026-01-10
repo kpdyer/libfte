@@ -10,44 +10,33 @@ Format-Transforming Encryption (FTE) is a cryptographic primitive explored in th
 
 If you are interested in the *proxy system* that uses FTE to bypass DPI systems, please see [fteproxy](https://github.com/kpdyer/fteproxy).
 
-## Requirements
-
-- Python 3.8+
-- GMP library (https://gmplib.org/)
-- C++ compiler (gcc/g++ or clang)
-
-## Dependencies
-
-- [pycryptodome](https://pycryptodome.readthedocs.io/) - Cryptographic primitives
-- [regex2dfa](https://github.com/kpdyer/regex2dfa) - For converting regex to DFA (optional, for example usage)
-
 ## Installation
 
-### From source
-
 ```bash
-# Install system dependencies (Ubuntu/Debian)
-sudo apt-get install libgmp-dev
-
-# Install system dependencies (macOS with Homebrew)
-brew install gmp
-
-# Install the package
-pip install .
-
-# Or for development
-pip install -e ".[dev]"
+pip install fte
 ```
 
-### Verify installation
+The library works out of the box with pure Python. No external dependencies required beyond `pycryptodome`.
+
+### Optional: Native Extension for Performance
+
+For better performance, install the GMP library and set `FTE_USE_NATIVE=1`:
 
 ```bash
-python -m pytest fte/tests/
+# Install GMP (Ubuntu/Debian)
+sudo apt-get install libgmp-dev
+
+# Install GMP (macOS)
+brew install gmp
+
+# Rebuild with native extension
+FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
+
+# Use native extension at runtime
+export FTE_USE_NATIVE=1
 ```
 
 ## Example Usage
-
-The following example demonstrates encoding and decoding with FTE:
 
 ```python
 import regex2dfa
@@ -75,7 +64,20 @@ ciphertext=b'aaaaaaaabaaaaaba'...b'aabbbbbbbbaababb'
 output_plaintext=b'test'
 ```
 
-The output ciphertext is a `fixed_slice`-length string consisting of the characters `a` and `b`, as defined by the `regex` variable.
+## Configuration
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `FTE_USE_NATIVE=1` | Use C++ extension (requires GMP) |
+| `FTE_BUILD_NATIVE=1` | Build C++ extension during install |
+| `FTE_BUILD_NATIVE=0` | Skip C++ extension during install |
+
+Check which implementation is active:
+
+```python
+from fte.dfa import using_native
+print(f"Using native extension: {using_native()}")
+```
 
 ## API Reference
 
@@ -114,15 +116,15 @@ Methods:
 ### v0.2.0 (2025)
 - **Breaking**: Now requires Python 3.8+
 - **Breaking**: All string inputs/outputs are now `bytes` instead of `str`
+- **New**: Pure Python implementation (no GMP required by default)
+- **New**: Optional C++ extension for performance (`FTE_USE_NATIVE=1`)
 - Updated to use pycryptodome instead of deprecated pycrypto
-- Modernized C extension for Python 3 C API
 - Optimized GMP bindings with binary integer conversion
 - Added type hints throughout
-- Improved documentation and error messages
 - Added pyproject.toml for modern packaging
 
 ### v0.1.x
-- Original Python 2.7 implementation
+- Original Python 2.7 implementation (required GMP)
 
 ## References
 

@@ -18,7 +18,7 @@ def main():
     
     # Simple CV pattern repeated
     regex = f'^([{consonants}][{vowels}])+$'
-    fixed_slice = 32  # Will produce 32 characters
+    fixed_slice = 128  # Will produce 128 characters
     
     dfa = regex2dfa.regex2dfa(regex)
     encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)

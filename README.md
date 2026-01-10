@@ -18,7 +18,7 @@ Based on the paper [Protocol Misidentification Made Easy with Format-Transformin
 ## Installation
 
 ```bash
-pip install fte regex2dfa
+pip install fte
 ```
 
 Works out of the box with pure Python—no compilation required.

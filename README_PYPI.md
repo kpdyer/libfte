@@ -13,7 +13,7 @@ Unlike standard encryption that produces random-looking output, FTE produces cip
 ## Installation
 
 ```bash
-pip install fte regex2dfa
+pip install fte
 ```
 
 Works out of the box with pure Python—no compilation required.

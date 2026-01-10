@@ -128,6 +128,7 @@ setup(
     python_requires='>=3.8',
     install_requires=[
         'pycryptodome>=3.9.0',
+        'regex2dfa>=0.2.0',
     ],
     extras_require={
         'dev': [

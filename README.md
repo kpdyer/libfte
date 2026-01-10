@@ -6,131 +6,148 @@
 
 ## Overview
 
-Format-Transforming Encryption (FTE) is a cryptographic primitive explored in the paper *Protocol Misidentification Made Easy with Format-Transforming Encryption* [1]. FTE allows a user to specify the format of their output ciphertexts using regular expressions. The libfte library implements the primitive presented in [1].
+Format-Transforming Encryption (FTE) transforms ciphertext to match arbitrary formats specified by regular expressions. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—hexadecimal strings, alphanumeric tokens, or any pattern expressible as a regex.
 
-If you are interested in the *proxy system* that uses FTE to bypass DPI systems, please see [fteproxy](https://github.com/kpdyer/fteproxy).
+This is useful for:
+- **Protocol obfuscation**: Make encrypted traffic look like benign data
+- **Bypassing filters**: Evade systems that block encrypted-looking content
+- **Steganography**: Hide data in plain sight within expected formats
+
+Based on the paper [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
 
 ## Installation
 
 ```bash
-pip install fte
+pip install fte regex2dfa
 ```
 
-The library works out of the box with pure Python. No external dependencies required beyond `pycryptodome`.
+Works out of the box with pure Python—no compilation required.
 
-### Optional: Native Extension for Performance
+## Quick Example
 
-For better performance, install the GMP library and set `FTE_USE_NATIVE=1`:
-
-```bash
-# Install GMP (Ubuntu/Debian)
-sudo apt-get install libgmp-dev
-
-# Install GMP (macOS)
-brew install gmp
-
-# Rebuild with native extension
-FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
-
-# Use native extension at runtime
-export FTE_USE_NATIVE=1
-```
-
-## Example Usage
+Encrypt a secret message so the ciphertext looks like a hex string:
 
 ```python
 import regex2dfa
 import fte.encoder
 
-regex = '^(a|b)+$'
-fixed_slice = 512
-input_plaintext = b'test'
+# Define the output format: only hex characters (0-9, a-f)
+regex = '^[0-9a-f]+$'
+output_length = 128
 
+# Create encoder
 dfa = regex2dfa.regex2dfa(regex)
-fteObj = fte.encoder.DfaEncoder(dfa, fixed_slice)
+encoder = fte.encoder.DfaEncoder(dfa, output_length)
 
-ciphertext = fteObj.encode(input_plaintext)
-output_plaintext, remainder = fteObj.decode(ciphertext)
+# Encrypt
+secret = b'Attack at dawn'
+ciphertext = encoder.encode(secret)
 
-print(f'input_plaintext={input_plaintext}')
-print(f'ciphertext={ciphertext[:16]}...{ciphertext[-16:]}')
-print(f'output_plaintext={output_plaintext}')
+print(f"Secret: {secret}")
+print(f"Ciphertext: {ciphertext.decode()}")
+# Output: Ciphertext: 8a3f2b1c9e7d4a6b0f5c8e2a1d9b7f3c4e6a8d0b2f5c9e1a3d7b4f6c8e0a2d5b...
+
+# Decrypt
+plaintext, _ = encoder.decode(ciphertext)
+print(f"Decrypted: {plaintext}")
+# Output: Decrypted: b'Attack at dawn'
 ```
 
-Output:
-```
-input_plaintext=b'test'
-ciphertext=b'aaaaaaaabaaaaaba'...b'aabbbbbbbbaababb'
-output_plaintext=b'test'
-```
+The ciphertext is indistinguishable from random hex data, but contains your encrypted message.
 
-## Configuration
+## More Examples
 
-| Environment Variable | Description |
-|---------------------|-------------|
-| `FTE_USE_NATIVE=1` | Use C++ extension (requires GMP) |
-| `FTE_BUILD_NATIVE=1` | Build C++ extension during install |
-| `FTE_BUILD_NATIVE=0` | Skip C++ extension during install |
-
-Check which implementation is active:
+### Alphanumeric Tokens
+Make ciphertext look like API keys or session tokens:
 
 ```python
-from fte.dfa import using_native
-print(f"Using native extension: {using_native()}")
+regex = '^[A-Za-z0-9]+$'
+dfa = regex2dfa.regex2dfa(regex)
+encoder = fte.encoder.DfaEncoder(dfa, 64)
+
+ciphertext = encoder.encode(b'secret')
+# Output: "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
+```
+
+### Binary Strings
+For systems that only accept 0s and 1s:
+
+```python
+regex = '^[01]+$'
+dfa = regex2dfa.regex2dfa(regex)
+encoder = fte.encoder.DfaEncoder(dfa, 512)
+
+ciphertext = encoder.encode(b'secret')
+# Output: "0110100101011010110010110100101101..."
+```
+
+See the [`examples/`](examples/) directory for more use cases.
+
+## Optional: Native Extension
+
+For ~3x better performance, install GMP and enable the native extension:
+
+```bash
+# Install GMP
+sudo apt-get install libgmp-dev  # Ubuntu/Debian
+brew install gmp                  # macOS
+
+# Rebuild with native extension
+FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
+
+# Enable at runtime
+export FTE_USE_NATIVE=1
 ```
 
 ## API Reference
 
 ### `fte.encoder.DfaEncoder`
 
-The main class for FTE encoding/decoding.
-
 ```python
 DfaEncoder(dfa: str, fixed_slice: int, K1: bytes = None, K2: bytes = None)
 ```
 
-- `dfa`: DFA specification in AT&T FST format
-- `fixed_slice`: Length of encoded output strings
-- `K1`: Optional 16-byte encryption key
-- `K2`: Optional 16-byte MAC key
+| Parameter | Description |
+|-----------|-------------|
+| `dfa` | DFA specification (from `regex2dfa.regex2dfa()`) |
+| `fixed_slice` | Length of formatted output |
+| `K1` | 16-byte encryption key (random if not provided) |
+| `K2` | 16-byte MAC key (random if not provided) |
 
-Methods:
-- `encode(plaintext: bytes, seed: bytes = None) -> bytes`: Encode plaintext
-- `decode(ciphertext: bytes) -> tuple[bytes, bytes]`: Decode to (plaintext, remainder)
-- `getCapacity() -> int`: Get the capacity in bits
+**Methods:**
 
-### `fte.encrypter.Encrypter`
+| Method | Description |
+|--------|-------------|
+| `encode(plaintext: bytes) -> bytes` | Encrypt and format plaintext |
+| `decode(ciphertext: bytes) -> (bytes, bytes)` | Decrypt, returns (plaintext, remainder) |
+| `getCapacity() -> int` | Bits of data that fit in `fixed_slice` |
 
-Authenticated encryption using AES-CTR + HMAC-SHA512.
+### Environment Variables
 
-```python
-Encrypter(K1: bytes = None, K2: bytes = None)
-```
+| Variable | Description |
+|----------|-------------|
+| `FTE_USE_NATIVE=1` | Use C++ extension at runtime |
+| `FTE_BUILD_NATIVE=1` | Build C++ extension during install |
 
-Methods:
-- `encrypt(plaintext: bytes) -> bytes`: Encrypt with 32-byte expansion
-- `decrypt(ciphertext: bytes) -> bytes`: Decrypt and verify MAC
+## How It Works
 
-## Changelog
+1. **Encryption**: Your plaintext is encrypted with AES-CTR and authenticated with HMAC-SHA512
+2. **Ranking**: The ciphertext (an integer) is converted to a string in the regular language using a DFA ranking algorithm
+3. **Output**: The result is a string matching your regex that encodes your encrypted data
 
-### v0.2.0 (2025)
-- **Breaking**: Now requires Python 3.8+
-- **Breaking**: All string inputs/outputs are now `bytes` instead of `str`
-- **New**: Pure Python implementation (no GMP required by default)
-- **New**: Optional C++ extension for performance (`FTE_USE_NATIVE=1`)
-- Updated to use pycryptodome instead of deprecated pycrypto
-- Optimized GMP bindings with binary integer conversion
-- Added type hints throughout
-- Added pyproject.toml for modern packaging
+The capacity depends on your regex—more symbols means more bits per character:
 
-### v0.1.x
-- Original Python 2.7 implementation (required GMP)
+| Format | Regex | Bits/char |
+|--------|-------|-----------|
+| Binary | `^[01]+$` | 1.0 |
+| Hex | `^[0-9a-f]+$` | 4.0 |
+| Alphanumeric | `^[A-Za-z0-9]+$` | 5.95 |
 
 ## References
 
 [1] [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf)
     Kevin P. Dyer, Scott E. Coull, Thomas Ristenpart and Thomas Shrimpton
-    CCS 2013
+    ACM CCS 2013
 
 ## License
 

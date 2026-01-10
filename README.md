@@ -26,27 +26,45 @@ Works out of the box with pure Python—no compilation required.
 
 ## Quick Example
 
-Encrypt a secret message so the ciphertext looks like a hex string:
+Encrypt a secret message so the ciphertext looks like words:
 
 ```python
 import fte
 
-# Create encoder: output will be 128 hex characters
-encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128)
+# Create encoder: output will be lowercase "words" with spaces
+encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80)
 
 # Encrypt
 ciphertext = encoder.encode(b'Attack at dawn')
 print(ciphertext.decode())
-# Output: 8a3f2b1c9e7d4a6b0f5c8e2a1d9b7f3c...
+# → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
 
 # Decrypt
 plaintext, _ = encoder.decode(ciphertext)
-# Output: b'Attack at dawn'
+# → b'Attack at dawn'
 ```
 
-The ciphertext is indistinguishable from random hex data, but contains your encrypted message.
+The ciphertext looks like random text, but contains your encrypted message.
 
 ## More Examples
+
+### URL Paths
+Make ciphertext look like website URLs:
+
+```python
+encoder = fte.Encoder(regex=r'^/[a-z]+/[a-z]+\.html$', fixed_slice=64)
+ciphertext = encoder.encode(b'secret')
+# → "/hsdxanghqvdhb/pvzvdsrpnjktdhnewdfhehaftajibecrluewdyrbekwh.html"
+```
+
+### URL Slugs
+Make ciphertext look like hyphenated slugs:
+
+```python
+encoder = fte.Encoder(regex=r'^[a-z]+-[a-z]+-[a-z]+$', fixed_slice=48)
+ciphertext = encoder.encode(b'secret')
+# → "dxosmywnpyjuarsfvcado-o-smdsyvovfnnsgzhzelpujnya"
+```
 
 ### Alphanumeric Tokens
 Make ciphertext look like API keys or session tokens:
@@ -54,23 +72,14 @@ Make ciphertext look like API keys or session tokens:
 ```python
 encoder = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64)
 ciphertext = encoder.encode(b'secret')
-# Output: "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
-```
-
-### Binary Strings
-For systems that only accept 0s and 1s:
-
-```python
-encoder = fte.Encoder(regex='^[01]+$', fixed_slice=512)
-ciphertext = encoder.encode(b'secret')
-# Output: "0110100101011010110010110100101101..."
+# → "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
 ```
 
 ### One-liner Convenience Functions
 
 ```python
-ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$')
-plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$')
+ciphertext = fte.encode(b'secret', regex='^[a-z]+$', fixed_slice=128)
+plaintext, _ = fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=128)
 ```
 
 See the [`examples/`](examples/) directory for more use cases.

@@ -21,18 +21,18 @@ Works out of the box with pure Python—no compilation required.
 
 ## Quick Example
 
-Encrypt a secret so the ciphertext looks like hex:
+Encrypt a secret so the ciphertext looks like words:
 
 ```python
 import fte
 
-# Create encoder: output will be 128 hex characters
-encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128)
+# Create encoder: output will be lowercase "words" with spaces
+encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80)
 
 # Encrypt
 ciphertext = encoder.encode(b'Attack at dawn')
 print(ciphertext.decode())
-# → "8a3f2b1c9e7d4a6b0f5c8e2a1d9b7f3c..."
+# → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
 
 # Decrypt
 plaintext, _ = encoder.decode(ciphertext)

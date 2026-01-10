@@ -7,8 +7,7 @@ how to check which implementation is being used.
 """
 
 import time
-import regex2dfa
-import fte.encoder
+import fte
 from fte.dfa import using_native
 
 
@@ -41,15 +40,11 @@ def main():
     print("  Native: export FTE_USE_NATIVE=1")
     
     # Setup
-    regex = '^[a-z]+$'
-    fixed_slice = 256
-    
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=256)
     
     print(f"\nBenchmark settings:")
-    print(f"  Regex: {regex}")
-    print(f"  Fixed slice: {fixed_slice}")
+    print(f"  Regex: ^[a-z]+$")
+    print(f"  Fixed slice: 256")
     
     # Test with different message sizes
     sizes = [10, 50, 100]
@@ -63,10 +58,10 @@ def main():
         print(f"{size} bytes{'':<9} {encode_ms:<15.3f} {decode_ms:<15.3f}")
     
     print("\n" + "=" * 45)
-    print("\nTypical performance comparison:")
+    print("\nTypical performance:")
     print("  Pure Python: ~5-15ms per operation")
     print("  Native (C++): ~1-3ms per operation")
-    print("\nNative is typically 3-5x faster for large operations.")
+    print("\nNative is typically 3-5x faster.")
 
 
 if __name__ == '__main__':

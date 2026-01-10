@@ -1,398 +1,295 @@
-#include <rank_unrank.h>
+/*
+ * Implementation of DFA-based ranking and unranking.
+ * See rank_unrank.h for detailed documentation.
+ */
+
+#include "rank_unrank.h"
 
 #include <sstream>
-#include <algorithm>
+#include <stdexcept>
+#include <cassert>
 
-#include <stdlib.h> 
-#include <assert.h>
+namespace {
 
-/*
- * Please see rank_unrank.h for a detailed explantion of the
- * methods in this file and their purpose.
- */
-
-
-// Helper fuction. Given a string and a token, performs a python .split()
-// Returns a list of string delimnated on the token
-array_type_string_t1 tokenize( std::string line, char delim ) {
-    array_type_string_t1 retval;
-
+// Helper: split string by delimiter
+std::vector<std::string> tokenize(const std::string& line, char delim) {
+    std::vector<std::string> result;
     std::istringstream iss(line);
     std::string fragment;
-    while(std::getline(iss, fragment, delim))
-        retval.push_back(fragment);
-
-    return retval;
+    while (std::getline(iss, fragment, delim)) {
+        result.push_back(fragment);
+    }
+    return result;
 }
 
-// Exceptions
-static class _invalid_rank_input: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Invalid rank input: ensure integer is within the correct range.";
-    }
-} invalid_rank_input;
+// Exception messages
+const char* MSG_INVALID_RANK = "Invalid rank input: string length doesn't match fixed_slice";
+const char* MSG_INVALID_UNRANK = "Invalid unrank input: integer out of range";
+const char* MSG_INVALID_FST = "Invalid FST format";
+const char* MSG_INVALID_STATE = "Invalid DFA: state index out of range";
+const char* MSG_INVALID_SYMBOL = "Invalid DFA: symbol not in range 0-255";
+const char* MSG_NOT_ACCEPTING = "Input string does not end in accepting state";
+const char* MSG_SYMBOL_NOT_IN_SIGMA = "Input contains symbol not in DFA alphabet";
 
-static class _invalid_unrank_input: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Invalid unrank input: ensure string is exactly fixed length sizee.";
-    }
-} invalid_unrank_input;
-
-static class _invalid_fst_format: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Invalid FST format.";
-    }
-} invalid_fst_format;
-
-static class _invalid_fst_exception_state_name: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Invalid DFA format: DFA has N states, and a state that is not in the range 0,1,...,N-1.";
-    }
-} invalid_fst_exception_state_name;
-
-static class _invalid_fst_exception_symbol_name: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Invalid DFA format: DFA has symbol that is not in the range 0,1,...,255.";
-    }
-} invalid_fst_exception_symbol_name;
+} // anonymous namespace
 
 
-static class _invalid_input_exception_not_in_final_states: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Please verify your input, the string does not result in an accepting path in the DFA.";
-    }
-} invalid_input_exception_not_in_final_states;
-
-static class _symbol_not_in_sigma: public std::exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Please verify your input, it contains a symbol not in the sigma of the DFA.";
-    }
-} symbol_not_in_sigma;
-
-/*
- * Parameters:
- *   dfa_str: a minimized ATT FST formatted DFA, see: http://www2.research.att.com/~fsmtools/fsm/man4/fsm.5.html
- *   max_len: the maxium length to compute DFA::buildTable
- */
-DFA::DFA(const std::string dfa_str, const uint32_t max_len)
+DFA::DFA(const std::string& dfa_str, uint32_t max_len)
     : _fixed_slice(max_len),
       _start_state(0),
       _num_states(0),
       _num_symbols(0)
 {
-    // construct the _start_state, _final_states and symbols/states of our DFA
-    bool startStateIsntSet = true;
+    // Parse DFA string and collect states, symbols, transitions
+    std::unordered_set<uint32_t> states_set;
+    std::unordered_set<uint32_t> symbols_set;
+    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> transitions;
+    bool start_state_set = false;
+
+    std::istringstream stream(dfa_str);
     std::string line;
-    std::istringstream my_str_stream(dfa_str);
-    while ( getline (my_str_stream,line) )
-    {
-        if (line.empty()) break;
+    
+    while (std::getline(stream, line)) {
+        if (line.empty()) continue;
 
-        array_type_string_t1 split_vec = tokenize( line, '\t' );
-        if (split_vec.size() == 4) {
-            uint32_t current_state = strtol(split_vec.at(0).c_str(),NULL,10);
-            uint32_t symbol = strtol(split_vec.at(2).c_str(),NULL,10);
-            if (find(_states.begin(), _states.end(), current_state)==_states.end()) {
-                _states.push_back( current_state );
+        auto parts = tokenize(line, '\t');
+        
+        if (parts.size() == 4) {
+            // Transition line: src_state, dst_state, input_symbol, output_symbol
+            uint32_t src = static_cast<uint32_t>(std::stoul(parts[0]));
+            uint32_t dst = static_cast<uint32_t>(std::stoul(parts[1]));
+            uint32_t symbol = static_cast<uint32_t>(std::stoul(parts[2]));
+            
+            states_set.insert(src);
+            states_set.insert(dst);
+            symbols_set.insert(symbol);
+            transitions.emplace_back(src, dst, symbol);
+            
+            if (!start_state_set) {
+                _start_state = src;
+                start_state_set = true;
             }
-
-            if (find(_symbols.begin(), _symbols.end(), symbol)==_symbols.end()) {
-                _symbols.push_back( symbol );
-            }
-
-            if ( startStateIsntSet ) {
-                _start_state = current_state;
-                startStateIsntSet = false;
-            }
-        } else if (split_vec.size()==1) {
-            uint32_t final_state = strtol(split_vec.at(0).c_str(),NULL,10);
-            if (find(_final_states.begin(), _final_states.end(), final_state)==_final_states.end()) {
-                _final_states.push_back( final_state );
-            }
-            if (find(_states.begin(), _states.end(), final_state)==_states.end()) {
-                _states.push_back( final_state );
-            }
-        } else if (split_vec.size()>0) {
-            throw invalid_fst_format;
-        } else {
-            // blank line, ignore
+        } else if (parts.size() == 1) {
+            // Final state line
+            uint32_t final_state = static_cast<uint32_t>(std::stoul(parts[0]));
+            _final_states.insert(final_state);
+            states_set.insert(final_state);
+        } else if (!parts.empty()) {
+            throw std::runtime_error(MSG_INVALID_FST);
         }
-
-    }
-    _states.push_back( _states.size() ); // extra for the "dead" state
-
-    _num_symbols = _symbols.size();
-    _num_states = _states.size();
-
-    // build up our sigma/sigma_reverse tables which enable mappings between
-    // bytes/integers
-    uint32_t j, k;
-    for (j=0; j<_num_symbols; j++) {
-        _sigma.insert( std::pair<uint32_t,char>( j, (char)(_symbols.at(j))) );
-        _sigma_reverse.insert( std::pair<char,uint32_t>((char)(_symbols.at(j)), j) );
     }
 
-    // intialize all transitions in our DFA to our dead state
+    // Build sorted symbol and state lists
+    _symbols.assign(symbols_set.begin(), symbols_set.end());
+    std::sort(_symbols.begin(), _symbols.end());
+    
+    _states.assign(states_set.begin(), states_set.end());
+    std::sort(_states.begin(), _states.end());
+    
+    // Add dead state
+    uint32_t dead_state = static_cast<uint32_t>(_states.size());
+    _states.push_back(dead_state);
+
+    _num_symbols = static_cast<uint32_t>(_symbols.size());
+    _num_states = static_cast<uint32_t>(_states.size());
+
+    // Build sigma mappings (symbol index <-> byte value)
+    _sigma.reserve(_num_symbols);
+    _sigma_reverse.reserve(_num_symbols);
+    for (uint32_t i = 0; i < _num_symbols; ++i) {
+        char byte_val = static_cast<char>(_symbols[i]);
+        _sigma[i] = byte_val;
+        _sigma_reverse[byte_val] = i;
+    }
+
+    // Initialize transition table to dead state
     _delta.resize(_num_states);
-    for (j=0; j<_num_states; j++) {
-        _delta.at(j).resize(_num_symbols);
-        for (k=0; k < _num_symbols; k++) {
-            _delta.at(j).at(k) = _num_states - 1;
+    for (uint32_t q = 0; q < _num_states; ++q) {
+        _delta[q].assign(_num_symbols, dead_state);
+    }
+
+    // Fill transition table
+    for (const auto& trans : transitions) {
+        uint32_t src = std::get<0>(trans);
+        uint32_t dst = std::get<1>(trans);
+        uint32_t symbol = std::get<2>(trans);
+        auto it = _sigma_reverse.find(static_cast<char>(symbol));
+        if (it != _sigma_reverse.end()) {
+            _delta[src][it->second] = dst;
         }
     }
 
-    // fill our our transition function delta
-    std::istringstream my_str_stream2(dfa_str);
-    while ( getline (my_str_stream2,line) )
-    {
-        array_type_string_t1 split_vec = tokenize( line, '\t' );
-        if (split_vec.size() == 4) {
-            uint32_t current_state = strtol(split_vec.at(0).c_str(),NULL,10);
-            uint32_t symbol = strtol(split_vec.at(2).c_str(),NULL,10);
-            uint32_t new_state = strtol(split_vec.at(1).c_str(),NULL,10);
-
-            symbol = _sigma_reverse.at(symbol);
-
-            _delta.at(current_state).at(symbol) = new_state;
-        }
-    }
-
+    // Compute delta_dense optimization flags
     _delta_dense.resize(_num_states);
-    uint32_t q, a;
-    for (q=0; q < _num_states; q++ ) {
-        _delta_dense.at(q) = true;
-        for (a=1; a < _num_symbols; a++) {
-            if (_delta.at(q).at(a-1) != _delta.at(q).at(a)) {
-                _delta_dense.at(q) = false;
-                break;
+    for (uint32_t q = 0; q < _num_states; ++q) {
+        _delta_dense[q] = true;
+        if (_num_symbols > 0) {
+            uint32_t first_dst = _delta[q][0];
+            for (uint32_t a = 1; a < _num_symbols; ++a) {
+                if (_delta[q][a] != first_dst) {
+                    _delta_dense[q] = false;
+                    break;
+                }
             }
         }
     }
 
-    DFA::_validate();
-
-    // perform our precalculation to speed up (un)ranking
-    DFA::_buildTable();
+    _validate();
+    _buildTable();
 }
 
 
 void DFA::_validate() {
-    // ensure DFA has at least one state
-    if (_states.size()==0)
-        throw invalid_fst_format;
+    if (_states.empty()) {
+        throw std::runtime_error(MSG_INVALID_FST);
+    }
+    if (_symbols.empty()) {
+        throw std::runtime_error(MSG_INVALID_FST);
+    }
 
-    // ensure DFA has at least one symbol
-    if (_sigma.size()==0)
-        throw invalid_fst_format;
-    if (_sigma_reverse.size()==0)
-        throw invalid_fst_format;
-
-    // ensure we have N states, labeled 0,1,..N-1
-    array_type_uint32_t1::iterator state;
-    for (state=_states.begin(); state!=_states.end(); state++) {
-        if (*state >= _states.size()) {
-            throw invalid_fst_exception_state_name;
+    // Verify state indices are valid
+    for (uint32_t state : _states) {
+        if (state >= _states.size()) {
+            throw std::runtime_error(MSG_INVALID_STATE);
         }
     }
 
-    // ensure all symbols are in the range 0,1,...,255
-    for (uint32_t i = 0; i < _symbols.size(); i++) {
-        if (_symbols.at(i) > 256 || _symbols.at(i) < 0) {
-            throw invalid_fst_exception_symbol_name;
+    // Verify symbols are in valid byte range
+    for (uint32_t symbol : _symbols) {
+        if (symbol > 255) {
+            throw std::runtime_error(MSG_INVALID_SYMBOL);
         }
     }
 }
+
 
 void DFA::_buildTable() {
-    uint32_t i;
-    uint32_t q;
-    uint32_t a;
-
-    // ensure our table _T is the correct size
+    // Initialize counting table
     _T.resize(_num_states);
-    for (q=0; q<_num_states; q++) {
-        _T.at(q).resize(_fixed_slice+1);
-        for (i=0; i<=_fixed_slice; i++) {
-            _T.at(q).at(i) = 0;
-        }
+    for (uint32_t q = 0; q < _num_states; ++q) {
+        _T[q].assign(_fixed_slice + 1, 0);
     }
 
-    // set all _T.at(q).at(0) = 1 for all states in _final_states
-    array_type_uint32_t1::iterator state;
-    for (state=_final_states.begin(); state!=_final_states.end(); state++) {
-        _T.at(*state).at(0) = 1;
+    // Base case: T[q][0] = 1 for all final states
+    for (uint32_t q : _final_states) {
+        _T[q][0] = 1;
     }
 
-    // walk through our table _T
-    // we want each entry _T.at(q).at(i) to contain the number of strings that start
-    // from state q, terminate in a final state, and are of length i
-    for (i=1; i<=_fixed_slice; i++) {
-        for (q=0; q<_delta.size(); q++) {
-            for (a=0; a<_delta.at(0).size(); a++) {
-                uint32_t state = _delta.at(q).at(a);
-                _T.at(q).at(i) += _T.at(state).at(i-1);
+    // Fill table: T[q][i] = sum over symbols a of T[delta[q][a]][i-1]
+    for (uint32_t i = 1; i <= _fixed_slice; ++i) {
+        for (uint32_t q = 0; q < _num_states; ++q) {
+            for (uint32_t a = 0; a < _num_symbols; ++a) {
+                uint32_t next_state = _delta[q][a];
+                _T[q][i] += _T[next_state][i - 1];
             }
         }
     }
 }
 
 
-std::string DFA::unrank( const mpz_class c_in ) {
-    std::string retval;
+std::string DFA::unrank(const mpz_class& c_in) const {
+    mpz_class words_in_slice = getNumWordsInLanguage(_fixed_slice, _fixed_slice);
+    if (c_in < 0 || c_in >= words_in_slice) {
+        throw std::runtime_error(MSG_INVALID_UNRANK);
+    }
 
-    // throw exception if input integer is not in range of pre-computed value
-    mpz_class words_in_slice = getNumWordsInLanguage( _fixed_slice, _fixed_slice );
-    if ( c_in > words_in_slice )
-        throw invalid_unrank_input;
+    std::string result;
+    result.reserve(_fixed_slice);
 
-    // walk the DFA subtracting values from c until we have our n symbols
     mpz_class c = c_in;
-    uint32_t i = 0;
     uint32_t q = _start_state;
-    uint32_t char_cursor = 0;
-    uint32_t state = 0;
-    mpz_class char_index = 0;
-    for (i=1; i<=_fixed_slice; i++) {
-        if (_delta_dense.at(q)) {
-            // our optimized version, when _delta[q][i] is equal to n for all symbols i
-            state = _delta.at(q).at(0);
+
+    for (uint32_t i = 1; i <= _fixed_slice; ++i) {
+        uint32_t char_idx;
+        uint32_t next_state;
+
+        if (_delta_dense[q]) {
+            // Optimized path: all transitions go to same state
+            next_state = _delta[q][0];
+            const mpz_class& divisor = _T[next_state][_fixed_slice - i];
             
-            // We do the following two lines with a single call
-            // to mpz_fdiv_qr, which is much faster.
-            // char_index = (c / _T.at(state).at(_fixed_slice-i));
-            // c = c % _T.at(state).at(_fixed_slice-i);
-            mpz_fdiv_qr( char_index.get_mpz_t(),
-                         c.get_mpz_t(),
-                         c.get_mpz_t(),
-                         _T.at(state).at(_fixed_slice-i).get_mpz_t() );
-            
-            char_cursor = char_index.get_ui();
+            mpz_class quotient;
+            mpz_fdiv_qr(quotient.get_mpz_t(), c.get_mpz_t(),
+                        c.get_mpz_t(), divisor.get_mpz_t());
+            char_idx = quotient.get_ui();
         } else {
-            // traditional goldberg-sipser ranking
-            char_cursor = 0;
-            state = _delta.at(q).at(char_cursor);
+            // Standard Goldberg-Sipser unranking
+            char_idx = 0;
+            next_state = _delta[q][char_idx];
             
-            // A call to mpz_cmp is faster than using >= directly.
-            // while (c >= _T.at(state).at(n-i)) {
-            while (mpz_cmp( c.get_mpz_t(),
-                            _T.at(state).at(_fixed_slice-i).get_mpz_t() )>=0) {
-                
-                // Much faster to call mpz_sub, than -=.
-                // c -= _T.at(state).at(n-i);
-                mpz_sub( c.get_mpz_t(),
-                         c.get_mpz_t(),
-                         _T.at(state).at(_fixed_slice-i).get_mpz_t() );
-                
-                char_cursor += 1;
-                state =_delta.at(q).at(char_cursor);
+            while (mpz_cmp(c.get_mpz_t(), _T[next_state][_fixed_slice - i].get_mpz_t()) >= 0) {
+                mpz_sub(c.get_mpz_t(), c.get_mpz_t(),
+                        _T[next_state][_fixed_slice - i].get_mpz_t());
+                ++char_idx;
+                next_state = _delta[q][char_idx];
             }
         }
-        retval += _sigma.at(char_cursor);
-        q = state;
+
+        result += _sigma.at(char_idx);
+        q = next_state;
     }
 
-    // bail if our last state q is not in _final_states
-    if (find(_final_states.begin(),
-             _final_states.end(), q)==_final_states.end()) {
-        throw invalid_input_exception_not_in_final_states;
+    // Verify we ended in a final state
+    if (_final_states.find(q) == _final_states.end()) {
+        throw std::runtime_error(MSG_NOT_ACCEPTING);
     }
 
-    return retval;
+    return result;
 }
 
-mpz_class DFA::rank( const std::string X ) {
-    mpz_class retval = 0;
 
-    // verify len(X) is what we expect
-    if (X.length()!=_fixed_slice) {
-        throw invalid_rank_input;
+mpz_class DFA::rank(const std::string& X) const {
+    if (X.length() != _fixed_slice) {
+        throw std::runtime_error(MSG_INVALID_RANK);
     }
 
-    // walk the DFA, adding values from _T to c
-    uint32_t i = 0;
-    uint32_t j = 0;
-    uint32_t n = X.size();
-    uint32_t symbol_as_int = 0;
+    mpz_class result = 0;
     uint32_t q = _start_state;
-    uint32_t state = 0;
-    mpz_class tmp = 0;
-    for (i=1; i<=n; i++) {
-        try {
-            symbol_as_int = _sigma_reverse.at(X.at(i-1));
-        } catch (int e) {
-            throw symbol_not_in_sigma;
-        }
+    uint32_t n = static_cast<uint32_t>(X.size());
 
-        if (_delta_dense.at(q)) {
-            // our optimized version, when _delta[q][i] is equal to n for all symbols i
-            state = _delta.at(q).at(0);
+    for (uint32_t i = 1; i <= n; ++i) {
+        char byte_val = X[i - 1];
+        auto it = _sigma_reverse.find(byte_val);
+        if (it == _sigma_reverse.end()) {
+            throw std::runtime_error(MSG_SYMBOL_NOT_IN_SIGMA);
+        }
+        uint32_t symbol_idx = it->second;
+
+        if (_delta_dense[q]) {
+            // Optimized path: all transitions go to same state
+            uint32_t next_state = _delta[q][0];
             
-            // Orders of magnitude faster to use mpz_mul_ui,
-            // compared to *.
-            // tmp = _T.at(state).at(n-i) * symbol_as_int
-            mpz_mul_ui( tmp.get_mpz_t(),
-                        _T.at(state).at(n-i).get_mpz_t(),
-                        symbol_as_int );
-            
-            // mpz_add is faster than +=
-            //retval += tmp.get_mpz_t();
-            mpz_add( retval.get_mpz_t(),
-                     retval.get_mpz_t(),
-                     tmp.get_mpz_t() );
+            mpz_class tmp;
+            mpz_mul_ui(tmp.get_mpz_t(), _T[next_state][n - i].get_mpz_t(), symbol_idx);
+            mpz_add(result.get_mpz_t(), result.get_mpz_t(), tmp.get_mpz_t());
         } else {
-            // traditional goldberg-sipser ranking
-            for (j=1; j<=symbol_as_int; j++) {
-                state = _delta.at(q).at(j-1);
-                
-                // mpz_add is faster than +=
-                //retval += _T.at(state).at(n-i);
-                mpz_add( retval.get_mpz_t(),
-                         retval.get_mpz_t(),
-                         _T.at(state).at(n-i).get_mpz_t() );
+            // Standard Goldberg-Sipser ranking
+            for (uint32_t j = 0; j < symbol_idx; ++j) {
+                uint32_t state = _delta[q][j];
+                mpz_add(result.get_mpz_t(), result.get_mpz_t(),
+                        _T[state][n - i].get_mpz_t());
             }
         }
-        q = _delta.at(q).at(symbol_as_int);
+
+        q = _delta[q][symbol_idx];
     }
 
-    // bail if our last state q is not in _final_states
-    if (find(_final_states.begin(),
-             _final_states.end(), q)==_final_states.end()) {
-        throw invalid_input_exception_not_in_final_states;
+    // Verify we ended in a final state
+    if (_final_states.find(q) == _final_states.end()) {
+        throw std::runtime_error(MSG_NOT_ACCEPTING);
     }
 
-    return retval;
+    return result;
 }
 
-mpz_class DFA::getNumWordsInLanguage( const uint32_t min_word_length,
-                                      const uint32_t max_word_length )
-{
-    // verify min_word_length <= max_word_length <= _fixed_slice
-    assert(0<=min_word_length);
-    assert(min_word_length<=max_word_length);
-    assert(max_word_length<=_fixed_slice);
 
-    // count the number of words in the language of length
-    // at least min_word_length and no greater than max_word_length
-    mpz_class num_words = 0;
-    for (uint32_t word_length = min_word_length;
-            word_length <= max_word_length;
-            word_length++) {
-        num_words += _T.at(_start_state).at(word_length);
+mpz_class DFA::getNumWordsInLanguage(uint32_t min_len, uint32_t max_len) const {
+    assert(min_len <= max_len);
+    assert(max_len <= _fixed_slice);
+
+    mpz_class count = 0;
+    for (uint32_t len = min_len; len <= max_len; ++len) {
+        count += _T[_start_state][len];
     }
-    return num_words;
+    return count;
 }
-

@@ -6,22 +6,16 @@ This example creates ciphertext that looks like pronounceable
 words or names, useful for human-readable encoded data.
 """
 
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def main():
     # Pattern: consonant-vowel alternating (pronounceable)
-    # Creates strings like "bababa", "kokoko", etc.
     consonants = 'bcdfghjklmnpqrstvwxyz'
     vowels = 'aeiou'
-    
-    # Simple CV pattern repeated
     regex = f'^([{consonants}][{vowels}])+$'
-    fixed_slice = 128  # Will produce 128 characters
     
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    encoder = fte.Encoder(regex=regex, fixed_slice=128)
     
     plaintext = b'Hidden'
     ciphertext = encoder.encode(plaintext)

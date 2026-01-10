@@ -7,16 +7,14 @@ how much data can be encoded, and how to choose parameters.
 """
 
 import math
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def analyze_language(name, regex, fixed_slice):
     """Analyze a language's encoding capacity."""
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    encoder = fte.Encoder(regex=regex, fixed_slice=fixed_slice)
     
-    capacity_bits = encoder.getCapacity()
+    capacity_bits = encoder.capacity
     capacity_bytes = capacity_bits // 8
     
     # Account for FTE overhead (16 bytes header + 32 bytes encryption)
@@ -42,7 +40,7 @@ def main():
         ("Hex (0-9a-f)", "^[0-9a-f]+$", 256),
         ("Lowercase (a-z)", "^[a-z]+$", 256),
         ("Alphanumeric", "^[A-Za-z0-9]+$", 256),
-        ("Printable ASCII", "^[ -~]+$", 256),  # Space to tilde
+        ("Printable ASCII", "^[ -~]+$", 256),
     ]
     
     print("\n" + "="*60)
@@ -60,15 +58,13 @@ def main():
     print("\n" + "="*60)
     print("\nPractical example:")
     
-    # Show how much data fits in each format
-    test_data = b'A' * 100  # 100 bytes of data
+    test_data = b'A' * 100
     
     for name, regex, length in [
         ("Hex format", "^[0-9a-f]+$", 512),
         ("Alphanumeric", "^[A-Za-z0-9]+$", 256),
     ]:
-        dfa = regex2dfa.regex2dfa(regex)
-        encoder = fte.encoder.DfaEncoder(dfa, length)
+        encoder = fte.Encoder(regex=regex, fixed_slice=length)
         
         try:
             ciphertext = encoder.encode(test_data)

@@ -6,17 +6,12 @@ This example shows how to make ciphertext look like hex data,
 which might blend in with log files or debugging output.
 """
 
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def main():
-    # Regex for hexadecimal strings (lowercase)
-    regex = '^[0-9a-f]+$'
-    fixed_slice = 128
-    
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    # Create encoder for hex output
+    encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128)
     
     plaintext = b'Secret message'
     ciphertext = encoder.encode(plaintext)

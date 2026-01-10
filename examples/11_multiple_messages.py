@@ -6,18 +6,13 @@ This example shows how to encode and decode multiple messages
 in sequence, demonstrating the remainder handling.
 """
 
-import regex2dfa
-import fte.encoder
+import fte
 
 
 def main():
     print("=== Multiple Messages ===\n")
     
-    regex = '^[a-z]+$'
-    fixed_slice = 128
-    
-    dfa = regex2dfa.regex2dfa(regex)
-    encoder = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128)
     
     # Encode multiple messages
     messages = [
@@ -43,7 +38,7 @@ def main():
     buffer = stream
     decoded_messages = []
     
-    while len(buffer) >= fixed_slice:
+    while len(buffer) >= 128:
         plaintext, remainder = encoder.decode(buffer)
         decoded_messages.append(plaintext)
         print(f"  Decoded: {plaintext}")

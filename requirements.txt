@@ -1,2 +1,9 @@
-pycrypto
-regex2dfa
+# Core dependencies
+pycryptodome>=3.9.0
+
+# Optional: for converting regex to DFA
+# regex2dfa
+
+# Development dependencies
+pytest>=7.0
+pytest-cov

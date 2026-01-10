@@ -1,0 +1,31 @@
+"""FTE - Format-Transforming Encryption library.
+
+This library implements Format-Transforming Encryption (FTE), a cryptographic
+primitive that allows encoding ciphertexts as strings matching a specified
+regular language.
+
+Example usage:
+    >>> import regex2dfa
+    >>> import fte.encoder
+    >>> 
+    >>> regex = '^(a|b)+$'
+    >>> fixed_slice = 512
+    >>> input_plaintext = b'test'
+    >>> 
+    >>> dfa = regex2dfa.regex2dfa(regex)
+    >>> fteObj = fte.encoder.DfaEncoder(dfa, fixed_slice)
+    >>> 
+    >>> ciphertext = fteObj.encode(input_plaintext)
+    >>> output_plaintext, remainder = fteObj.decode(ciphertext)
+    >>> 
+    >>> assert input_plaintext == output_plaintext
+
+See the paper "Protocol Misidentification Made Easy with Format-Transforming
+Encryption" for details: https://kpdyer.com/publications/ccs2013-fte.pdf
+"""
+
+from pathlib import Path
+
+__version__ = (Path(__file__).parent / '_version.txt').read_text().strip()
+__author__ = 'Kevin P. Dyer'
+__email__ = 'kpdyer@gmail.com'

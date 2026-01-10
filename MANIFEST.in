@@ -1,5 +1,7 @@
-recursive-include examples *
-include Makefile
-include fte/VERSION
-include fte/*.cc
+include LICENSE
+include README.md
+include BUILDING.md
+include fte/_version.txt
 include fte/*.h
+include fte/*.cc
+recursive-exclude fte/tests/dfas *

@@ -1,58 +1,97 @@
-libfte Build Instructions
-===========================
+# libfte Build Instructions
 
-Ubuntu/Debian
--------------
+## Requirements
 
-Install the following packages.
-```
-sudo apt-get install python-dev python-pip libgmp-dev git
-sudo pip install crypto
+- Python 3.8 or later
+- GMP library (for arbitrary precision arithmetic)
+- C++ compiler (g++ or clang++)
+
+## Ubuntu/Debian
+
+Install the required system packages:
+
+```bash
+sudo apt-get update
+sudo apt-get install python3-dev python3-pip libgmp-dev git build-essential
 ```
 
-Then, clone and build libfte.
-```
+Clone and install libfte:
+
+```bash
 git clone https://github.com/kpdyer/libfte.git
 cd libfte
-sudo python setup.py install
+pip install .
 ```
 
-OSX
----
+For development:
 
-Install homebrew [1], if you don't have it already.
-
-```
-ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
+```bash
+pip install -e ".[dev]"
 ```
 
-Install the following packages.
-```
-brew install --build-from-source python gmp git
-sudo pip install --upgrade crypto
+## macOS
+
+Install Homebrew if you don't have it:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Then, clone and build libfte.
+Install dependencies:
+
+```bash
+brew install python gmp git
 ```
+
+Clone and install libfte:
+
+```bash
 git clone https://github.com/kpdyer/libfte.git
 cd libfte
-sudo python setup.py install
+pip3 install .
 ```
 
-Note: if on OSX 10.9, you may experience a ```clang: warning: argument unused during compilation: '-mno-fused-madd'``` error. This can be resolved by setting the following evnironmental variables:
+For development:
 
+```bash
+pip3 install -e ".[dev]"
 ```
-export CFLAGS=-Qunused-arguments
-export CPPFLAGS=-Qunused-arguments
+
+## Windows
+
+Building on Windows requires:
+
+1. Python 3.8+ from python.org
+2. Visual Studio Build Tools (C++ workload)
+3. MPIR library (Windows-compatible GMP alternative)
+
+See the [libfte-builder](https://github.com/kpdyer/libfte-builder) repository for detailed Windows build instructions.
+
+## Verification
+
+After installation, verify the build:
+
+```bash
+python -m pytest fte/tests/ -v
 ```
 
-Windows
--------
+Or run the example:
 
-If you must build libfte on Windows, please see [2] for guidance.
+```bash
+python examples/example1.py
+```
 
+## Development
 
-### References
+For development work:
 
-* [1] http://brew.sh/
-* [2] https://github.com/kpdyer/libfte-builder/blob/master/build/windows-i386/build_libfte.sh
+```bash
+# Install with development dependencies
+pip install -e ".[dev]"
+
+# Run tests with coverage
+pytest fte/tests/ -v --cov=fte
+
+# Run linting
+flake8 fte/
+```

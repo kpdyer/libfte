@@ -4,73 +4,66 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Format-Transforming Encryption (FTE) library for Python.
+**Format-Transforming Encryption** — encrypt data so the ciphertext matches any format you specify.
 
-FTE allows you to encrypt data such that the ciphertext matches a specified regular expression format. This is useful for protocol obfuscation and bypassing Deep Packet Inspection (DPI) systems.
+## What is FTE?
+
+Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify with a regular expression—hex strings, alphanumeric tokens, or any regex-expressible pattern.
 
 ## Installation
 
 ```bash
-pip install fte
+pip install fte regex2dfa
 ```
 
-Works out of the box with pure Python. No external dependencies required!
+Works out of the box with pure Python—no compilation required.
 
-### Optional: Native Extension
+## Quick Example
 
-For better performance, install GMP and enable native mode:
-
-```bash
-# Install GMP
-sudo apt-get install libgmp-dev  # Ubuntu/Debian
-brew install gmp                  # macOS
-
-# Rebuild with native extension
-FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
-
-# Enable at runtime
-export FTE_USE_NATIVE=1
-```
-
-## Quick Start
+Encrypt a secret so the ciphertext looks like hex:
 
 ```python
 import regex2dfa
 import fte.encoder
 
-# Define format as regex
-regex = '^(a|b)+$'
-fixed_slice = 512
+# Output format: only hex characters
+dfa = regex2dfa.regex2dfa('^[0-9a-f]+$')
+encoder = fte.encoder.DfaEncoder(dfa, 128)
 
-# Convert regex to DFA
-dfa = regex2dfa.regex2dfa(regex)
-
-# Create encoder and encrypt
-fteObj = fte.encoder.DfaEncoder(dfa, fixed_slice)
-ciphertext = fteObj.encode(b'secret message')
+# Encrypt
+ciphertext = encoder.encode(b'Attack at dawn')
+print(ciphertext.decode())
+# → "8a3f2b1c9e7d4a6b0f5c8e2a1d9b7f3c..."
 
 # Decrypt
-plaintext, remainder = fteObj.decode(ciphertext)
+plaintext, _ = encoder.decode(ciphertext)
+# → b'Attack at dawn'
 ```
 
-The ciphertext will be a 512-character string of only `a` and `b` characters.
+## Use Cases
 
-## Features
+- **Protocol obfuscation**: Make encrypted traffic look like benign data
+- **Bypassing filters**: Evade systems that block encrypted-looking content  
+- **Steganography**: Hide data within expected formats
 
-- **Pure Python**: Works without any C dependencies
-- **Optional Native Extension**: C++/GMP for better performance
-- **Format-Transforming Encryption**: Encrypt data to match any regular expression
-- **Authenticated Encryption**: AES-CTR + HMAC-SHA512
-- **Python 3.8+**: Modern Python with type hints
+## Performance
+
+For ~3x better performance, enable the optional native extension:
+
+```bash
+sudo apt-get install libgmp-dev  # or: brew install gmp
+FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
+export FTE_USE_NATIVE=1
+```
 
 ## Documentation
 
-Full documentation: [GitHub](https://github.com/kpdyer/libfte)
+Full docs and examples: [github.com/kpdyer/libfte](https://github.com/kpdyer/libfte)
 
-## References
+## Reference
 
-Based on [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
+Based on [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (ACM CCS 2013).
 
 ## License
 
-MIT License
+MIT

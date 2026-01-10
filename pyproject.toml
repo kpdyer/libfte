@@ -30,6 +30,7 @@ classifiers = [
 ]
 dependencies = [
     "pycryptodome>=3.9.0",
+    "regex2dfa>=0.2.0",
 ]
 
 [project.optional-dependencies]

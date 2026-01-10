@@ -8,7 +8,7 @@
  * This is a wrapper around rank_unrank.cc, to create the fte.cDFA
  * python module.
  * 
- * Updated for Python 3 compatibility.
+ * Updated for Python 3 compatibility with binary integer conversion.
  */
 
 
@@ -28,6 +28,62 @@ DFA_dealloc(DFAObject* self)
         self->obj = NULL;
     }
     Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+
+// Convert mpz_class to Python long using binary export (faster than string conversion)
+static PyObject* mpz_to_pylong(const mpz_class& value) {
+    if (value == 0) {
+        return PyLong_FromLong(0);
+    }
+    
+    // Get the number of bytes needed
+    size_t count = (mpz_sizeinbase(value.get_mpz_t(), 2) + 7) / 8;
+    
+    // Export to bytes (big-endian)
+    std::vector<unsigned char> buf(count);
+    mpz_export(buf.data(), &count, 1, 1, 1, 0, value.get_mpz_t());
+    
+    // Use _PyLong_FromByteArray (big-endian, unsigned)
+    return _PyLong_FromByteArray(buf.data(), count, 0, 0);
+}
+
+
+// Convert Python long to mpz_class using binary import (faster than string conversion)
+static bool pylong_to_mpz(PyObject* pylong, mpz_class& result) {
+    if (!PyLong_Check(pylong)) {
+        PyErr_SetString(PyExc_TypeError, "Expected an integer");
+        return false;
+    }
+    
+    // Handle zero case
+    int sign = _PyLong_Sign(pylong);
+    if (sign == 0) {
+        result = 0;
+        return true;
+    }
+    
+    if (sign < 0) {
+        PyErr_SetString(PyExc_ValueError, "Expected a non-negative integer");
+        return false;
+    }
+    
+    // Get the number of bits, then bytes needed
+    size_t nbits = _PyLong_NumBits(pylong);
+    if (nbits == (size_t)-1 && PyErr_Occurred()) {
+        return false;
+    }
+    size_t nbytes = (nbits + 7) / 8;
+    
+    // Export to bytes (big-endian)
+    std::vector<unsigned char> buf(nbytes);
+    if (_PyLong_AsByteArray((PyLongObject*)pylong, buf.data(), nbytes, 0, 0) < 0) {
+        return false;
+    }
+    
+    // Import into mpz
+    mpz_import(result.get_mpz_t(), nbytes, 1, 1, 1, 0, buf.data());
+    return true;
 }
 
 
@@ -59,12 +115,7 @@ static PyObject * DFA__rank(PyObject *self, PyObject *args) {
         return NULL;
     }
 
-    // Set our return value as a Python long
-    uint32_t base = 10;
-    std::string to_convert = result.get_str(base);
-    PyObject *retval = PyLong_FromString(to_convert.c_str(), NULL, base);
-
-    return retval;
+    return mpz_to_pylong(result);
 }
 
 
@@ -76,22 +127,11 @@ static PyObject * DFA__unrank(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &c))
         return NULL;
 
-    // Convert PyNumber to mpz_class via hex string
-    int base = 16;
-    PyObject* b16 = PyNumber_ToBase(c, base);
-    if (!b16) {
-        PyErr_SetString(PyExc_TypeError, "Expected an integer");
+    // Convert Python int to mpz_class using binary conversion
+    mpz_class to_unrank;
+    if (!pylong_to_mpz(c, to_unrank)) {
         return NULL;
     }
-    
-    const char* the_c_str = PyUnicode_AsUTF8(b16);
-    if (!the_c_str) {
-        Py_DECREF(b16);
-        return NULL;
-    }
-    mpz_class to_unrank(the_c_str, 0);
-
-    Py_DECREF(b16);
     
     // Verify our environment is sane and perform unranking.
     DFAObject *pDFAObject = (DFAObject*)self;
@@ -134,12 +174,7 @@ static PyObject * DFA__getNumWordsInLanguage(PyObject *self, PyObject *args) {
     
     mpz_class num_words = pDFAObject->obj->getNumWordsInLanguage(min_val, max_val);
 
-    // Convert the resulting integer to a Python long
-    uint32_t base = 10;
-    std::string num_words_str = num_words.get_str(base);
-    PyObject* retval = PyLong_FromString(num_words_str.c_str(), NULL, base);
-
-    return retval;
+    return mpz_to_pylong(num_words);
 }
 
 

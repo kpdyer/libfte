@@ -1,5 +1,6 @@
 # libfte
 
+[![Tests](https://github.com/kpdyer/libfte/actions/workflows/test.yml/badge.svg)](https://github.com/kpdyer/libfte/actions/workflows/test.yml)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -42,12 +43,6 @@ pip install -e ".[dev]"
 
 ```bash
 python -m pytest fte/tests/
-```
-
-Or using the legacy test runner:
-
-```bash
-python setup.py test
 ```
 
 ## Example Usage
@@ -121,6 +116,7 @@ Methods:
 - **Breaking**: All string inputs/outputs are now `bytes` instead of `str`
 - Updated to use pycryptodome instead of deprecated pycrypto
 - Modernized C extension for Python 3 C API
+- Optimized GMP bindings with binary integer conversion
 - Added type hints throughout
 - Improved documentation and error messages
 - Added pyproject.toml for modern packaging

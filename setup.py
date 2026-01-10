@@ -74,7 +74,7 @@ fte_cDFA = Extension(
 with open('fte/_version.txt') as fh:
     LIBFTE_RELEASE = fh.read().strip()
 
-with open('README.md', encoding='utf-8') as fh:
+with open('README_PYPI.md', encoding='utf-8') as fh:
     long_description = fh.read()
 
 setup(

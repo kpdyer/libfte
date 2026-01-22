@@ -101,6 +101,8 @@ class DfaEncoderObject:
         Args:
             X: The plaintext bytes to encode.
             seed: Optional 8-byte seed for deterministic encoding.
+                When provided, the same (plaintext, seed, key) combination
+                will always produce the same ciphertext.
             
         Returns:
             The covertext: a bytes string of length fixed_slice followed
@@ -120,7 +122,15 @@ class DfaEncoderObject:
         if seed is not None and len(seed) != 8:
             raise InvalidSeedLength(f'The seed must be 8 bytes, got {len(seed)}')
 
-        ciphertext = self._encrypter.encrypt(X)
+        # For deterministic encoding, derive IV from seed
+        # Otherwise use random IV
+        if seed is not None:
+            # Derive a 7-byte IV from the seed using a simple expansion
+            # XOR parts of the seed to create variety while staying deterministic
+            iv_bytes = bytes([seed[i % 8] ^ seed[(i + 3) % 8] for i in range(7)])
+            ciphertext = self._encrypter.encrypt(X, iv_bytes=iv_bytes)
+        else:
+            ciphertext = self._encrypter.encrypt(X)
 
         maximumBytesToRank = int(math.floor(self.getCapacity() / 8.0))
         unrank_payload_len = (
@@ -137,17 +147,23 @@ class DfaEncoderObject:
         msg_len_header = msg_len_header.rjust(
             DfaEncoderObject._COVERTEXT_HEADER_LEN_PLAINTEXT, b'\x00'
         )
-        random_bytes = seed if seed is not None else fte.bit_ops.random_bytes(8)
-        msg_len_header = random_bytes + msg_len_header
+        header_random = seed if seed is not None else fte.bit_ops.random_bytes(8)
+        msg_len_header = header_random + msg_len_header
         msg_len_header = self._encrypter.encryptOneBlock(msg_len_header)
 
         unrank_payload = msg_len_header + ciphertext[
             :maximumBytesToRank - DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTEXT
         ]
 
-        random_padding_bytes = maximumBytesToRank - len(unrank_payload)
-        if random_padding_bytes > 0:
-            unrank_payload += fte.bit_ops.random_bytes(random_padding_bytes)
+        padding_len = maximumBytesToRank - len(unrank_payload)
+        if padding_len > 0:
+            if seed is not None:
+                # Deterministic padding: derive from seed
+                # Use seed bytes repeated/XORed to fill padding
+                padding = bytes([seed[i % 8] ^ (i & 0xFF) for i in range(padding_len)])
+            else:
+                padding = fte.bit_ops.random_bytes(padding_len)
+            unrank_payload += padding
 
         unrank_payload_int = fte.bit_ops.bytes_to_long(unrank_payload)
 

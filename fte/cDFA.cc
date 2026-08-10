@@ -77,7 +77,14 @@ static bool pylong_to_mpz(PyObject* pylong, mpz_class& result) {
     
     // Export to bytes (big-endian)
     std::vector<unsigned char> buf(nbytes);
+    // CPython 3.13 added a trailing `with_exceptions` argument to
+    // _PyLong_AsByteArray; keep both call shapes so the extension builds
+    // across supported Python versions.
+#if PY_VERSION_HEX >= 0x030D0000
+    if (_PyLong_AsByteArray((PyLongObject*)pylong, buf.data(), nbytes, 0, 0, 1) < 0) {
+#else
     if (_PyLong_AsByteArray((PyLongObject*)pylong, buf.data(), nbytes, 0, 0) < 0) {
+#endif
         return false;
     }
     

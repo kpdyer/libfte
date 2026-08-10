@@ -100,6 +100,72 @@ FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
 export FTE_USE_NATIVE=1
 ```
 
+## Benchmarks
+
+The repository ships with [`benchmark.py`](benchmark.py), a self-contained script
+that measures the two costs that matter in practice:
+
+- **Encoder construction** — the one-time cost of compiling a regex into a DFA.
+- **`encode()` / `decode()`** — the per-message cost, dominated by the DFA
+  rank/unrank over large integers. This scales with `fixed_slice` (the output
+  length), *not* with the plaintext size.
+
+It runs across the built-in formats (binary, hex, alphanumeric, words, URLs) and
+sweeps `fixed_slice` to show how per-message cost scales. It also records the
+**CPU / OS / Python** it ran on (absolute numbers only mean something next to
+the hardware), and when the C++ extension is built it runs **both backends** and
+reports the speed-up. Every timed round-trip is verified, so a clean run also
+serves as a correctness check.
+
+```bash
+# Auto: compares Python vs. native C++ when the extension is built,
+# otherwise runs pure Python only
+python benchmark.py
+
+# Faster run: fewer iterations, skip the fixed_slice sweep
+python benchmark.py --quick
+
+# Force a single backend
+python benchmark.py --backend python
+python benchmark.py --backend native
+```
+
+To enable the Python-vs-C++ comparison, build the native extension first (see
+[Optional: Native Extension](#optional-native-extension)):
+
+```bash
+FTE_BUILD_NATIVE=1 pip install --force-reinstall -e .
+```
+
+Example output (Apple M3 Pro, both backends):
+
+```
+CPU     : Apple M3 Pro
+Cores   : 12 physical / 12 logical
+Arch    : arm64
+OS      : macOS-26.6.1-arm64-arm-64bit-Mach-O
+Python  : 3.14.6 (CPython)
+libfte  : 0.2.1
+
+Per-format encode/decode
+Format         slice bits/ch   py-enc   na-enc  enc x   py-dec   na-dec  dec x   ok
+-----------------------------------------------------------------------------------
+Binary           512    1.00    0.097    0.040   2.4x    0.089    0.036   2.5x  yes
+Hex              256    4.00    0.087    0.032   2.7x    0.063    0.033   1.9x  yes
+URL path         128    4.48    0.151    0.035   4.3x    0.113    0.032   3.5x  yes
+
+Per-message scaling vs. fixed_slice (regex ^[a-z]+$)
+fixed_slice    cap(b)   py-enc   na-enc  enc x   py-dec   na-dec  dec x
+-----------------------------------------------------------------------
+256              1202    0.095    0.038   2.5x    0.065    0.032   2.0x
+1024             4812    0.838    0.106   7.9x    0.388    0.076   5.1x
+2048             9625    2.922    0.242  12.1x    1.159    0.169   6.9x
+```
+
+The native advantage grows with `fixed_slice`, since larger outputs mean larger
+integers where GMP's arithmetic dominates. Use `python benchmark.py --help` for
+all options.
+
 ## API Reference
 
 ### `fte.Encoder`

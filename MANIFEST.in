@@ -3,5 +3,3 @@ include README.md
 include README_PYPI.md
 include BUILDING.md
 include fte/_version.txt
-include fte/*.h
-include fte/*.cc

@@ -2,39 +2,13 @@
 # -*- coding: utf-8 -*-
 """DFA wrapper module for FTE.
 
-This module provides a wrapper around the DFA implementation,
+This module provides a wrapper around the pure Python DFA implementation,
 handling ranking and unranking operations on regular languages.
-
-By default, it uses a pure Python implementation. If the C++ extension
-is available and FTE_USE_NATIVE=1 is set, it will use the faster
-C++ implementation.
 """
 
 import math
-import os
 
-# Try to import C++ extension, fall back to pure Python
-_USE_NATIVE = os.environ.get('FTE_USE_NATIVE', '0') == '1'
-_NATIVE_AVAILABLE = False
-
-if _USE_NATIVE:
-    try:
-        import fte.cDFA as _cDFA_module
-        _NATIVE_AVAILABLE = True
-    except ImportError:
-        _NATIVE_AVAILABLE = False
-
-# Always import pure Python as fallback
 import fte.cDFA_py as _cDFA_py
-
-
-def using_native() -> bool:
-    """Check if the native C++ extension is being used.
-    
-    Returns:
-        True if using C++ extension, False if using pure Python.
-    """
-    return _USE_NATIVE and _NATIVE_AVAILABLE
 
 
 class LanguageIsEmptySetException(Exception):
@@ -54,12 +28,9 @@ class InvalidRegexParametersException(Exception):
 
 class DFA:
     """DFA wrapper for ranking/unranking implementation.
-    
-    Uses pure Python by default. Set environment variable FTE_USE_NATIVE=1
-    to use the C++ extension for better performance (requires GMP library).
-    
+
     Args:
-        cDFA: A DFA object (either C++ or Python implementation).
+        cDFA: A pure Python DFA object.
         fixed_slice: The fixed length for ranking/unranking operations.
         
     Raises:
@@ -130,16 +101,13 @@ class DFA:
 
 
 def create_dfa(dfa_str: str, fixed_slice: int):
-    """Create a DFA object using the appropriate backend.
-    
+    """Create a DFA object.
+
     Args:
         dfa_str: The DFA specification in AT&T FST format.
         fixed_slice: The fixed length for encoded strings.
-        
+
     Returns:
-        A DFA implementation object (C++ or Python).
+        A pure Python DFA implementation object.
     """
-    if using_native():
-        return _cDFA_module.DFA(dfa_str, fixed_slice)
-    else:
-        return _cDFA_py.DFA(dfa_str, fixed_slice)
+    return _cDFA_py.DFA(dfa_str, fixed_slice)

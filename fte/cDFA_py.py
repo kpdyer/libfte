@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 """Pure Python implementation of DFA ranking/unranking.
 
-This module provides a pure Python fallback for the C++ extension,
-implementing the same ranking/unranking algorithm using Python's
-native arbitrary precision integers.
+This module implements the ranking/unranking algorithm using Python's
+built-in arbitrary precision integers.
 
 The algorithm is based on:
 - "Compression and ranking" by Goldberg & Sipser

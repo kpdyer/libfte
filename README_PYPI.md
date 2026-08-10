@@ -45,16 +45,6 @@ plaintext, _ = encoder.decode(ciphertext)
 - **Bypassing filters**: Evade systems that block encrypted-looking content  
 - **Steganography**: Hide data within expected formats
 
-## Performance
-
-For ~3x better performance, enable the optional native extension:
-
-```bash
-sudo apt-get install libgmp-dev  # or: brew install gmp
-FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
-export FTE_USE_NATIVE=1
-```
-
 ## Documentation
 
 Full docs and examples: [github.com/kpdyer/libfte](https://github.com/kpdyer/libfte)

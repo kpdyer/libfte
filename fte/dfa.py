@@ -150,21 +150,53 @@ class DFA:
     def _build_table(self) -> None:
         """Build T[q][i] = number of accepting paths of length i from state q."""
         num_states = len(self._states)
-        num_symbols = len(self._symbols)
 
         # Initialize T to zeros
         self._T = [[0] * (self._fixed_slice + 1) for _ in range(num_states)]
 
         # Base case: T[q][0] = 1 if q is a final state
+        prev_col = [0] * num_states
         for q in self._final_states:
             self._T[q][0] = 1
+            prev_col[q] = 1
 
-        # Fill table: T[q][i] = sum over all symbols a of T[delta[q][a]][i-1]
+        # Collapse each state's transitions into (next_state, count) pairs and
+        # split states by how many distinct destinations they have. Most states
+        # send *every* symbol to a single destination (e.g. every letter in
+        # ``[a-z]`` leads to the same next state), so those reduce to one
+        # ``count * T[next_state]`` multiply -- replacing a run of identical
+        # big-integer additions. Partitioning up front keeps that common
+        # single-destination path free of any per-state branching.
+        single = []   # (q, next_state, count)
+        multi = []    # (q, [(next_state, count), ...])
+        for q in range(num_states):
+            counts: Dict[int, int] = {}
+            for next_state in self._delta[q]:
+                counts[next_state] = counts.get(next_state, 0) + 1
+            if len(counts) == 1:
+                (next_state, count), = counts.items()
+                single.append((q, next_state, count))
+            else:
+                multi.append((q, list(counts.items())))
+
+        # Fill the table column by column: T[q][i] = sum over symbols a of
+        # T[delta[q][a]][i-1].
+        T = self._T
         for i in range(1, self._fixed_slice + 1):
-            for q in range(len(self._delta)):
-                for a in range(num_symbols):
-                    next_state = self._delta[q][a]
-                    self._T[q][i] += self._T[next_state][i - 1]
+            cur_col = [0] * num_states
+            for q, next_state, count in single:
+                v = count * prev_col[next_state]
+                cur_col[q] = v
+                T[q][i] = v
+            for q, items in multi:
+                total = 0
+                for next_state, count in items:
+                    v = prev_col[next_state]
+                    if v:
+                        total += count * v if count > 1 else v
+                cur_col[q] = total
+                T[q][i] = total
+            prev_col = cur_col
 
     def rank(self, X: bytes) -> int:
         """Return the lexicographic rank of string ``X`` in the language.

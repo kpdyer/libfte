@@ -84,22 +84,6 @@ plaintext, _ = fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=128)
 
 See the [`examples/`](examples/) directory for more use cases.
 
-## Optional: Native Extension
-
-For ~3x better performance, install GMP and enable the native extension:
-
-```bash
-# Install GMP
-sudo apt-get install libgmp-dev  # Ubuntu/Debian
-brew install gmp                  # macOS
-
-# Rebuild with native extension
-FTE_BUILD_NATIVE=1 pip install --force-reinstall fte
-
-# Enable at runtime
-export FTE_USE_NATIVE=1
-```
-
 ## API Reference
 
 ### `fte.Encoder`
@@ -130,13 +114,6 @@ fte.Encoder(regex: str, fixed_slice: int, key: bytes = None)
 fte.encode(plaintext, regex='^[a-z]+$', fixed_slice=256, key=None)
 fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=256, key=None)
 ```
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `FTE_USE_NATIVE=1` | Use C++ extension at runtime |
-| `FTE_BUILD_NATIVE=1` | Build C++ extension during install |
 
 ## How It Works
 

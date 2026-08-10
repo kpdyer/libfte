@@ -11,8 +11,7 @@ import math
 
 import fte.conf
 import fte.bit_ops
-import fte.dfa
-from fte.dfa import create_dfa
+from fte.dfa import DFA
 import fte.encrypter
 
 
@@ -82,8 +81,7 @@ class DfaEncoderObject:
             K2: Optional 16-byte MAC key.
         """
         self._fixed_slice = fixed_slice
-        cDFA = create_dfa(dfa, fixed_slice)
-        self._dfa = fte.dfa.DFA(cDFA, self._fixed_slice)
+        self._dfa = DFA(dfa, self._fixed_slice)
         self._encrypter = fte.encrypter.Encrypter(K1, K2)
 
     def getCapacity(self) -> int:
@@ -93,7 +91,7 @@ class DfaEncoderObject:
             The floor of log2 of the cardinality of strings of length
             fixed_slice in the language.
         """
-        return self._dfa._capacity
+        return self._dfa.capacity
 
     def encode(self, X: bytes, seed: bytes = None) -> bytes:
         """Encode plaintext as a string matching the DFA's language.

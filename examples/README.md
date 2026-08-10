@@ -20,7 +20,6 @@ pip install fte
 | `06_capacity_calculation.py` | Understanding language capacity |
 | `07_deterministic_encoding.py` | Reproducible encoding with seeds |
 | `08_large_messages.py` | Handling overflow for large data |
-| `09_performance_comparison.py` | Benchmarking pure Python vs native |
 | `10_error_handling.py` | Proper exception handling |
 | `11_multiple_messages.py` | Encoding/decoding message streams |
 | `12_convenience_functions.py` | One-liner encode/decode |

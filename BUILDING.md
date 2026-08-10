@@ -1,21 +1,13 @@
 # libfte Build Instructions
 
+libfte is a pure Python package. There is nothing to compile and no system
+libraries are required.
+
 ## Requirements
 
 - Python 3.8 or later
-- GMP library (for arbitrary precision arithmetic)
-- C++ compiler (g++ or clang++)
 
-## Ubuntu/Debian
-
-Install the required system packages:
-
-```bash
-sudo apt-get update
-sudo apt-get install python3-dev python3-pip libgmp-dev git build-essential
-```
-
-Clone and install libfte:
+## Install
 
 ```bash
 git clone https://github.com/kpdyer/libfte.git
@@ -23,75 +15,41 @@ cd libfte
 pip install .
 ```
 
-For development:
+For development (tests, coverage, linting):
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-## macOS
-
-Install Homebrew if you don't have it:
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Install dependencies:
-
-```bash
-brew install python gmp git
-```
-
-Clone and install libfte:
-
-```bash
-git clone https://github.com/kpdyer/libfte.git
-cd libfte
-pip3 install .
-```
-
-For development:
-
-```bash
-pip3 install -e ".[dev]"
-```
-
-## Windows
-
-Building on Windows requires:
-
-1. Python 3.8+ from python.org
-2. Visual Studio Build Tools (C++ workload)
-3. MPIR library (Windows-compatible GMP alternative)
-
-See the [libfte-builder](https://github.com/kpdyer/libfte-builder) repository for detailed Windows build instructions.
-
 ## Verification
 
-After installation, verify the build:
+Run the test suite:
 
 ```bash
-python -m pytest fte/tests/ -v
+pytest fte/tests/ -v
 ```
 
-Or run the example:
+Or try an example:
 
 ```bash
-python examples/example1.py
+python examples/01_basic_usage.py
 ```
 
 ## Development
 
-For development work:
-
 ```bash
-# Install with development dependencies
-pip install -e ".[dev]"
-
 # Run tests with coverage
 pytest fte/tests/ -v --cov=fte
 
 # Run linting
 flake8 fte/
 ```
+
+## Building distributions
+
+```bash
+pip install build
+python -m build
+```
+
+This produces a source distribution and a pure Python wheel in `dist/`.

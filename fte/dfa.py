@@ -179,34 +179,37 @@ class DFA:
             InvalidRankInput: If ``X`` has the wrong length or is not in the
                 language.
         """
-        if len(X) != self._fixed_slice:
+        n = len(X)
+        if n != self._fixed_slice:
             raise InvalidRankInput(
-                f"Input length {len(X)} != fixed_slice {self._fixed_slice}"
+                f"Input length {n} != fixed_slice {self._fixed_slice}"
             )
+
+        # Hoist attribute lookups out of the hot loop.
+        T = self._T
+        delta = self._delta
+        dense = self._delta_dense
+        sigma_reverse = self._sigma_reverse
 
         c = 0
         q = self._start_state
-        n = len(X)
 
-        for i in range(1, n + 1):
-            byte_val = X[i - 1]
-
-            if byte_val not in self._sigma_reverse:
+        for pos, byte_val in enumerate(X):
+            symbol_idx = sigma_reverse.get(byte_val)
+            if symbol_idx is None:
                 raise InvalidRankInput(f"Symbol {byte_val} not in alphabet")
 
-            symbol_idx = self._sigma_reverse[byte_val]
-
-            if self._delta_dense[q]:
-                # Optimized: all transitions from q go to same state
-                state = self._delta[q][0]
-                c += self._T[state][n - i] * symbol_idx
+            col = n - 1 - pos
+            row = delta[q]
+            if dense[q]:
+                # All transitions from q go to the same state.
+                c += T[row[0]][col] * symbol_idx
             else:
-                # Standard Goldberg-Sipser ranking
+                # Standard Goldberg-Sipser ranking.
                 for j in range(symbol_idx):
-                    state = self._delta[q][j]
-                    c += self._T[state][n - i]
+                    c += T[row[j]][col]
 
-            q = self._delta[q][symbol_idx]
+            q = row[symbol_idx]
 
         # Verify we ended in a final state
         if q not in self._final_states:
@@ -228,38 +231,46 @@ class DFA:
         Raises:
             InvalidUnrankInput: If ``c`` is out of range.
         """
-        words_in_slice = self.num_words_in_language(self._fixed_slice, self._fixed_slice)
-
-        if c < 0 or c >= words_in_slice:
+        if c < 0 or c >= self._words_in_slice:
             raise InvalidUnrankInput(
-                f"Rank {c} out of range [0, {words_in_slice})"
+                f"Rank {c} out of range [0, {self._words_in_slice})"
             )
+
+        # Hoist attribute lookups out of the hot loop.
+        T = self._T
+        delta = self._delta
+        dense = self._delta_dense
+        sigma = self._sigma
 
         result = bytearray()
         q = self._start_state
 
-        for i in range(1, self._fixed_slice + 1):
-            if self._delta_dense[q]:
-                # Optimized: all transitions from q go to same state
-                state = self._delta[q][0]
-                divisor = self._T[state][self._fixed_slice - i]
+        for col in range(self._fixed_slice - 1, -1, -1):
+            row = delta[q]
+            if dense[q]:
+                # All transitions from q go to the same state.
+                state = row[0]
+                divisor = T[state][col]
                 if divisor > 0:
-                    char_idx = c // divisor
-                    c = c % divisor
+                    char_idx, c = divmod(c, divisor)
                 else:
                     char_idx = 0
             else:
-                # Standard Goldberg-Sipser unranking
+                # Standard Goldberg-Sipser unranking; cache T[state][col] so it
+                # is read once per step instead of twice.
                 char_idx = 0
-                state = self._delta[q][char_idx]
-
-                while c >= self._T[state][self._fixed_slice - i]:
-                    c -= self._T[state][self._fixed_slice - i]
+                state = row[0]
+                count = T[state][col]
+                while c >= count:
+                    c -= count
                     char_idx += 1
-                    state = self._delta[q][char_idx]
+                    state = row[char_idx]
+                    count = T[state][col]
 
-            result.append(self._sigma[char_idx])
-            q = self._delta[q][char_idx] if not self._delta_dense[q] else state
+            result.append(sigma[char_idx])
+            # In both branches `state` is delta[q][char_idx] (they are all equal
+            # for a dense state), so it is the next state.
+            q = state
 
         # Verify we ended in a final state
         if q not in self._final_states:

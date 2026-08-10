@@ -152,6 +152,48 @@ The capacity depends on your regex—more symbols means more bits per character:
 | Hex | `^[0-9a-f]+$` | 4.0 |
 | Alphanumeric | `^[A-Za-z0-9]+$` | 5.95 |
 
+## Benchmarks
+
+The repository ships with [`benchmark.py`](benchmark.py), a self-contained
+script that measures the two costs that matter in practice:
+
+- **Encoder construction** — the one-time cost of compiling a regex into a DFA
+  and pre-computing the ranking tables.
+- **`encode()` / `decode()`** — the per-message cost, dominated by the DFA
+  rank/unrank over large integers. This scales with `fixed_slice` (the output
+  length), *not* with the plaintext size.
+
+It runs across the built-in formats (binary, hex, alphanumeric, words, URLs),
+sweeps `fixed_slice` to show how per-message cost scales, and records the CPU /
+OS / Python it ran on. Every timed round-trip is verified, so a clean run also
+serves as a correctness check.
+
+```bash
+python benchmark.py            # full run
+python benchmark.py --quick    # fewer iterations, skip the fixed_slice sweep
+```
+
+Example output (Apple M3 Pro):
+
+```
+Per-format performance
+Format          slice  cap(bits)  bits/char   build(ms)  encode(ms)  decode(ms)
+-------------------------------------------------------------------------------
+Binary            512        511       1.00       0.24        0.098       0.087
+Hex               256       1023       4.00       0.68        0.087       0.061
+Alphanumeric      192       1142       5.95       1.79        0.076       0.053
+
+Per-message scaling vs. fixed_slice (regex ^[a-z]+$)
+fixed_slice    cap(bits)  encode(ms)  decode(ms)
+------------------------------------------------
+256                 1202       0.095       0.059
+2048                9625       3.076       1.198
+```
+
+Per-message cost grows super-linearly with `fixed_slice`, since larger outputs
+mean larger integers in the rank/unrank arithmetic. Use
+`python benchmark.py --help` for all options.
+
 ## References
 
 [1] [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf)

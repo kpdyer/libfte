@@ -153,18 +153,33 @@ class DFA:
         num_symbols = len(self._symbols)
 
         # Initialize T to zeros
-        self._T = [[0] * (self._fixed_slice + 1) for _ in range(num_states)]
+        T = [[0] * (self._fixed_slice + 1) for _ in range(num_states)]
 
         # Base case: T[q][0] = 1 if q is a final state
         for q in self._final_states:
-            self._T[q][0] = 1
+            T[q][0] = 1
 
-        # Fill table: T[q][i] = sum over all symbols a of T[delta[q][a]][i-1]
+        # Fill table: T[q][i] = sum over all symbols a of T[delta[q][a]][i-1].
+        # When a state is "dense" (every symbol transitions to the same state)
+        # that sum is just num_symbols copies of one term, so a single multiply
+        # replaces num_symbols big-integer additions. Single-alphabet regexes
+        # like ^[a-z]+$ or ^[A-Za-z0-9]+$ are entirely dense, which is where the
+        # counting table (and therefore encoder construction) spends its time.
+        delta = self._delta
+        dense = self._delta_dense
         for i in range(1, self._fixed_slice + 1):
-            for q in range(len(self._delta)):
-                for a in range(num_symbols):
-                    next_state = self._delta[q][a]
-                    self._T[q][i] += self._T[next_state][i - 1]
+            prev = i - 1
+            for q in range(num_states):
+                row = delta[q]
+                if dense[q]:
+                    T[q][i] = num_symbols * T[row[0]][prev]
+                else:
+                    total = 0
+                    for a in range(num_symbols):
+                        total += T[row[a]][prev]
+                    T[q][i] = total
+
+        self._T = T
 
     def rank(self, X: bytes) -> int:
         """Return the lexicographic rank of string ``X`` in the language.

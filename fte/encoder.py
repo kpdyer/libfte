@@ -84,6 +84,11 @@ class DfaEncoderObject:
         self._dfa = DFA(dfa, self._fixed_slice)
         self._encrypter = fte.encrypter.Encrypter(K1, K2)
 
+        # Capacity is fixed for the life of the encoder, so the number of
+        # bytes we can rank is constant; compute it once here instead of on
+        # every encode()/decode() call.
+        self._maximumBytesToRank = int(math.floor(self.getCapacity() / 8.0))
+
     def getCapacity(self) -> int:
         """Get the capacity of the language in bits.
         
@@ -130,7 +135,7 @@ class DfaEncoderObject:
         else:
             ciphertext = self._encrypter.encrypt(X)
 
-        maximumBytesToRank = int(math.floor(self.getCapacity() / 8.0))
+        maximumBytesToRank = self._maximumBytesToRank
         unrank_payload_len = (
             maximumBytesToRank - DfaEncoderObject._COVERTEXT_HEADER_LEN_CIPHERTEXT
         )
@@ -196,7 +201,7 @@ class DfaEncoderObject:
                 "Covertext is shorter than fixed_slice, can't decode."
             )
 
-        maximumBytesToRank = int(math.floor(self.getCapacity() / 8.0))
+        maximumBytesToRank = self._maximumBytesToRank
 
         rank_payload = self._dfa.rank(covertext[:self._fixed_slice])
         X = fte.bit_ops.long_to_bytes(rank_payload)

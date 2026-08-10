@@ -216,35 +216,56 @@ class DFA:
                 f"Input length {len(X)} != fixed_slice {self._fixed_slice}"
             )
 
-        c = 0
         q = self._start_state
         n = len(X)
+
+        # Hoist attribute lookups out of the per-character loop.
+        T = self._T
+        delta = self._delta
+        dense = self._delta_dense
+        sigma_reverse = self._sigma_reverse
+
+        # Collect each position's contribution, then sum them smallest-first.
+        # Earlier positions carry far larger weights than later ones, so adding
+        # them big-first (as a running ``c += ...`` does) forces every addition
+        # to full width. Deferring the sum lets us add the small tail first and
+        # keep the running total narrow for most of the additions. The inner
+        # non-dense loop also accumulates into a small local before appending,
+        # instead of repeatedly widening the grand total.
+        terms = []
+        append = terms.append
 
         for i in range(1, n + 1):
             byte_val = X[i - 1]
 
-            if byte_val not in self._sigma_reverse:
+            symbol_idx = sigma_reverse.get(byte_val, -1)
+            if symbol_idx < 0:
                 raise InvalidRankInput(f"Symbol {byte_val} not in alphabet")
 
-            symbol_idx = self._sigma_reverse[byte_val]
+            delta_q = delta[q]
+            col = n - i
 
-            if self._delta_dense[q]:
+            if dense[q]:
                 # Optimized: all transitions from q go to same state
-                state = self._delta[q][0]
-                c += self._T[state][n - i] * symbol_idx
+                if symbol_idx:
+                    append(T[delta_q[0]][col] * symbol_idx)
             else:
                 # Standard Goldberg-Sipser ranking
+                s = 0
                 for j in range(symbol_idx):
-                    state = self._delta[q][j]
-                    c += self._T[state][n - i]
+                    s += T[delta_q[j]][col]
+                if s:
+                    append(s)
 
-            q = self._delta[q][symbol_idx]
+            q = delta_q[symbol_idx]
 
         # Verify we ended in a final state
         if q not in self._final_states:
             raise InvalidRankInput("String does not end in accepting state")
 
-        return c
+        # ``terms`` runs from largest weight (position 1) to smallest; summing
+        # the reversed sequence adds smallest-first.
+        return sum(reversed(terms))
 
     def unrank(self, c: int) -> bytes:
         """Return the string at lexicographic rank ``c`` in the language.
@@ -260,7 +281,7 @@ class DFA:
         Raises:
             InvalidUnrankInput: If ``c`` is out of range.
         """
-        words_in_slice = self.num_words_in_language(self._fixed_slice, self._fixed_slice)
+        words_in_slice = self._words_in_slice
 
         if c < 0 or c >= words_in_slice:
             raise InvalidUnrankInput(
@@ -269,29 +290,42 @@ class DFA:
 
         result = bytearray()
         q = self._start_state
+        fixed_slice = self._fixed_slice
 
-        for i in range(1, self._fixed_slice + 1):
-            if self._delta_dense[q]:
+        # Hoist attribute lookups out of the per-character loop.
+        T = self._T
+        delta = self._delta
+        dense = self._delta_dense
+        sigma = self._sigma
+
+        for i in range(1, fixed_slice + 1):
+            delta_q = delta[q]
+            col = fixed_slice - i
+
+            if dense[q]:
                 # Optimized: all transitions from q go to same state
-                state = self._delta[q][0]
-                divisor = self._T[state][self._fixed_slice - i]
-                if divisor > 0:
-                    char_idx = c // divisor
-                    c = c % divisor
+                state = delta_q[0]
+                divisor = T[state][col]
+                if divisor:
+                    # divmod computes quotient and remainder in one division.
+                    char_idx, c = divmod(c, divisor)
                 else:
                     char_idx = 0
             else:
                 # Standard Goldberg-Sipser unranking
                 char_idx = 0
-                state = self._delta[q][char_idx]
-
-                while c >= self._T[state][self._fixed_slice - i]:
-                    c -= self._T[state][self._fixed_slice - i]
+                state = delta_q[0]
+                threshold = T[state][col]
+                while c >= threshold:
+                    c -= threshold
                     char_idx += 1
-                    state = self._delta[q][char_idx]
+                    state = delta_q[char_idx]
+                    threshold = T[state][col]
 
-            result.append(self._sigma[char_idx])
-            q = self._delta[q][char_idx] if not self._delta_dense[q] else state
+            result.append(sigma[char_idx])
+            # In both branches ``state`` is delta[q][char_idx], so it is the
+            # next state regardless of density.
+            q = state
 
         # Verify we ended in a final state
         if q not in self._final_states:

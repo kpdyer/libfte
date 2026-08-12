@@ -5,7 +5,7 @@ libraries are required.
 
 ## Requirements
 
-- Python 3.8 or later
+- Python 3.10 or later
 
 ## Install
 

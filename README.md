@@ -16,6 +16,15 @@ This is useful for:
 
 Based on the paper [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
 
+> **One engine.** libfte encrypts through a single path: `fte.FTE` over a
+> `RankedFormat` provider. `fte.RegexFormat` is the built-in regex provider, and
+> `fte.Encoder` / `fte.encode` / `fte.decode` are thin regex convenience
+> wrappers over it — all of them interoperate. Supply your own `RankedFormat` to
+> target any other covertext format.
+>
+> The wire format changed in this release and is **not** compatible with the
+> `Encoder` in libfte 0.3.x and earlier.
+
 ## Installation
 
 ```bash
@@ -132,7 +141,7 @@ See the [`examples/`](examples/) directory for more use cases.
 
 ### `fte.Encoder`
 
-The main class for FTE encoding/decoding.
+A regex convenience wrapper over [`fte.FTE`](#ftefte) + `fte.RegexFormat` — the same engine, fully interoperable. Use it for the classic `(regex, fixed_slice)` ergonomics and stream-style `(plaintext, remainder)` decoding.
 
 ```python
 fte.Encoder(regex: str, fixed_slice: int, key: bytes = None)

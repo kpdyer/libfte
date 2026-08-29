@@ -188,6 +188,14 @@ A finite provider may additionally implement `FiniteRankedFormat` by exposing
 an exact positive `cardinality`; libfte then performs capacity checks before
 encryption.
 
+libfte's built-in regex provider implements the same protocol:
+
+```python
+fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
+encoder = fte.FTE(format=fmt, key=key)
+covertext: bytes = encoder.encode(b"secret")
+```
+
 ### Convenience Functions
 
 ```python

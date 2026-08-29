@@ -6,12 +6,14 @@ This example shows how to make ciphertext look like hex data,
 which might blend in with log files or debugging output.
 """
 
+import os
+
 import fte
 
 
 def main():
     # Create encoder for hex output
-    encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128)
+    encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128, key=os.urandom(32))
     
     plaintext = b'Secret message'
     ciphertext = encoder.encode(plaintext)

@@ -6,13 +6,16 @@ Shows the exceptions the regex Encoder and the FTE engine raise, and how to
 handle each one.
 """
 
+import os
+
 import fte
 
 
 def main():
     print("=== Error Handling ===\n")
 
-    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128)
+    key = os.urandom(32)
+    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=key)
 
     # 1. Invalid input type
     print("1. Invalid input type:")
@@ -45,7 +48,7 @@ def main():
     # 5. Message too large for the fixed-length format
     print("\n5. Insufficient capacity:")
     try:
-        tiny = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=8)
+        tiny = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=8, key=key)
         tiny.encode(b'x' * 100)
     except fte.FormatCapacityError as e:
         print(f"   Caught FormatCapacityError: {e}")
@@ -53,7 +56,7 @@ def main():
     # 6. Regex with no words of the requested length
     print("\n6. Empty language for (pattern, length):")
     try:
-        fte.Encoder(regex='^(ab)+$', fixed_slice=5)
+        fte.Encoder(regex='^(ab)+$', fixed_slice=5, key=key)
     except ValueError as e:
         print(f"   Caught ValueError: {e}")
 

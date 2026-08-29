@@ -35,60 +35,54 @@ Works out of the box with pure Python—no compilation required.
 
 ## Quick Example
 
-Encrypt a secret message so the ciphertext looks like words:
+Encrypt a secret so the ciphertext looks like words:
 
 ```python
+import os
 import fte
 
-# Create encoder: output will be lowercase "words" with spaces
-encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80)
+key = os.urandom(32)  # 32-byte key, shared by both endpoints
+encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80, key=key)
 
-# Encrypt
 ciphertext = encoder.encode(b'Attack at dawn')
 print(ciphertext.decode())
 # → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
 
-# Decrypt
 plaintext, _ = encoder.decode(ciphertext)
 # → b'Attack at dawn'
 ```
 
-The ciphertext looks like random text, but contains your encrypted message.
+The ciphertext looks like random text but contains your encrypted message.
 
 ## More Examples
 
-### URL Paths
-Make ciphertext look like website URLs:
+The snippets below reuse a shared 32-byte `key = os.urandom(32)`.
 
+### URL paths
 ```python
-encoder = fte.Encoder(regex=r'^/[a-z]+/[a-z]+\.html$', fixed_slice=64)
-ciphertext = encoder.encode(b'secret')
+encoder = fte.Encoder(regex=r'^/[a-z]+/[a-z]+\.html$', fixed_slice=64, key=key)
+encoder.encode(b'secret')
 # → "/hsdxanghqvdhb/pvzvdsrpnjktdhnewdfhehaftajibecrluewdyrbekwh.html"
 ```
 
-### URL Slugs
-Make ciphertext look like hyphenated slugs:
-
+### URL slugs
 ```python
-encoder = fte.Encoder(regex=r'^[a-z]+-[a-z]+-[a-z]+$', fixed_slice=48)
-ciphertext = encoder.encode(b'secret')
+encoder = fte.Encoder(regex=r'^[a-z]+-[a-z]+-[a-z]+$', fixed_slice=48, key=key)
+encoder.encode(b'secret')
 # → "dxosmywnpyjuarsfvcado-o-smdsyvovfnnsgzhzelpujnya"
 ```
 
-### Alphanumeric Tokens
-Make ciphertext look like API keys or session tokens:
-
+### Alphanumeric tokens
 ```python
-encoder = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64)
-ciphertext = encoder.encode(b'secret')
+encoder = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64, key=key)
+encoder.encode(b'secret')
 # → "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
 ```
 
-### One-liner Convenience Functions
-
+### One-liner convenience functions
 ```python
-ciphertext = fte.encode(b'secret', regex='^[a-z]+$', fixed_slice=128)
-plaintext, _ = fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=128)
+ciphertext = fte.encode(b'secret', regex='^[a-z]+$', fixed_slice=128, key=key)
+plaintext, _ = fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=128, key=key)
 ```
 
 ### Ranked-Format Providers
@@ -144,14 +138,14 @@ See the [`examples/`](examples/) directory for more use cases.
 A regex convenience wrapper over [`fte.FTE`](#ftefte) + `fte.RegexFormat` — the same engine, fully interoperable. Use it for the classic `(regex, fixed_slice)` ergonomics and stream-style `(plaintext, remainder)` decoding.
 
 ```python
-fte.Encoder(regex: str, fixed_slice: int, key: bytes = None)
+fte.Encoder(regex: str, fixed_slice: int, key: bytes)
 ```
 
 | Parameter | Description |
 |-----------|-------------|
 | `regex` | Regular expression defining output format |
-| `fixed_slice` | Length of formatted output |
-| `key` | Optional 32-byte key (random if not provided) |
+| `fixed_slice` | Byte length of formatted output |
+| `key` | 32-byte key (16 encryption + 16 MAC), required |
 
 **Methods:**
 
@@ -208,8 +202,8 @@ covertext: bytes = encoder.encode(b"secret")
 ### Convenience Functions
 
 ```python
-fte.encode(plaintext, regex='^[a-z]+$', fixed_slice=256, key=None)
-fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=256, key=None)
+fte.encode(plaintext, regex='^[a-z]+$', fixed_slice=256, *, key)
+fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=256, *, key)
 ```
 
 ## How It Works

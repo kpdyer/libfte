@@ -53,6 +53,9 @@ SLICE_SWEEP_VALUES = [128, 256, 512, 1024, 2048]
 # with fixed_slice (the output length), not with the plaintext size.
 SAMPLE_PAYLOAD = b"benchmark payload."
 
+# Fixed key -- its value does not affect timing.
+BENCH_KEY = bytes(range(32))
+
 
 # --------------------------------------------------------------------------- #
 # Hardware / environment detection                                            #
@@ -114,7 +117,7 @@ def _bench_build(regex, fixed_slice, iterations):
     """Median time to construct an Encoder (regex -> DFA -> counting table)."""
     def build():
         _clear_encoder_cache()
-        fte.Encoder(regex=regex, fixed_slice=fixed_slice)
+        fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=BENCH_KEY)
     return _median_ms(build, iterations)
 
 
@@ -122,7 +125,7 @@ def _bench_format(label, regex, fixed_slice, payload, iterations, warmup):
     """Benchmark one encoder: build, encode, decode, and verify the round-trip."""
     build_ms = _bench_build(regex, fixed_slice, max(3, iterations // 5))
 
-    encoder = fte.Encoder(regex=regex, fixed_slice=fixed_slice)
+    encoder = fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=BENCH_KEY)
 
     # Correctness: the whole benchmark is meaningless if the round-trip is wrong.
     recovered, _ = encoder.decode(encoder.encode(payload))

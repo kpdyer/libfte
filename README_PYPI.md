@@ -30,17 +30,16 @@ Works out of the box with pure Python—no compilation required.
 Encrypt a secret so the ciphertext looks like words:
 
 ```python
+import os
 import fte
 
-# Create encoder: output will be lowercase "words" with spaces
-encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80)
+key = os.urandom(32)  # 32-byte key, shared by both endpoints
+encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80, key=key)
 
-# Encrypt
 ciphertext = encoder.encode(b'Attack at dawn')
 print(ciphertext.decode())
 # → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
 
-# Decrypt
 plaintext, _ = encoder.decode(ciphertext)
 # → b'Attack at dawn'
 ```

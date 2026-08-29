@@ -54,7 +54,7 @@ class LowerHex:
         if not value:
             raise ValueError("not canonical lowercase hex")
         index = int(value, 16)
-        if format(index, "x") != value:
+        if index < 0 or format(index, "x") != value:
             raise ValueError("not canonical lowercase hex")
         return index
 
@@ -88,6 +88,12 @@ over unused rank capacity when a finite provider is much larger than the
 message requires. Applications needing length hiding or a target distribution
 must add an appropriate fixed-size record/padding layer before `FTE.encode`.
 
+`FTE.decode` is not constant-time: it rejects malformed framing, length, and
+padding before verifying the authentication tag, so rejection latency depends on
+why a value was rejected. This is safe under FTE's threat model, where an
+on-path observer sees covertext but has no decode oracle. Do not expose `decode`
+directly as a remote timing oracle to untrusted callers.
+
 ## Built-in regex provider
 
 The regex implementation uses exactly the same extension point:
@@ -95,8 +101,8 @@ The regex implementation uses exactly the same extension point:
 ```python
 from fte import FTE, RegexFormat
 
-format = RegexFormat(r"^[0-9a-f]+$", length=96)
-codec = FTE(format=format, key=shared_32_byte_key)
+fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
+codec = FTE(format=fmt, key=shared_32_byte_key)
 
 covertext: bytes = codec.encode(b"hello")
 assert codec.decode(covertext) == b"hello"
@@ -104,7 +110,8 @@ assert codec.decode(covertext) == b"hello"
 
 `RegexFormat.cardinality` is the exact number of fixed-length values. Encoding
 raises `FormatCapacityError` when that finite rank space cannot contain the
-complete encrypted message.
+complete encrypted message. Construction raises `ValueError` if `pattern` is not
+a valid regular expression or has no words of exactly `length` bytes.
 
 ## Provider checklist
 

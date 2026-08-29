@@ -9,7 +9,12 @@
 
 ## What is FTE?
 
-Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify with a regular expression—hex strings, alphanumeric tokens, or any regex-expressible pattern.
+Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—via a regular expression, or any third-party `RankedFormat` provider—so it can look like hex strings, alphanumeric tokens, any regex-expressible pattern, or a custom format of your own.
+
+> **Two APIs, one library.** `fte.FTE` + a `RankedFormat` provider (e.g.
+> `fte.RegexFormat`) is the generic, pluggable API—prefer it for new code.
+> `fte.Encoder` is the original regex-only API, kept for backward compatibility.
+> The two use different wire formats and are not interoperable.
 
 ## Installation
 

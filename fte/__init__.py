@@ -6,12 +6,19 @@ or a third-party ranked format.
 
 Example usage:
     >>> import fte
-    >>> 
+    >>>
+    >>> # Generic ranked-format API (preferred for new code):
+    >>> codec = fte.FTE(
+    ...     format=fte.RegexFormat('^[a-z]+$', length=128),
+    ...     key=bytes(range(32)),
+    ... )
+    >>> covertext = codec.encode(b'secret message')
+    >>> assert codec.decode(covertext) == b'secret message'
+    >>>
+    >>> # Legacy regex-only API (kept for backward compatibility):
     >>> encoder = fte.Encoder('^[a-z]+$', 128)
     >>> ciphertext = encoder.encode(b'secret message')
     >>> plaintext, _ = encoder.decode(ciphertext)
-    >>> 
-    >>> assert plaintext == b'secret message'
 
 See the paper "Protocol Misidentification Made Easy with Format-Transforming
 Encryption" for details: https://kpdyer.com/publications/ccs2013-fte.pdf
@@ -59,11 +66,17 @@ __all__ = [
 
 
 class Encoder:
-    """Format-Transforming Encryption encoder.
-    
-    This is the main interface for FTE. It encrypts data and formats the
-    ciphertext to match a specified regular expression.
-    
+    """Legacy regex-only FTE encoder (kept for backward compatibility).
+
+    New code should prefer ``fte.FTE`` with ``fte.RegexFormat`` (the generic
+    ranked-format API). ``Encoder`` uses a different, fixed-slice wire format
+    and is NOT interoperable with ``fte.FTE``: a covertext produced by one
+    cannot be decoded by the other. ``Encoder`` remains supported for existing
+    deployments.
+
+    Encrypts data and formats the ciphertext to match a specified regular
+    expression.
+
     Args:
         regex: A regular expression defining the output format.
             Examples: '^[a-z]+$', '^[0-9a-f]+$', '^[A-Za-z0-9]+$'
@@ -139,8 +152,12 @@ def encode(
     fixed_slice: int = 256,
     key: Optional[bytes] = None
 ) -> bytes:
-    """Encode plaintext using FTE (convenience function).
-    
+    """Encode plaintext using the legacy regex Encoder (convenience function).
+
+    New code should prefer ``fte.FTE`` with ``fte.RegexFormat``. This wrapper
+    is kept for backward compatibility and is not wire-compatible with
+    ``fte.FTE``.
+
     Args:
         plaintext: The data to encrypt.
         regex: Output format as a regular expression.
@@ -165,8 +182,12 @@ def decode(
     fixed_slice: int = 256,
     key: Optional[bytes] = None
 ) -> Tuple[bytes, bytes]:
-    """Decode ciphertext using FTE (convenience function).
-    
+    """Decode ciphertext using the legacy regex Encoder (convenience function).
+
+    New code should prefer ``fte.FTE`` with ``fte.RegexFormat``. This wrapper
+    is kept for backward compatibility and is not wire-compatible with
+    ``fte.FTE``.
+
     Args:
         ciphertext: The formatted ciphertext.
         regex: The regex used for encoding (must match).

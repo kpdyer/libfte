@@ -1,5 +1,6 @@
 """Tests for the neutral third-party ranked-format API."""
 
+import os
 import unittest
 
 import fte
@@ -210,6 +211,30 @@ class Tests(unittest.TestCase):
 
         with self.assertRaises(AttributeError):
             encoder.format = HexFormat()
+
+    def test_roundtrip_over_varied_sizes(self):
+        encoder = fte.FTE(format=HexFormat(), key=KEY, max_plaintext_bytes=2048)
+
+        for length in list(range(0, 260)) + [512, 1024, 2048]:
+            plaintext = os.urandom(length)
+            self.assertEqual(encoder.decode(encoder.encode(plaintext)), plaintext)
+
+    def test_cross_endpoint_roundtrip(self):
+        # Two independently constructed instances must interoperate: the wire
+        # format is a contract between separate sender and receiver processes.
+        sender = fte.FTE(format=HexFormat(), key=KEY)
+        receiver = fte.FTE(format=HexFormat(), key=KEY)
+
+        for plaintext in (b"", b"x", b"hello", os.urandom(64)):
+            self.assertEqual(receiver.decode(sender.encode(plaintext)), plaintext)
+
+    def test_max_plaintext_bytes_zero_allows_only_empty(self):
+        encoder = fte.FTE(format=HexFormat(), key=KEY, max_plaintext_bytes=0)
+
+        self.assertEqual(encoder.max_plaintext_bytes, 0)
+        self.assertEqual(encoder.decode(encoder.encode(b"")), b"")
+        with self.assertRaises(fte.MessageTooLargeError):
+            encoder.encode(b"x")
 
     def test_public_exports(self):
         self.assertIn("FTE", fte.__all__)

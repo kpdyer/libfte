@@ -39,6 +39,41 @@ plaintext, _ = encoder.decode(ciphertext)
 # → b'Attack at dawn'
 ```
 
+### Third-Party Ranked Formats
+
+`FTE` accepts any object implementing the structural `RankedFormat` protocol:
+reversible `rank()` and `unrank()` methods. Providers need no inheritance,
+registration, or runtime dependency on libfte:
+
+```python
+import secrets
+
+import fte
+
+
+class DecimalText:
+    def rank(self, value: str, /) -> int:
+        if not value.isascii() or not value.isdigit():
+            raise ValueError("not canonical decimal text")
+        if value != "0" and value.startswith("0"):
+            raise ValueError("not canonical decimal text")
+        return int(value)
+
+    def unrank(self, index: int, /) -> str:
+        if type(index) is not int or index < 0:
+            raise ValueError("invalid rank")
+        return str(index)
+
+shared_32_byte_key = secrets.token_bytes(32)
+encoder = fte.FTE(format=DecimalText(), key=shared_32_byte_key)
+covertext: str = encoder.encode(b"secret")
+assert encoder.decode(covertext) == b"secret"
+```
+
+The key and exact ranked-format ordering must match at both endpoints. Generic
+FTE framing exposes plaintext length through the rank and guarantees format
+membership, not a uniform distribution over unused provider capacity.
+
 ## Use Cases
 
 - **Protocol obfuscation**: Make encrypted traffic look like benign data

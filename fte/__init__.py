@@ -1,8 +1,8 @@
 """FTE - Format-Transforming Encryption library.
 
 This library implements Format-Transforming Encryption (FTE), a cryptographic
-primitive that allows encoding ciphertexts as strings matching a specified
-regular language.
+primitive that encodes ciphertexts as values from a built-in regular language
+or a third-party ranked format.
 
 Example usage:
     >>> import fte
@@ -24,12 +24,38 @@ import regex2dfa
 
 from fte.encoder import DfaEncoder
 from fte.encrypter import Encrypter
+from fte.format import (
+    FTE,
+    FTEError,
+    FiniteRankedFormat,
+    FormatCapacityError,
+    FormatContractError,
+    InvalidCovertextError,
+    MessageTooLargeError,
+    RankedFormat,
+)
+from fte.regex_format import RegexFormat
 
 __version__ = (Path(__file__).parent / '_version.txt').read_text().strip()
 __author__ = 'Kevin P. Dyer'
 __email__ = 'kpdyer@gmail.com'
 
-__all__ = ['Encoder', 'DfaEncoder', 'Encrypter', 'encode', 'decode']
+__all__ = [
+    'Encoder',
+    'FTE',
+    'FTEError',
+    'FiniteRankedFormat',
+    'FormatCapacityError',
+    'FormatContractError',
+    'InvalidCovertextError',
+    'MessageTooLargeError',
+    'RankedFormat',
+    'RegexFormat',
+    'DfaEncoder',
+    'Encrypter',
+    'encode',
+    'decode',
+]
 
 
 class Encoder:

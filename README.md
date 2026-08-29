@@ -82,6 +82,50 @@ ciphertext = fte.encode(b'secret', regex='^[a-z]+$', fixed_slice=128)
 plaintext, _ = fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=128)
 ```
 
+### Third-Party Ranked Formats
+
+The generic `FTE` API accepts any structural `RankedFormat`: an object with
+reversible `rank()` and `unrank()` methods. No inheritance, registration, or
+dependency between libfte and the provider is required:
+
+```python
+import fte
+
+
+class DecimalText:
+    def rank(self, value: str, /) -> int:
+        if not value.isascii() or not value.isdigit():
+            raise ValueError("not canonical decimal text")
+        if value != "0" and value.startswith("0"):
+            raise ValueError("not canonical decimal text")
+        return int(value)
+
+    def unrank(self, index: int, /) -> str:
+        if type(index) is not int or index < 0:
+            raise ValueError("invalid rank")
+        return str(index)
+
+key = bytes.fromhex(
+    "000102030405060708090a0b0c0d0e0f"
+    "101112131415161718191a1b1c1d1e1f"
+)
+# Demonstration key only; load a securely shared secret in production.
+encoder = fte.FTE(format=DecimalText(), key=key)
+
+covertext: str = encoder.encode(b"secret")
+plaintext = encoder.decode(covertext)
+
+assert plaintext == b"secret"
+```
+
+`FTE` consumes and returns one complete covertext value. It has no generic
+`fixed_slice`, overflow body, or stream remainder. The two endpoints must use
+the same key and compatible ranked-format ordering. Treat returned covertext as
+a canonical, atomic value: normalization or other edits alter its rank.
+
+See the [third-party format API](docs/formats.md) for the complete provider
+contract and a conformance checklist.
+
 See the [`examples/`](examples/) directory for more use cases.
 
 ## API Reference
@@ -108,6 +152,50 @@ fte.Encoder(regex: str, fixed_slice: int, key: bytes = None)
 | `decode(ciphertext: bytes) -> (bytes, bytes)` | Decrypt, returns (plaintext, remainder) |
 | `capacity` | Property: bits of data that fit in `fixed_slice` |
 
+### `fte.FTE`
+
+Bidirectional FTE over any structural `RankedFormat[T]`.
+
+```python
+fte.FTE(
+    *,
+    format: RankedFormat[T],
+    key: bytes,
+    max_plaintext_bytes: int = 1_048_576,
+)
+```
+
+| Method | Description |
+|--------|-------------|
+| `encode(plaintext: bytes) -> T` | Encrypt and unrank into a covertext value |
+| `decode(covertext: T) -> bytes` | Rank and decrypt one complete value |
+| `max_plaintext_bytes` | Local resource ceiling; format capacity may be lower |
+
+### `fte.RankedFormat`
+
+The third-party extension protocol:
+
+```python
+class RankedFormat(Protocol[T]):
+    def rank(self, value: T, /) -> int: ...
+    def unrank(self, index: int, /) -> T: ...
+```
+
+Formats must use contiguous non-negative ranks and satisfy
+`rank(unrank(i)) == i` and `unrank(rank(value)) == value`.
+
+A finite provider may additionally implement `FiniteRankedFormat` by exposing
+an exact positive `cardinality`; libfte then performs capacity checks before
+encryption.
+
+libfte's built-in regex provider implements the same protocol:
+
+```python
+format = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
+codec = fte.FTE(format=format, key=key)
+covertext: bytes = codec.encode(b"secret")
+```
+
 ### Convenience Functions
 
 ```python
@@ -118,8 +206,13 @@ fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=256, key=None)
 ## How It Works
 
 1. **Encryption**: Your plaintext is encrypted with AES-CTR and authenticated with HMAC-SHA512
-2. **Ranking**: The ciphertext (an integer) is converted to a string in the regular language using a DFA ranking algorithm
-3. **Output**: The result is a string matching your regex that encodes your encrypted data
+2. **Framing**: The ciphertext is mapped reversibly to a non-negative integer
+3. **Formatting**: A built-in or third-party ranked format maps that integer to covertext
+
+The generic API uses variable-length framing. Anyone who can rank a covertext
+can infer its exact plaintext byte length, even without the key. It guarantees
+membership in the selected format, not a uniform distribution over every rank
+when the provider offers more capacity than the message needs.
 
 The capacity depends on your regex—more symbols means more bits per character:
 

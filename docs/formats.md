@@ -1,4 +1,4 @@
-# Third-party ranked formats
+# Ranked-format providers
 
 `fte.FTE` separates cryptography from covertext generation at one narrow
 boundary: a non-negative integer rank. libfte owns encryption, authentication,
@@ -69,9 +69,9 @@ Use it without an adapter:
 ```python
 from fte import FTE
 
-codec = FTE(format=LowerHex(), key=shared_32_byte_key)
-covertext = codec.encode(b"hello")
-assert codec.decode(covertext) == b"hello"
+encoder = FTE(format=LowerHex(), key=shared_32_byte_key)
+covertext = encoder.encode(b"hello")
+assert encoder.decode(covertext) == b"hello"
 ```
 
 `FTE` defaults to a 1 MiB plaintext resource limit. Set
@@ -102,10 +102,10 @@ The regex implementation uses exactly the same extension point:
 from fte import FTE, RegexFormat
 
 fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
-codec = FTE(format=fmt, key=shared_32_byte_key)
+encoder = FTE(format=fmt, key=shared_32_byte_key)
 
-covertext: bytes = codec.encode(b"hello")
-assert codec.decode(covertext) == b"hello"
+covertext: bytes = encoder.encode(b"hello")
+assert encoder.decode(covertext) == b"hello"
 ```
 
 `RegexFormat.cardinality` is the exact number of fixed-length values. Encoding

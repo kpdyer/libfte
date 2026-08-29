@@ -1,4 +1,4 @@
-"""Generic FTE support for third-party ranked formats."""
+"""Generic FTE support for pluggable ranked formats."""
 
 from __future__ import annotations
 
@@ -120,9 +120,9 @@ def _frame_rank_limit(frame_length: int) -> int:
 class FTE(Generic[Covertext]):
     """Encrypt bytes into values supplied by a :class:`RankedFormat`.
 
-    The format is structural: any third-party object with callable ``rank`` and
-    ``unrank`` methods works without inheriting from this package or importing
-    it at runtime.
+    The format is structural: any object with callable ``rank`` and ``unrank``
+    methods works without inheriting from this package or importing it at
+    runtime.
 
     One complete format value represents one encrypted message. Since an
     arbitrary value has no generic stream boundary, ``decode`` consumes exactly

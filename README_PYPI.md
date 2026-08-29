@@ -9,12 +9,13 @@
 
 ## What is FTE?
 
-Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—via a regular expression, or any third-party `RankedFormat` provider—so it can look like hex strings, alphanumeric tokens, any regex-expressible pattern, or a custom format of your own.
+Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—via a regular expression, or any `RankedFormat` provider you supply—so it can look like hex strings, alphanumeric tokens, any regex-expressible pattern, or a custom format of your own.
 
-> **Two APIs, one library.** `fte.FTE` + a `RankedFormat` provider (e.g.
-> `fte.RegexFormat`) is the generic, pluggable API—prefer it for new code.
-> `fte.Encoder` is the original regex-only API, kept for backward compatibility.
-> The two use different wire formats and are not interoperable.
+> **One engine.** libfte encrypts through a single path: `fte.FTE` over a
+> `RankedFormat` provider. `fte.RegexFormat` is the built-in regex provider, and
+> `fte.Encoder` / `fte.encode` / `fte.decode` are thin regex convenience
+> wrappers over it — all interoperable. The wire format changed in this release
+> and is not compatible with libfte 0.3.x and earlier.
 
 ## Installation
 
@@ -44,7 +45,7 @@ plaintext, _ = encoder.decode(ciphertext)
 # → b'Attack at dawn'
 ```
 
-### Third-Party Ranked Formats
+### Ranked-Format Providers
 
 `FTE` accepts any object implementing the structural `RankedFormat` protocol:
 reversible `rank()` and `unrank()` methods. Providers need no inheritance,

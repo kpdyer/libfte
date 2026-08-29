@@ -1,4 +1,4 @@
-"""Tests for the neutral third-party ranked-format API."""
+"""Tests for the ranked-format API."""
 
 import os
 import unittest

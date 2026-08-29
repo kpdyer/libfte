@@ -7,7 +7,7 @@
 
 ## Overview
 
-Format-Transforming Encryption (FTE) transforms ciphertext to match a target format—one given by a regular expression, or by any third-party *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—hexadecimal strings, alphanumeric tokens, any pattern expressible as a regex, or a custom format such as decimal text or a domain-specific grammar.
+Format-Transforming Encryption (FTE) transforms ciphertext to match a target format—one given by a regular expression, or by any *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—hexadecimal strings, alphanumeric tokens, any pattern expressible as a regex, or a custom format such as decimal text or a domain-specific grammar.
 
 This is useful for:
 - **Protocol obfuscation**: Make encrypted traffic look like benign data
@@ -16,16 +16,14 @@ This is useful for:
 
 Based on the paper [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
 
-> **Two APIs, one library.** libfte ships two encoders that are *not*
-> wire-compatible with each other:
+> **One engine.** libfte encrypts through a single path: `fte.FTE` over a
+> `RankedFormat` provider. `fte.RegexFormat` is the built-in regex provider, and
+> `fte.Encoder` / `fte.encode` / `fte.decode` are thin regex convenience
+> wrappers over it — all of them interoperate. Supply your own `RankedFormat` to
+> target any other covertext format.
 >
-> - **`fte.FTE` + a `RankedFormat` provider** (e.g. `fte.RegexFormat`) — the
->   generic, pluggable API. **Prefer this for new code.**
-> - **`fte.Encoder`** — the original regex-only API, kept for backward
->   compatibility with existing deployments.
->
-> Choose one and use it on both endpoints; a covertext produced by one cannot be
-> decoded by the other.
+> The wire format changed in this release and is **not** compatible with the
+> `Encoder` in libfte 0.3.x and earlier.
 
 ## Installation
 
@@ -93,11 +91,11 @@ ciphertext = fte.encode(b'secret', regex='^[a-z]+$', fixed_slice=128)
 plaintext, _ = fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=128)
 ```
 
-### Third-Party Ranked Formats
+### Ranked-Format Providers
 
-The generic `FTE` API accepts any structural `RankedFormat`: an object with
-reversible `rank()` and `unrank()` methods. No inheritance, registration, or
-dependency between libfte and the provider is required:
+The `FTE` API accepts any structural `RankedFormat`: an object with reversible
+`rank()` and `unrank()` methods. No inheritance, registration, or dependency
+between libfte and the provider is required:
 
 ```python
 import fte
@@ -134,7 +132,7 @@ assert plaintext == b"secret"
 the same key and compatible ranked-format ordering. Treat returned covertext as
 a canonical, atomic value: normalization or other edits alter its rank.
 
-See the [third-party format API](docs/formats.md) for the complete provider
+See the [ranked-format provider API](docs/formats.md) for the complete provider
 contract and a conformance checklist.
 
 See the [`examples/`](examples/) directory for more use cases.
@@ -143,7 +141,7 @@ See the [`examples/`](examples/) directory for more use cases.
 
 ### `fte.Encoder`
 
-The original regex-only encoder, kept for backward compatibility. **New code should prefer [`fte.FTE`](#ftefte) with `fte.RegexFormat`** (below); the two are not wire-compatible.
+A regex convenience wrapper over [`fte.FTE`](#ftefte) + `fte.RegexFormat` — the same engine, fully interoperable. Use it for the classic `(regex, fixed_slice)` ergonomics and stream-style `(plaintext, remainder)` decoding.
 
 ```python
 fte.Encoder(regex: str, fixed_slice: int, key: bytes = None)
@@ -184,7 +182,7 @@ fte.FTE(
 
 ### `fte.RankedFormat`
 
-The third-party extension protocol:
+The ranked-format extension protocol:
 
 ```python
 class RankedFormat(Protocol[T]):
@@ -203,8 +201,8 @@ libfte's built-in regex provider implements the same protocol:
 
 ```python
 fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
-codec = fte.FTE(format=fmt, key=key)
-covertext: bytes = codec.encode(b"secret")
+encoder = fte.FTE(format=fmt, key=key)
+covertext: bytes = encoder.encode(b"secret")
 ```
 
 ### Convenience Functions
@@ -218,7 +216,7 @@ fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=256, key=None)
 
 1. **Encryption**: Your plaintext is encrypted with AES-CTR and authenticated with HMAC-SHA512
 2. **Framing**: The ciphertext is mapped reversibly to a non-negative integer
-3. **Formatting**: A built-in or third-party ranked format maps that integer to covertext
+3. **Formatting**: A built-in or custom ranked format maps that integer to covertext
 
 The generic API uses variable-length framing. Anyone who can rank a covertext
 can infer its exact plaintext byte length, even without the key. It guarantees

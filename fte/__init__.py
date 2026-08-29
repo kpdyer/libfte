@@ -1,24 +1,26 @@
 """FTE - Format-Transforming Encryption library.
 
 This library implements Format-Transforming Encryption (FTE), a cryptographic
-primitive that encodes ciphertexts as values from a built-in regular language
-or a third-party ranked format.
+primitive that encodes ciphertexts as values produced by a ranked-format
+provider: the built-in regular-expression provider, or any custom provider you
+supply.
 
 Example usage:
     >>> import fte
     >>>
-    >>> # Generic ranked-format API (preferred for new code):
-    >>> codec = fte.FTE(
+    >>> # One engine: FTE over a RankedFormat provider. RegexFormat is the
+    >>> # built-in regex provider (it uses regex2dfa under the hood).
+    >>> encoder = fte.FTE(
     ...     format=fte.RegexFormat('^[a-z]+$', length=128),
     ...     key=bytes(range(32)),
     ... )
-    >>> covertext = codec.encode(b'secret message')
-    >>> assert codec.decode(covertext) == b'secret message'
+    >>> covertext = encoder.encode(b'secret message')
+    >>> assert encoder.decode(covertext) == b'secret message'
     >>>
-    >>> # Legacy regex-only API (kept for backward compatibility):
-    >>> encoder = fte.Encoder('^[a-z]+$', 128)
-    >>> ciphertext = encoder.encode(b'secret message')
-    >>> plaintext, _ = encoder.decode(ciphertext)
+    >>> # fte.Encoder is a regex convenience wrapper over the same engine:
+    >>> regex_encoder = fte.Encoder('^[a-z]+$', 128)
+    >>> ciphertext = regex_encoder.encode(b'secret message')
+    >>> plaintext, _ = regex_encoder.decode(ciphertext)
 
 See the paper "Protocol Misidentification Made Easy with Format-Transforming
 Encryption" for details: https://kpdyer.com/publications/ccs2013-fte.pdf
@@ -27,9 +29,8 @@ Encryption" for details: https://kpdyer.com/publications/ccs2013-fte.pdf
 from pathlib import Path
 from typing import Optional, Tuple
 
-import regex2dfa
-
-from fte.encoder import DfaEncoder
+from fte.bit_ops import random_bytes
+from fte.encoder import DecodeFailureError, InvalidInputException
 from fte.encrypter import Encrypter
 from fte.format import (
     FTE,
@@ -58,88 +59,108 @@ __all__ = [
     'MessageTooLargeError',
     'RankedFormat',
     'RegexFormat',
-    'DfaEncoder',
     'Encrypter',
+    'InvalidInputException',
+    'DecodeFailureError',
     'encode',
     'decode',
 ]
 
 
 class Encoder:
-    """Legacy regex-only FTE encoder (kept for backward compatibility).
+    """Regex FTE encoder -- a convenience wrapper over :class:`FTE` and
+    :class:`RegexFormat`.
 
-    New code should prefer ``fte.FTE`` with ``fte.RegexFormat`` (the generic
-    ranked-format API). ``Encoder`` uses a different, fixed-slice wire format
-    and is NOT interoperable with ``fte.FTE``: a covertext produced by one
-    cannot be decoded by the other. ``Encoder`` remains supported for existing
-    deployments.
+    ``Encoder(regex, fixed_slice)`` is exactly :class:`FTE` configured with
+    ``RegexFormat(regex, length=fixed_slice)``. The two share one wire format
+    and interoperate. This wrapper adds the historical regex ergonomics: a
+    positional ``(regex, fixed_slice)`` constructor, a ``(plaintext, remainder)``
+    decode return for parsing streams of fixed-length covertexts, an
+    ``encode(b"") == b""`` shortcut, and a ``capacity`` property.
 
-    Encrypts data and formats the ciphertext to match a specified regular
-    expression.
+    Note:
+        The wire format changed in this release. Covertext produced here is NOT
+        compatible with the ``Encoder`` in libfte 0.3.x and earlier.
 
     Args:
         regex: A regular expression defining the output format.
             Examples: '^[a-z]+$', '^[0-9a-f]+$', '^[A-Za-z0-9]+$'
-        fixed_slice: Length of the formatted output string.
+        fixed_slice: The exact byte length of each formatted covertext.
         key: Optional 32-byte key (16 bytes encryption + 16 bytes MAC).
-            If not provided, random keys are generated.
-    
+            A random key is generated when omitted.
+
     Example:
         >>> encoder = fte.Encoder('^[0-9a-f]+$', 128)
         >>> ciphertext = encoder.encode(b'secret')
         >>> plaintext, _ = encoder.decode(ciphertext)
     """
-    
+
     def __init__(
         self,
         regex: str,
         fixed_slice: int,
-        key: Optional[bytes] = None
+        key: Optional[bytes] = None,
     ):
         self.regex = regex
         self.fixed_slice = fixed_slice
-        
-        # Convert regex to DFA
-        dfa = regex2dfa.regex2dfa(regex)
-        
-        # Split key into K1 (encryption) and K2 (MAC) if provided
-        if key is not None:
-            if len(key) != 32:
-                raise ValueError("Key must be exactly 32 bytes (16 for encryption + 16 for MAC)")
-            K1, K2 = key[:16], key[16:]
-        else:
-            K1, K2 = None, None
-        
-        self._encoder = DfaEncoder(dfa, fixed_slice, K1=K1, K2=K2)
-    
-    def encode(self, plaintext: bytes, seed: Optional[bytes] = None) -> bytes:
-        """Encrypt and encode plaintext to match the regex format.
-        
+        if key is None:
+            key = random_bytes(32)
+        self._format = RegexFormat(regex, length=fixed_slice)
+        self._fte = FTE(format=self._format, key=key)
+
+    def encode(self, plaintext: bytes) -> bytes:
+        """Encrypt ``plaintext`` and format it to match the regex.
+
         Args:
             plaintext: The data to encrypt.
-            seed: Optional 8-byte seed for deterministic output.
-        
+
         Returns:
-            Ciphertext formatted to match the regex.
+            A covertext of exactly ``fixed_slice`` bytes. Empty input returns
+            empty output.
+
+        Raises:
+            InvalidInputException: If ``plaintext`` is not bytes.
+            FormatCapacityError: If the fixed-length language cannot represent
+                the encrypted message; choose a larger ``fixed_slice``.
         """
-        return self._encoder.encode(plaintext, seed=seed)
-    
-    def decode(self, ciphertext: bytes) -> Tuple[bytes, bytes]:
-        """Decode and decrypt ciphertext.
-        
+        if not isinstance(plaintext, bytes):
+            raise InvalidInputException('Input must be of type bytes.')
+        if not plaintext:
+            return b''
+        return self._fte.encode(plaintext)
+
+    def decode(self, covertext: bytes) -> Tuple[bytes, bytes]:
+        """Decode one covertext value and decrypt its plaintext.
+
+        Consumes exactly ``fixed_slice`` bytes and returns any trailing bytes as
+        the remainder, so a stream of concatenated covertexts can be parsed one
+        message at a time.
+
         Args:
-            ciphertext: The formatted ciphertext to decrypt.
-        
+            covertext: The formatted covertext, at least ``fixed_slice`` bytes.
+
         Returns:
-            A tuple of (plaintext, remainder) where remainder is any
-            extra data after the decoded message.
+            A tuple of ``(plaintext, remainder)``.
+
+        Raises:
+            InvalidInputException: If ``covertext`` is not bytes.
+            DecodeFailureError: If ``covertext`` is shorter than ``fixed_slice``.
+            InvalidCovertextError: If the value cannot be authenticated.
         """
-        return self._encoder.decode(ciphertext)
-    
+        if not isinstance(covertext, bytes):
+            raise InvalidInputException('Input must be of type bytes.')
+        if len(covertext) < self.fixed_slice:
+            raise DecodeFailureError(
+                "Covertext is shorter than fixed_slice, can't decode."
+            )
+        value = covertext[:self.fixed_slice]
+        remainder = covertext[self.fixed_slice:]
+        return self._fte.decode(value), remainder
+
     @property
     def capacity(self) -> int:
-        """Get the capacity in bits."""
-        return self._encoder.getCapacity()
+        """Usable capacity in bits: ``floor(log2(cardinality)) - 1``."""
+        return self._format.cardinality.bit_length() - 2
 
 
 # Convenience functions for one-shot encoding/decoding
@@ -152,21 +173,23 @@ def encode(
     fixed_slice: int = 256,
     key: Optional[bytes] = None
 ) -> bytes:
-    """Encode plaintext using the legacy regex Encoder (convenience function).
+    """Encode plaintext with the regex Encoder (convenience function).
 
-    New code should prefer ``fte.FTE`` with ``fte.RegexFormat``. This wrapper
-    is kept for backward compatibility and is not wire-compatible with
-    ``fte.FTE``.
+    A thin wrapper over :class:`Encoder` (and therefore over :class:`FTE` with
+    :class:`RegexFormat`). Encoders are cached per ``(regex, fixed_slice, key)``
+    for the lifetime of the process. When ``key`` is omitted a random key is
+    generated, so decode with the same defaults only round-trips within one
+    process; pass an explicit ``key`` to share covertext between endpoints.
 
     Args:
         plaintext: The data to encrypt.
         regex: Output format as a regular expression.
         fixed_slice: Length of formatted output.
         key: Optional 32-byte key.
-    
+
     Returns:
         Ciphertext formatted to match the regex.
-    
+
     Example:
         >>> ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$')
     """
@@ -182,21 +205,20 @@ def decode(
     fixed_slice: int = 256,
     key: Optional[bytes] = None
 ) -> Tuple[bytes, bytes]:
-    """Decode ciphertext using the legacy regex Encoder (convenience function).
+    """Decode ciphertext with the regex Encoder (convenience function).
 
-    New code should prefer ``fte.FTE`` with ``fte.RegexFormat``. This wrapper
-    is kept for backward compatibility and is not wire-compatible with
-    ``fte.FTE``.
+    A thin wrapper over :class:`Encoder`. The ``regex``, ``fixed_slice``, and
+    ``key`` must match those used to encode.
 
     Args:
         ciphertext: The formatted ciphertext.
         regex: The regex used for encoding (must match).
         fixed_slice: The fixed_slice used for encoding (must match).
         key: The key used for encoding (must match).
-    
+
     Returns:
         A tuple of (plaintext, remainder).
-    
+
     Example:
         >>> plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$')
     """

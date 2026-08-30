@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+# >=64 for PEP 660 editable installs without a setup.py shim.
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -48,6 +49,9 @@ version = {file = "fte/_version.txt"}
 
 [tool.setuptools.packages.find]
 include = ["fte*"]
+# Keep the shared test package out of wheels. The test modules colocated in
+# fte/formats/regex/ still ship; find-packages excludes packages, not modules.
+exclude = ["fte.tests*"]
 
 [tool.setuptools.package-data]
 fte = ["_version.txt", "py.typed"]

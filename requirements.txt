@@ -1,9 +1,0 @@
-# Core dependencies
-pycryptodome>=3.9.0
-
-# Required: for converting regex to DFA
-regex2dfa>=0.2.0
-
-# Development dependencies
-pytest>=7.0
-pytest-cov

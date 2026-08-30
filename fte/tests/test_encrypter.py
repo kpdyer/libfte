@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """Tests for fte.encrypter module."""
 
-import random
 import unittest
 
 import fte.encrypter
@@ -42,15 +41,6 @@ class Tests(unittest.TestCase):
             self.assertNotEqual(C, P)
             self.assertEqual(P, self.encrypter.decrypt(C))
 
-    def test_encrypt_decrypt_one_block(self):
-        """Test single block encryption/decryption."""
-        for _ in range(TRIALS):
-            M1 = random.randint(0, (1 << 128) - 1)
-            M1 = M1.to_bytes(16, 'big')
-            retval = self.encrypter.encryptOneBlock(M1)
-            H_out = self.encrypter.decryptOneBlock(retval)
-            self.assertEqual(M1, H_out)
-
     def test_ciphertext_expansion(self):
         """Test that ciphertext is exactly 32 bytes longer than plaintext.
         
@@ -62,22 +52,43 @@ class Tests(unittest.TestCase):
             # W1=16 bytes header + plaintext + T=16 bytes MAC = plaintext + 32
             self.assertEqual(len(C), len(P) + 32)
 
+    def test_keys_are_required(self):
+        """Test that constructing without both keys fails."""
+        with self.assertRaises(TypeError):
+            fte.encrypter.Encrypter()
+        with self.assertRaises(TypeError):
+            fte.encrypter.Encrypter(K1=b'\x00' * 16)
+
     def test_invalid_key_length(self):
         """Test that invalid key lengths raise an exception."""
-        with self.assertRaises(fte.encrypter.InvalidKeyLengthError):
+        with self.assertRaises(ValueError):
             fte.encrypter.Encrypter(K1=b'short', K2=b'\x00' * 16)
-        with self.assertRaises(fte.encrypter.InvalidKeyLengthError):
+        with self.assertRaises(ValueError):
             fte.encrypter.Encrypter(K1=b'\x00' * 16, K2=b'short')
 
     def test_plaintext_type_error(self):
         """Test that non-bytes plaintext raises an exception."""
-        with self.assertRaises(fte.encrypter.PlaintextTypeError):
+        with self.assertRaises(TypeError):
             self.encrypter.encrypt("string instead of bytes")
 
     def test_ciphertext_type_error(self):
         """Test that non-bytes ciphertext raises an exception."""
-        with self.assertRaises(fte.encrypter.CiphertextTypeError):
+        with self.assertRaises(TypeError):
             self.encrypter.decrypt("string instead of bytes")
+
+    def test_decrypt_rejects_wrong_length(self):
+        """Test that truncated or extended ciphertexts are rejected."""
+        C = self.encrypter.encrypt(b'hello')
+        for bad in (C[:-1], C + b'x', C[:8]):
+            with self.assertRaises(fte.encrypter.DecryptionError):
+                self.encrypter.decrypt(bad)
+
+    def test_decrypt_rejects_bad_mac(self):
+        """Test that a tampered ciphertext fails MAC verification."""
+        C = self.encrypter.encrypt(b'hello')
+        tampered = C[:-1] + bytes([C[-1] ^ 0x01])
+        with self.assertRaises(fte.encrypter.DecryptionError):
+            self.encrypter.decrypt(tampered)
 
 
 def suite():

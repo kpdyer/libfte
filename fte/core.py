@@ -10,12 +10,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from fte.encrypter import (
-    CiphertextTypeError,
-    Encrypter,
-    RecoverableDecryptionError,
-    UnrecoverableDecryptionError,
-)
+from fte.encrypter import DecryptionError, Encrypter
 from fte.formats.base import RankedFormat
 
 
@@ -294,14 +289,6 @@ class FTE(Generic[Covertext]):
 
         ciphertext = framed[len(self._FRAME_VERSION):]
         try:
-            if self._encrypter.getCiphertextLen(ciphertext) != len(ciphertext):
-                raise InvalidCovertextError("invalid covertext")
             return self._encrypter.decrypt(ciphertext)
-        except InvalidCovertextError:
-            raise
-        except (
-            CiphertextTypeError,
-            RecoverableDecryptionError,
-            UnrecoverableDecryptionError,
-        ) as exc:
+        except DecryptionError as exc:
             raise InvalidCovertextError("invalid covertext") from exc

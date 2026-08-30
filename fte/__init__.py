@@ -34,6 +34,7 @@ from fte.format import (
     MessageTooLargeError,
     RankedFormat,
 )
+from fte.regex_format import RegexFormat
 
 __version__ = (Path(__file__).parent / '_version.txt').read_text().strip()
 __author__ = 'Kevin P. Dyer'
@@ -49,6 +50,7 @@ __all__ = [
     'InvalidCovertextError',
     'MessageTooLargeError',
     'RankedFormat',
+    'RegexFormat',
     'DfaEncoder',
     'Encrypter',
     'encode',

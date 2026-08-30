@@ -1,9 +1,9 @@
 """``RegexFormat``: the reference :class:`~fte.formats.base.RankedFormat`.
 
-This is the format libfte ships with, and the worked example to copy when you
-write your own provider. It turns a regular expression into a ranked byte
-language, so ciphertext comes out looking like the pattern you chose: hex,
-alphanumeric tokens, URL paths, and so on.
+This is the provider libfte ships with, and the worked example to copy when you
+write your own. Each instance is a format: a ranked, finite slice of the byte
+language a pattern denotes, so ciphertext comes out looking like the pattern
+you chose: hex, alphanumeric tokens, URL paths, and so on.
 
 Covertext length is the format's choice, not the engine's. ``RegexFormat`` lets
 you pin it or leave it to vary:
@@ -19,7 +19,7 @@ you pin it or leave it to vary:
 There is deliberately no cryptography here. Compiling and ranking the DFA (in
 the sibling :mod:`~fte.formats.regex.dfa` module) is the provider's only job;
 :class:`fte.FTE` owns encryption, authentication, and framing. That separation
-is exactly what makes a new format easy to add.
+is exactly what makes a new provider easy to add.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class RegexFormat:
     encrypting it.
 
     Args:
-        pattern: A regular expression describing the covertext language.
+        pattern: A regular expression denoting the covertext language.
         length: A single fixed covertext length. Shorthand for
             ``min_length == max_length == length``. Mutually exclusive with
             ``min_length`` / ``max_length``.
@@ -127,8 +127,9 @@ class RegexFormat:
             ) from exc
         dfa = DFA(dfa_str, hi)
 
-        # Order the language by length first, then lexicographically within a
-        # length. Record where each length starts in the combined rank space.
+        # Order the language's slice by length first, then lexicographically
+        # within a length. Record where each length starts in the combined rank
+        # space.
         offsets = {}
         counts = {}
         cumulative = 0

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Example: Understanding language capacity.
+"""Example: Understanding format capacity.
 
-This example explains how the capacity of a language affects
-how much data can be encrypted, and how to choose parameters.
+This example explains how the capacity of a format (a language sliced to a
+length range) determines how much data can be encrypted, and how to choose
+parameters.
 """
 
 import math
@@ -14,15 +15,15 @@ import fte
 KEY = bytes(range(32))  # capacity does not depend on the key value
 
 
-def analyze_language(name, regex, length):
-    """Analyze a language's capacity via its format cardinality."""
-    fmt = fte.RegexFormat(regex, length=length)
+def analyze_format(name, pattern, length):
+    """Analyze a format's capacity via its cardinality."""
+    fmt = fte.RegexFormat(pattern, length=length)
 
     # cardinality is the exact number of length-byte words in the language.
     capacity_bits = fmt.cardinality.bit_length() - 1  # floor(log2(cardinality))
 
     print(f"\n{name}:")
-    print(f"  Regex: {regex}")
+    print(f"  Pattern: {pattern}")
     print(f"  Output length: {length} bytes")
     print(f"  Capacity: {capacity_bits} bits")
 
@@ -39,12 +40,12 @@ def analyze_language(name, regex, length):
 
 
 def main():
-    print("=== Language Capacity Analysis ===")
+    print("=== Format Capacity Analysis ===")
     print("\nCapacity depends on alphabet size and output length.")
     print("More symbols = more bits per character.")
 
     # Compare different alphabets
-    languages = [
+    formats = [
         ("Binary (0-1)", "^[01]+$", 256),
         ("Hex (0-9a-f)", "^[0-9a-f]+$", 256),
         ("Lowercase (a-z)", "^[a-z]+$", 256),
@@ -53,8 +54,8 @@ def main():
     ]
 
     print("\n" + "="*60)
-    for name, regex, length in languages:
-        analyze_language(name, regex, length)
+    for name, pattern, length in formats:
+        analyze_format(name, pattern, length)
 
     print("\n" + "="*60)
     print("\nBits per character (theoretical):")
@@ -69,12 +70,12 @@ def main():
 
     test_data = b'A' * 100
 
-    for name, regex, length in [
+    for name, pattern, length in [
         ("Hex format", "^[0-9a-f]+$", 512),
         ("Alphanumeric", "^[A-Za-z0-9]+$", 256),
     ]:
         cipher = fte.FTE(
-            format=fte.RegexFormat(regex, length=length),
+            format=fte.RegexFormat(pattern, length=length),
             key=os.urandom(32),
         )
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Example: A gallery of regex covertext formats.
 
-The covertext language is entirely the regex you choose. The same engine and
+The pattern you choose denotes the covertext language. The same engine and
 key produce hex strings, alphanumeric tokens, or pronounceable words just by
 swapping the pattern.
 """
@@ -26,12 +26,12 @@ def main():
     key = os.urandom(32)  # 32-byte key, shared by both endpoints
     plaintext = b'Secret message'
 
-    for name, regex, length in FORMATS:
-        cipher = fte.FTE(format=fte.RegexFormat(regex, length=length), key=key)
+    for name, pattern, length in FORMATS:
+        cipher = fte.FTE(format=fte.RegexFormat(pattern, length=length), key=key)
         covertext = cipher.encrypt(plaintext)
 
         print(f"=== {name} ===")
-        print(f"  regex:     {regex}")
+        print(f"  pattern:   {pattern}")
         print(f"  covertext: {covertext.decode('latin-1')}")
         assert cipher.decrypt(covertext) == plaintext
         print()

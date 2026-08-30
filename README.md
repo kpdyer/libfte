@@ -7,7 +7,7 @@
 
 ## Overview
 
-Format-Transforming Encryption (FTE) transforms ciphertext to match a target format: one given by a regular expression, or by any *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify: hexadecimal strings, alphanumeric tokens, any pattern expressible as a regex, or a custom format such as decimal text or a domain-specific grammar.
+Format-Transforming Encryption (FTE) transforms ciphertext to match a target format: one given by a regular expression, or by any *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify: hexadecimal strings, alphanumeric tokens, any language a regex can denote, or a custom format such as decimal text or a domain-specific grammar.
 
 This is useful for:
 - **Protocol obfuscation**: Make encrypted traffic look like benign data
@@ -19,7 +19,7 @@ Based on the paper [Protocol Misidentification Made Easy with Format-Transformin
 > **One engine.** libfte encrypts through a single path: `fte.FTE` over a
 > `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
 > `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
-> own `RankedFormat` to target any other covertext format.
+> own `RankedFormat` to target any other covertext language.
 >
 > The wire format changed in 0.4.0 and is **not** compatible with libfte
 > 0.3.x and earlier.
@@ -168,9 +168,10 @@ messages may exceed the default, both endpoints should use the same value.
 
 ### `fte.RegexFormat`
 
-The built-in `RankedFormat`: a byte language compiled from a regular expression.
-Choose a fixed covertext length, or a `[min_length, max_length]` range for
-variable-length covertext (`min_length == max_length` is the fixed case).
+The built-in `RankedFormat`: a format over the byte language a regular
+expression denotes. Choose a fixed covertext length, or a
+`[min_length, max_length]` range for variable-length covertext
+(`min_length == max_length` is the fixed case).
 
 ```python
 fte.RegexFormat(pattern: str, *, length: int)                       # fixed
@@ -179,7 +180,7 @@ fte.RegexFormat(pattern: str, *, min_length: int, max_length: int)  # range
 
 | Member | Description |
 |--------|-------------|
-| `pattern` | The regular expression |
+| `pattern` | The regular expression denoting the covertext language |
 | `min_length`, `max_length` | Covertext length bounds (equal for a fixed length) |
 | `cardinality` | Number of matching words in the length range |
 | `rank(value: bytes) -> int` | Rank of a canonical covertext value |
@@ -212,13 +213,20 @@ performs capacity checks before encryption.
 
 The framing is variable-length. Anyone who can rank a covertext can infer its
 exact plaintext byte length, even without the key. FTE guarantees membership in
-the selected format, not a uniform distribution over every rank when the
-provider offers more capacity than the message needs.
+the format's language, not a uniform distribution over every rank when the
+format offers more capacity than the message needs.
 
-The capacity depends on your regex: more symbols means more bits per character:
+The vocabulary here is deliberate: a **pattern** (a regex) denotes a
+**language** (the set of matching words), a **format** ranks a finite slice of
+a language and is the wire contract endpoints must share, and a **provider**
+(such as `fte.formats.regex`, or your own `RankedFormat`) implements formats.
+See [Terminology](docs/formats.md#terminology) for the full glossary.
 
-| Format | Regex | Bits/char |
-|--------|-------|-----------|
+The capacity depends on the language: a larger alphabet means more bits per
+character:
+
+| Format | Pattern | Bits/char |
+|--------|---------|-----------|
 | Binary | `^[01]+$` | 1.0 |
 | Hex | `^[0-9a-f]+$` | 4.0 |
 | Alphanumeric | `^[A-Za-z0-9]+$` | 5.95 |

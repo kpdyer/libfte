@@ -9,13 +9,13 @@
 
 ## What is FTE?
 
-Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify (via a regular expression, or any `RankedFormat` provider you supply), so it can look like hex strings, alphanumeric tokens, any regex-expressible pattern, or a custom format of your own.
+Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify (via a regular expression, or any `RankedFormat` provider you supply), so it can look like hex strings, alphanumeric tokens, any language a regex can denote, or a custom format of your own.
 
 > **One engine.** libfte encrypts through a single path: `fte.FTE` over a
 > `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
 > `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
-> own `RankedFormat` for any other format. The wire format changed in 0.4.0
-> and is not compatible with libfte 0.3.x and earlier.
+> own `RankedFormat` for any other covertext language. The wire format changed
+> in 0.4.0 and is not compatible with libfte 0.3.x and earlier.
 
 ## Installation
 
@@ -82,8 +82,9 @@ assert cipher.decrypt(covertext) == b"secret"
 ```
 
 The key and exact ranked-format ordering must match at both endpoints. Generic
-FTE framing exposes plaintext length through the rank and guarantees format
-membership, not a uniform distribution over unused provider capacity.
+FTE framing exposes plaintext length through the rank and guarantees membership
+in the format's language, not a uniform distribution over unused format
+capacity.
 
 ## Use Cases
 

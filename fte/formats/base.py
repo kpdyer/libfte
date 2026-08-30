@@ -31,7 +31,7 @@ class RankedFormat(Protocol[Covertext]):
 
     The ordering is part of the wire format. Sender and receiver must therefore
     use compatible implementations and versions. Implementations should reject
-    values outside their canonical format and indexes outside their capacity.
+    values outside the format's language and indexes outside their capacity.
 
     The protocol is structural: any object with callable ``rank`` and ``unrank``
     methods conforms, with no need to subclass or import this module at runtime.

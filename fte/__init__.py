@@ -8,13 +8,12 @@ format. Two independent choices shape it:
 
 * the **format pair** (``input_format`` / ``output_format``), and
 * the **cipher**: ``"aes-ctr-hmac"`` (randomized, authenticated, expanding:
-  the classic AES-CTR + HMAC path) or a deterministic, zero-expansion cipher
-  object exposing ``encrypt_int`` / ``decrypt_int`` (the built-in ``"ff1"``
-  format-preserving cipher is added by the optional libffx integration).
+  the classic AES-CTR + HMAC path) or ``"ff1"`` (deterministic, zero-expansion,
+  format-preserving, via the optional libffx package).
 
-FPE is the case ``input_format == output_format`` with a deterministic cipher:
-the value is re-encrypted in place. Classic FTE (bytes hidden as covertext) is
-the case where the input is raw bytes::
+FPE is simply the case ``input_format == output_format``: equal formats infer
+the deterministic cipher and re-encrypt a value in place. Classic FTE (bytes
+hidden as covertext) is the case where the input is raw bytes::
 
     >>> import fte
     >>> cipher = fte.FTE(
@@ -23,6 +22,13 @@ the case where the input is raw bytes::
     ... )
     >>> covertext = cipher.encrypt(b'secret message')
     >>> assert cipher.decrypt(covertext) == b'secret message'
+
+    >>> digits = fte.RegexFormat('^[0-9]+$', length=9)  # doctest: +SKIP
+    >>> ssn = fte.FTE(                                  # doctest: +SKIP
+    ...     input_format=digits,
+    ...     output_format=digits,                       # equal formats -> FPE
+    ...     key=bytes(range(16)),
+    ... )                                               # needs the libffx extra
 
 ``fte.RegexFormat`` is the built-in regex provider and ``fte.BytesFormat`` is
 the raw-bytes identity format (the default input). Supply your own

@@ -91,6 +91,21 @@ _FF1_DOMAIN_FLOOR = 1_000_000
 _DETERMINISTIC_TWEAK_PREFIX = b"fte:v2:ff1:1|"
 
 
+def _load_ff1():
+    """Import ``ffx.FF1`` lazily, with a directive error when it is missing."""
+
+    try:
+        from ffx import FF1
+    except ImportError as exc:  # pragma: no cover - depends on optional dep
+        raise ImportError(
+            "cipher='ff1' requires the libffx package providing ffx.FF1, "
+            "which is not importable. Install it with `pip install "
+            "libffx>=2.0.0`, or install this package with its extra: "
+            "`pip install fte[fpe]`."
+        ) from exc
+    return FF1
+
+
 class FTE(Generic[Plaintext, Covertext]):
     """Encrypt a value of the input format into one of the output format.
 
@@ -102,17 +117,16 @@ class FTE(Generic[Plaintext, Covertext]):
       ``FTE(output_format=fmt, key=key)`` is the classic pipeline: bytes in,
       the AE cipher, ``fmt`` out.
     * **FPE is the equal-formats case**: passing the same format as
-      ``input_format`` and ``output_format`` with a deterministic cipher
-      re-encrypts a value in place. Length is preserved automatically when the
+      ``input_format`` and ``output_format`` re-encrypts a value in place with
+      the deterministic cipher. Length is preserved automatically when the
       format can name its per-length slices (a ``slice_bounds`` method plus
       integer ``min_length`` / ``max_length``), so a value keeps its length;
       otherwise the whole language is permuted. See :attr:`preserve_length`.
-    * ``cipher`` is ``"aes-ctr-hmac"``, a duck-typed object exposing
+    * ``cipher`` is ``"aes-ctr-hmac"``, ``"ff1"``, a duck-typed object exposing
       ``encrypt_int(x, *, domain, tweak) -> int`` /
-      ``decrypt_int(y, *, domain, tweak) -> int`` (the deterministic transform),
-      or ``None`` to infer it: a bytes input picks ``"aes-ctr-hmac"``; any other
-      pair must name the cipher. (A built-in ``"ff1"`` deterministic cipher is
-      added by the optional libffx integration.)
+      ``decrypt_int(y, *, domain, tweak) -> int``, or ``None`` to infer it:
+      a bytes input picks ``"aes-ctr-hmac"``; otherwise two formats with equal
+      fingerprints pick ``"ff1"``; anything else must be spelled out.
 
     The deterministic cipher refuses a domain below one million (Draft
     SP 800-38G Rev 1), raising :class:`SmallDomainError`, because FF1 is
@@ -199,20 +213,29 @@ class FTE(Generic[Plaintext, Covertext]):
         if cipher is None:
             if input_is_bytes:
                 cipher = "aes-ctr-hmac"
+            elif (
+                isinstance(fp_in, bytes)
+                and isinstance(fp_out, bytes)
+                and fp_in == fp_out
+            ):
+                cipher = "ff1"
             else:
                 raise ValueError(
                     "cannot infer cipher for this format pair; pass "
-                    "cipher='aes-ctr-hmac' for authenticated encryption, or a "
-                    "cipher object with encrypt_int()/decrypt_int() for a "
-                    "deterministic transform"
+                    "cipher='ff1' for a deterministic transform, "
+                    "cipher='aes-ctr-hmac' "
+                    "for authenticated encryption, or a cipher object"
                 )
 
         if isinstance(cipher, str):
             if cipher == "aes-ctr-hmac":
                 cipher_mode = "aes-ctr-hmac"
+            elif cipher == "ff1":
+                cipher_mode = "deterministic"
             else:
                 raise ValueError(
-                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac' or an "
+                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac', "
+                    "'ff1', or an "
                     "object with encrypt_int()/decrypt_int()"
                 )
         else:
@@ -259,7 +282,7 @@ class FTE(Generic[Plaintext, Covertext]):
         self._max_frame_bytes = None
 
         if cipher_mode == "deterministic":
-            self._init_deterministic(cipher, fp_in, fp_out)
+            self._init_deterministic(cipher, key, fp_in, fp_out)
         else:
             if len(key) != 32:
                 raise ValueError(
@@ -296,7 +319,8 @@ class FTE(Generic[Plaintext, Covertext]):
 
     def _init_deterministic(
         self,
-        cipher: object,
+        cipher: str | object,
+        key: bytes,
         fp_in: object,
         fp_out: object,
     ) -> None:
@@ -340,9 +364,16 @@ class FTE(Generic[Plaintext, Covertext]):
                 f"floor {_FF1_DOMAIN_FLOOR}; enlarge the format"
             )
 
-        # The deterministic cipher is supplied as an object (it carries its own
-        # key). A built-in ``cipher="ff1"`` shorthand is added separately.
-        self._cipher = cipher
+        # Resolve the concrete cipher object.
+        if isinstance(cipher, str):  # cipher == "ff1"
+            FF1 = _load_ff1()
+            if len(key) not in (16, 24, 32):
+                raise ValueError(
+                    "cipher='ff1' requires a 16, 24, or 32 byte key"
+                )
+            self._cipher = FF1(key)
+        else:
+            self._cipher = cipher
 
         # Length-prefix the fingerprints so the digest input is injective in
         # (fp_in, fp_out, mode) even for fingerprints containing separator

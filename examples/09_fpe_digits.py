@@ -5,7 +5,7 @@
 This is the FPE corner of the 2x2: the deterministic cipher (``ff1``) with the
 input and output being the *same* format, length preserved in place. A 9-digit
 number encrypts to another 9-digit number, so the ciphertext still fits a
-fixed-width field (an SSN-style identifier, an account number, a PIN batch).
+fixed-width field (an account number, a customer id, a batch of tickets).
 
 The transform is deterministic and unauthenticated: equal plaintexts map to
 equal covertexts, so pass a distinct per-record ``tweak`` (a column name, a row
@@ -27,7 +27,7 @@ def main():
     # ^[0-9]+$ with a fixed length of 9 has 10**9 words, comfortably above the
     # format-preserving floor of 1e6, so allow_small_domain stays False.
     id_format = fte.RegexFormat(r"^[0-9]+$", length=9)
-    key = os.urandom(16)  # FF1 keys are 16/24/32 bytes; NOT an AE key.
+    key = os.urandom(16)  # FF1 keys are 16/24/32 bytes; NOT an AES-CTR-HMAC key.
 
     try:
         cipher = fte.FTE(input_format=id_format, output_format=id_format,
@@ -37,22 +37,25 @@ def main():
         print("\nSkipping: install the libffx extra to run this example.")
         return
 
-    for plaintext in (b"078051120", b"000000001", b"999999999"):
-        # Same value, two different record contexts -> two different covertexts.
-        ssn_column = cipher.encrypt(plaintext, tweak=b"ssn")
-        alt_column = cipher.encrypt(plaintext, tweak=b"tax_id")
+    # Synthetic demo identifiers (not real records).
+    for account in (b"100000042", b"100000043", b"100000042"):
+        # Same value, two different column contexts -> two different covertexts.
+        col_a = cipher.encrypt(account, tweak=b"accounts.number")
+        col_b = cipher.encrypt(account, tweak=b"orders.account")
 
-        print(f"plaintext:        {plaintext.decode()}")
-        print(f"  tweak='ssn':    {ssn_column.decode()}")
-        print(f"  tweak='tax_id': {alt_column.decode()}")
+        print(f"input:                    {account.decode()}")
+        print(f"  tweak accounts.number:  {col_a.decode()}")
+        print(f"  tweak orders.account:   {col_b.decode()}")
 
-        assert len(ssn_column) == 9 and ssn_column.isdigit()
-        assert ssn_column != alt_column                      # tweak separation
-        assert cipher.decrypt(ssn_column, tweak=b"ssn") == plaintext
-        assert cipher.decrypt(alt_column, tweak=b"tax_id") == plaintext
+        assert len(col_a) == 9 and col_a.isdigit()
+        assert col_a != col_b                                 # tweak separation
+        assert cipher.decrypt(col_a, tweak=b"accounts.number") == account
+        assert cipher.decrypt(col_b, tweak=b"orders.account") == account
         print()
 
-    print("Success! Every 9-digit value round-trips to a 9-digit covertext.")
+    print("Note: the repeated input maps to the same covertext under a given")
+    print("tweak (determinism), and to a different one under a different tweak.")
+    print("Every 9-digit value round-trips to a 9-digit covertext.")
 
 
 if __name__ == "__main__":

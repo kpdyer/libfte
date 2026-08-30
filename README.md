@@ -25,7 +25,7 @@ choices shape it:
 
 - the **format pair**: `input_format` and `output_format` (the input defaults
   to raw bytes, `BytesFormat`); and
-- the **cipher** on the integer in between: `"ae"` (randomized, authenticated,
+- the **cipher** on the integer in between: `"aes-ctr-hmac"` (randomized, authenticated,
   expanding: the classic AES-CTR + HMAC path) or `"ff1"` (deterministic,
   zero-expansion, format-preserving, via the optional
   [libffx](https://github.com/kpdyer/libffx) extra).
@@ -35,7 +35,7 @@ That gives a 2x2 of behaviors:
 | cipher \ formats | `input == output` | `input != output` |
 |---|---|---|
 | **`ff1`** (deterministic, zero-expansion, unauthenticated) | **FPE**: re-encrypt a value in place, optionally length-preserving | **deterministic FTE**: a reversible rank map between two formats |
-| **`ae`** (randomized, authenticated, expanding) | authenticated encryption over bytes | **classic FTE**: bytes hidden as a chosen covertext format |
+| **`aes-ctr-hmac`** (randomized, authenticated, expanding) | authenticated encryption over bytes | **classic FTE**: bytes hidden as a chosen covertext format |
 
 **FPE is simply the equal-formats case**: pass the same format as
 `input_format` and `output_format` and the deterministic cipher is inferred.
@@ -183,9 +183,9 @@ fte.FTE(
     input_format: RankedFormat = BytesFormat(),
     output_format: RankedFormat,
     key: bytes,
-    cipher: str | object | None = None,   # "ae" | "ff1" | object | inferred
+    cipher: str | object | None = None,   # "aes-ctr-hmac" | "ff1" | object | inferred
     preserve_length: bool = False,        # ff1, equal formats only
-    max_plaintext_bytes: int | None = None,   # ae, bytes input only
+    max_plaintext_bytes: int | None = None,   # aes-ctr-hmac, bytes input only
     allow_small_domain: bool = False,     # ff1 domain floor 1e6 -> 100
 )
 ```
@@ -195,11 +195,11 @@ fte.FTE(
 | `encrypt(plaintext, *, tweak=b"") -> T` | Rank the input, transform, unrank into a covertext (tweak: ff1 only) |
 | `decrypt(covertext, *, tweak=b"") -> P` | Rank the covertext, invert the transform, unrank the plaintext |
 | `input_format` / `output_format` | The two formats |
-| `cipher` | Resolved mode: `"ae"` or `"deterministic"` |
+| `cipher` | Resolved mode: `"aes-ctr-hmac"` or `"deterministic"` |
 | `preserve_length` | Whether ff1 permutes each length slice in place |
-| `max_plaintext_bytes` | Largest plaintext accepted, ae only (see below) |
+| `max_plaintext_bytes` | Largest plaintext accepted, aes-ctr-hmac only (see below) |
 
-Key sizes: `"ae"` needs exactly 32 bytes (16 encryption + 16 MAC); `"ff1"`
+Key sizes: `"aes-ctr-hmac"` needs exactly 32 bytes (16 encryption + 16 MAC); `"ff1"`
 needs 16/24/32. The `ff1` cipher requires the extra: `pip install fte[fpe]`.
 
 `max_plaintext_bytes` is chosen for you when left unset: a finite format (one

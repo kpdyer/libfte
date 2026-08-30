@@ -8,7 +8,8 @@ choices shape it:
   :class:`~fte.formats.bytes.BytesFormat`, i.e. raw bytes) and
   ``output_format``, each a :class:`RankedFormat`; and
 * the **cipher** on the integer in between: the randomized, authenticated,
-  expanding AE scheme (``"ae"``, the wire-frozen AES-CTR+HMAC path framed by
+  expanding AES-CTR+HMAC scheme (``"aes-ctr-hmac"``, the wire-frozen path
+  framed by
   :mod:`fte.frame`) or a deterministic, zero-expansion format-preserving
   permutation (``"ff1"`` via libffx, or any duck-typed object).
 
@@ -18,7 +19,7 @@ That gives a 2x2 of behaviors:
 cipher \\ format  input == output            input != output
 ===============  =========================  ============================
 ``ff1`` / obj    FPE (in place)             deterministic FTE (rank map)
-``ae``           authenticated, expanding   classic bytes -> AE -> format
+``aes-ctr-hmac``           authenticated, expanding   classic bytes -> AE -> format
 ===============  =========================  ============================
 
 The engine owns the cryptography; a format owns nothing but its ordering. See
@@ -119,13 +120,14 @@ class FTE(Generic[Plaintext, Covertext]):
       ``input_format`` and ``output_format`` re-encrypts a value in place with
       the deterministic cipher (optionally per length slice via
       ``preserve_length=True``).
-    * ``cipher`` is ``"ae"``, ``"ff1"``, a duck-typed object exposing
+    * ``cipher`` is ``"aes-ctr-hmac"``, ``"ff1"``, a duck-typed object exposing
       ``encrypt_int(x, *, domain, tweak) -> int`` /
       ``decrypt_int(y, *, domain, tweak) -> int``, or ``None`` to infer it:
-      a bytes input picks ``"ae"``; otherwise two formats with equal
+      a bytes input picks ``"aes-ctr-hmac"``; otherwise two formats with equal
       fingerprints pick ``"ff1"``; anything else must be spelled out.
 
-    ``key`` is 32 bytes for ``"ae"`` (16 encryption + 16 MAC) and 16/24/32
+    ``key`` is 32 bytes for ``"aes-ctr-hmac"`` (16 encryption + 16 MAC) and
+    16/24/32
     bytes for ``"ff1"``. **Never reuse a key across the two ciphers**: the AE
     and format-preserving constructions are unrelated and share no security
     proof.
@@ -139,7 +141,7 @@ class FTE(Generic[Plaintext, Covertext]):
     rejected for a non-bytes input, whose size the format's cardinality
     already fixes.
 
-    With the ``ae`` cipher the covertext is randomized and authenticated, so
+    With the ``aes-ctr-hmac`` cipher the covertext is randomized and authenticated, so
     encrypting the same plaintext twice yields two different covertexts: they
     are re-drawn per call. This holds for a non-bytes input too, whose rank is
     serialized and then run through the same randomized AE frame.
@@ -161,7 +163,7 @@ class FTE(Generic[Plaintext, Covertext]):
         "_input_format",
         "_output_format",
         "_input_is_bytes",
-        "_cipher_mode",  # "ae" | "deterministic"
+        "_cipher_mode",  # "aes-ctr-hmac" | "deterministic"
         "_cipher",       # the deterministic cipher object, else None
         "_encrypter",    # the AE encrypter, else None
         "_preserve_length",
@@ -206,7 +208,7 @@ class FTE(Generic[Plaintext, Covertext]):
         # ---- resolve the cipher ----------------------------------------
         if cipher is None:
             if input_is_bytes:
-                cipher = "ae"
+                cipher = "aes-ctr-hmac"
             elif (
                 isinstance(fp_in, bytes)
                 and isinstance(fp_out, bytes)
@@ -216,18 +218,20 @@ class FTE(Generic[Plaintext, Covertext]):
             else:
                 raise ValueError(
                     "cannot infer cipher for this format pair; pass "
-                    "cipher='ff1' for a deterministic transform, cipher='ae' "
+                    "cipher='ff1' for a deterministic transform, "
+                    "cipher='aes-ctr-hmac' "
                     "for authenticated encryption, or a cipher object"
                 )
 
         if isinstance(cipher, str):
-            if cipher == "ae":
-                cipher_mode = "ae"
+            if cipher == "aes-ctr-hmac":
+                cipher_mode = "aes-ctr-hmac"
             elif cipher == "ff1":
                 cipher_mode = "deterministic"
             else:
                 raise ValueError(
-                    f"unknown cipher {cipher!r}; expected 'ae', 'ff1', or an "
+                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac', "
+                    "'ff1', or an "
                     "object with encrypt_int()/decrypt_int()"
                 )
         else:
@@ -281,7 +285,7 @@ class FTE(Generic[Plaintext, Covertext]):
             if preserve_length:
                 raise ValueError(
                     "preserve_length requires a deterministic cipher "
-                    "('ff1' or a cipher object), not 'ae'"
+                    "('ff1' or a cipher object), not 'aes-ctr-hmac'"
                 )
             if len(key) != 32:
                 raise ValueError(
@@ -483,7 +487,7 @@ class FTE(Generic[Plaintext, Covertext]):
 
     @property
     def cipher(self) -> str:
-        """The resolved cipher mode: ``"ae"`` or ``"deterministic"``."""
+        """The resolved cipher mode: ``"aes-ctr-hmac"`` or ``"deterministic"``."""
 
         return self._cipher_mode
 
@@ -517,10 +521,11 @@ class FTE(Generic[Plaintext, Covertext]):
         if not isinstance(tweak, (bytes, bytearray)):
             raise TypeError("tweak must be bytes")
         tweak = bytes(tweak)
-        if self._cipher_mode == "ae":
+        if self._cipher_mode == "aes-ctr-hmac":
             if tweak:
                 raise ValueError(
-                    "the 'ae' cipher has no associated-data support; a "
+                    "the 'aes-ctr-hmac' cipher has no associated-data "
+                    "support; a "
                     "non-empty tweak is only valid with a deterministic cipher"
                 )
             return self._encrypt_ae(plaintext)
@@ -532,10 +537,11 @@ class FTE(Generic[Plaintext, Covertext]):
         if not isinstance(tweak, (bytes, bytearray)):
             raise TypeError("tweak must be bytes")
         tweak = bytes(tweak)
-        if self._cipher_mode == "ae":
+        if self._cipher_mode == "aes-ctr-hmac":
             if tweak:
                 raise ValueError(
-                    "the 'ae' cipher has no associated-data support; a "
+                    "the 'aes-ctr-hmac' cipher has no associated-data "
+                    "support; a "
                     "non-empty tweak is only valid with a deterministic cipher"
                 )
             return self._decrypt_ae(covertext)

@@ -324,7 +324,7 @@ class Tests(unittest.TestCase):
     # ---- AE cell, bytes input (classic FTE) ---------------------------- #
     def test_ae_bytes_roundtrip_is_randomized_and_authenticated(self):
         eng = FTE(output_format=BIG_HEX, key=KEY_AE)
-        self.assertEqual(eng.cipher, "ae")
+        self.assertEqual(eng.cipher, "aes-ctr-hmac")
         ct1 = eng.encrypt(b"attack at dawn")
         ct2 = eng.encrypt(b"attack at dawn")
         self.assertNotEqual(ct1, ct2)  # re-drawn per call
@@ -345,7 +345,7 @@ class Tests(unittest.TestCase):
     # ---- AE cell, non-bytes input -------------------------------------- #
     def test_ae_non_bytes_roundtrip_via_rank_serialization(self):
         digits = fte.RegexFormat(r"^[0-9]+$", length=6)
-        eng = FTE(input_format=digits, output_format=BIG_HEX, cipher="ae",
+        eng = FTE(input_format=digits, output_format=BIG_HEX, cipher="aes-ctr-hmac",
                   key=KEY_AE)
         ct1 = eng.encrypt(b"012345")
         ct2 = eng.encrypt(b"012345")
@@ -358,7 +358,7 @@ class Tests(unittest.TestCase):
         digits = fte.RegexFormat(r"^[0-9]+$", length=6)
         tiny = fte.RegexFormat(r"^[0-9a-f]+$", length=8)  # only 4 payload bytes
         with self.assertRaises(FormatCapacityError):
-            FTE(input_format=digits, output_format=tiny, cipher="ae",
+            FTE(input_format=digits, output_format=tiny, cipher="aes-ctr-hmac",
                 key=KEY_AE)
 
     # ---- ValueError / error matrix for bad configs --------------------- #
@@ -402,7 +402,7 @@ class Tests(unittest.TestCase):
     def test_max_plaintext_bytes_rejected_for_non_bytes_input(self):
         digits = fte.RegexFormat(r"^[0-9]+$", length=6)
         with self.assertRaises(ValueError):
-            FTE(input_format=digits, output_format=BIG_HEX, cipher="ae",
+            FTE(input_format=digits, output_format=BIG_HEX, cipher="aes-ctr-hmac",
                 key=KEY_AE, max_plaintext_bytes=8)
 
     def test_legacy_format_alias_removed(self):

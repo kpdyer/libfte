@@ -7,8 +7,8 @@ an integer, transforms that integer, and unranks the result into the output
 format. Two independent choices shape it:
 
 * the **format pair** (``input_format`` / ``output_format``), and
-* the **cipher**: ``"ae"`` (randomized, authenticated, expanding: the classic
-  AES-CTR+HMAC path) or ``"ff1"`` (deterministic, zero-expansion,
+* the **cipher**: ``"aes-ctr-hmac"`` (randomized, authenticated, expanding:
+  the classic AES-CTR + HMAC path) or ``"ff1"`` (deterministic, zero-expansion,
   format-preserving, via the optional libffx package).
 
 FPE is simply the case ``input_format == output_format``: equal formats infer

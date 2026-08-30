@@ -37,7 +37,7 @@ setup(
     },
     package_data={'fte': ['_version.txt', 'py.typed']},
     test_suite='fte.tests',
-    packages=['fte', 'fte.tests'],
+    packages=['fte', 'fte.formats', 'fte.formats.regex', 'fte.tests'],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',

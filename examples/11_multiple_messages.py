@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Example: Encoding multiple messages.
+"""Example: Encrypting multiple messages.
 
-This example shows how to encode and decode multiple messages
-in sequence, demonstrating the remainder handling.
+Each covertext from a RegexFormat is exactly ``length`` bytes, so a stream of
+concatenated messages can be parsed back one fixed-size chunk at a time.
 """
 
 import os
@@ -14,49 +14,47 @@ import fte
 def main():
     print("=== Multiple Messages ===\n")
 
-    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=os.urandom(32))
-    
-    # Encode multiple messages
+    length = 128
+    cipher = fte.FTE(
+        format=fte.RegexFormat('^[a-z]+$', length=length),
+        key=os.urandom(32),
+    )
+
+    # Encrypt multiple messages
     messages = [
         b'First message',
         b'Second message',
         b'Third message',
     ]
-    
-    print("Encoding messages:")
+
+    print("Encrypting messages:")
     ciphertexts = []
     for i, msg in enumerate(messages):
-        ct = encoder.encode(msg)
+        ct = cipher.encrypt(msg)
         ciphertexts.append(ct)
         print(f"  Message {i+1}: {msg}")
         print(f"    Ciphertext length: {len(ct)} bytes")
-    
+
     # Concatenate all ciphertexts (simulating a stream)
     stream = b''.join(ciphertexts)
     print(f"\nConcatenated stream: {len(stream)} bytes")
-    
-    # Decode from stream
-    print("\nDecoding from stream:")
-    buffer = stream
-    decoded_messages = []
-    
-    while len(buffer) >= 128:
-        plaintext, remainder = encoder.decode(buffer)
-        decoded_messages.append(plaintext)
-        print(f"  Decoded: {plaintext}")
-        print(f"    Remainder: {len(remainder)} bytes")
-        buffer = remainder
-    
-    if buffer:
-        print(f"\nLeftover buffer: {len(buffer)} bytes")
-    
+
+    # Decrypt from the stream: every covertext is exactly `length` bytes.
+    print("\nDecrypting from stream:")
+    decrypted_messages = []
+    for offset in range(0, len(stream), length):
+        chunk = stream[offset:offset + length]
+        plaintext = cipher.decrypt(chunk)
+        decrypted_messages.append(plaintext)
+        print(f"  Decrypted: {plaintext}")
+
     # Verify all messages recovered
     print("\nVerification:")
-    for orig, recovered in zip(messages, decoded_messages):
+    for orig, recovered in zip(messages, decrypted_messages):
         match = "✓" if orig == recovered else "✗"
         print(f"  {match} {orig} == {recovered}")
-    
-    assert messages == decoded_messages, "Message recovery failed!"
+
+    assert messages == decrypted_messages, "Message recovery failed!"
     print("\nAll messages recovered correctly!")
 
 

@@ -15,7 +15,7 @@ cd libfte
 pip install .
 ```
 
-For development (tests, coverage, linting):
+For development (tests and coverage):
 
 ```bash
 pip install -e ".[dev]"
@@ -26,7 +26,7 @@ pip install -e ".[dev]"
 Run the test suite:
 
 ```bash
-pytest fte/tests/ -v
+pytest -v
 ```
 
 Or try an example:
@@ -39,10 +39,7 @@ python examples/01_basic_usage.py
 
 ```bash
 # Run tests with coverage
-pytest fte/tests/ -v --cov=fte
-
-# Run linting
-flake8 fte/
+pytest -v --cov=fte
 ```
 
 ## Building distributions

@@ -10,7 +10,6 @@ The algorithm is based on:
 - "Protocol Misidentification Made Easy with Format-Transforming Encryption"
 """
 
-import math
 from typing import Dict, List, Set
 
 
@@ -26,32 +25,23 @@ class InvalidUnrankInput(Exception):
     """Raised when a rank is outside the valid range."""
 
 
-class LanguageIsEmptySetException(Exception):
-    """Raised when the language has no words of length ``fixed_slice``."""
-
-
 class DFA:
-    """Rank and unrank strings of a regular language.
+    """Rank and unrank the words of a regular language by length.
 
-    Parses a minimized AT&T FST, builds the Goldberg-Sipser counting table, and
-    maps between strings of length ``fixed_slice`` and their lexicographic index
-    via :meth:`rank` and :meth:`unrank`.
+    Parses a minimized AT&T FST and builds the Goldberg-Sipser counting table up
+    to a maximum ``length``. :meth:`rank` and :meth:`unrank` then map between a
+    word and its lexicographic index among the accepted words of that word's
+    length, and :meth:`num_words_in_language` counts words over a length range.
+    Whether any words exist in the range the caller cares about is the caller's
+    concern.
 
     Args:
         dfa_str: A minimized AT&T FST formatted DFA string.
-        fixed_slice: The fixed string length for ranking/unranking.
-
-    Attributes:
-        capacity: Usable capacity in bits, ``floor(log2(N)) - 1`` where ``N`` is
-            the number of words of length ``fixed_slice`` in the language.
-
-    Raises:
-        LanguageIsEmptySetException: If the language has no words of length
-            ``fixed_slice``.
+        length: The maximum word length the counting table supports.
     """
 
-    def __init__(self, dfa_str: str, fixed_slice: int):
-        self._fixed_slice = fixed_slice
+    def __init__(self, dfa_str: str, length: int):
+        self._length = length
         self._start_state = 0
         self._states: List[int] = []
         self._symbols: List[int] = []
@@ -64,11 +54,6 @@ class DFA:
 
         self._parse_dfa(dfa_str)
         self._build_table()
-
-        self._words_in_slice = self.num_words_in_language(fixed_slice, fixed_slice)
-        if self._words_in_slice == 0:
-            raise LanguageIsEmptySetException()
-        self.capacity = int(math.floor(math.log(self._words_in_slice, 2))) - 1
 
     def _parse_dfa(self, dfa_str: str) -> None:
         """Parse the AT&T FST formatted DFA string."""
@@ -143,7 +128,7 @@ class DFA:
             if num_symbols > 0:
                 first_dst = self._delta[q][0]
                 is_dense = all(self._delta[q][a] == first_dst for a in range(num_symbols))
-            else:
+            else:  # pragma: no cover - a DFA with no symbols is rejected above
                 is_dense = True
             self._delta_dense.append(is_dense)
 
@@ -152,7 +137,7 @@ class DFA:
         num_states = len(self._states)
 
         # Initialize T to zeros
-        self._T = [[0] * (self._fixed_slice + 1) for _ in range(num_states)]
+        self._T = [[0] * (self._length + 1) for _ in range(num_states)]
 
         # Base case: T[q][0] = 1 if q is a final state
         prev_col = [0] * num_states
@@ -164,7 +149,7 @@ class DFA:
         # split states by how many distinct destinations they have. Most states
         # send *every* symbol to a single destination (e.g. every letter in
         # ``[a-z]`` leads to the same next state), so those reduce to one
-        # ``count * T[next_state]`` multiply -- replacing a run of identical
+        # ``count * T[next_state]`` multiply, replacing a run of identical
         # big-integer additions. Partitioning up front keeps that common
         # single-destination path free of any per-state branching.
         single = []   # (q, next_state, count)
@@ -182,7 +167,7 @@ class DFA:
         # Fill the table column by column: T[q][i] = sum over symbols a of
         # T[delta[q][a]][i-1].
         T = self._T
-        for i in range(1, self._fixed_slice + 1):
+        for i in range(1, self._length + 1):
             cur_col = [0] * num_states
             for q, next_state, count in single:
                 v = count * prev_col[next_state]
@@ -199,21 +184,24 @@ class DFA:
             prev_col = cur_col
 
     def rank(self, X: bytes) -> int:
-        """Return the lexicographic rank of string ``X`` in the language.
+        """Return the lexicographic rank of ``X`` among words of its own length.
+
+        The rank is taken within the accepted words of length ``len(X)``; the
+        caller composes a whole-language rank across lengths.
 
         Args:
-            X: A bytes string of length ``fixed_slice``.
+            X: A bytes string no longer than the built ``length``.
 
         Returns:
-            The integer rank of ``X``.
+            The integer rank of ``X`` among accepted words of length ``len(X)``.
 
         Raises:
-            InvalidRankInput: If ``X`` has the wrong length or is not in the
+            InvalidRankInput: If ``X`` is longer than ``length`` or is not in the
                 language.
         """
-        if len(X) != self._fixed_slice:
+        if len(X) > self._length:
             raise InvalidRankInput(
-                f"Input length {len(X)} != fixed_slice {self._fixed_slice}"
+                f"Input length {len(X)} exceeds built length {self._length}"
             )
 
         q = self._start_state
@@ -267,30 +255,37 @@ class DFA:
         # the reversed sequence adds smallest-first.
         return sum(reversed(terms))
 
-    def unrank(self, c: int) -> bytes:
-        """Return the string at lexicographic rank ``c`` in the language.
+    def unrank(self, c: int, length: int | None = None) -> bytes:
+        """Return the word of the given ``length`` at rank ``c``.
 
-        This is the inverse of :meth:`rank`.
+        Inverse of :meth:`rank` for words of exactly ``length`` bytes. ``length``
+        defaults to the built length.
 
         Args:
-            c: The integer rank.
+            c: The integer rank among accepted words of ``length`` bytes.
+            length: The word length to produce (0 <= length <= built length).
 
         Returns:
-            The bytes string at rank ``c``.
+            The bytes string at rank ``c`` among words of ``length`` bytes.
 
         Raises:
-            InvalidUnrankInput: If ``c`` is out of range.
+            InvalidUnrankInput: If ``c`` is out of range for that length.
         """
-        words_in_slice = self._words_in_slice
-
-        if c < 0 or c >= words_in_slice:
+        if length is None:
+            length = self._length
+        if not 0 <= length <= self._length:
             raise InvalidUnrankInput(
-                f"Rank {c} out of range [0, {words_in_slice})"
+                f"length {length} outside [0, {self._length}]"
+            )
+
+        num_words = self._T[self._start_state][length]
+        if c < 0 or c >= num_words:
+            raise InvalidUnrankInput(
+                f"Rank {c} out of range [0, {num_words}) for length {length}"
             )
 
         result = bytearray()
         q = self._start_state
-        fixed_slice = self._fixed_slice
 
         # Hoist attribute lookups out of the per-character loop.
         T = self._T
@@ -298,9 +293,9 @@ class DFA:
         dense = self._delta_dense
         sigma = self._sigma
 
-        for i in range(1, fixed_slice + 1):
+        for i in range(1, length + 1):
             delta_q = delta[q]
-            col = fixed_slice - i
+            col = length - i
 
             if dense[q]:
                 # Optimized: all transitions from q go to same state
@@ -343,7 +338,7 @@ class DFA:
         Returns:
             The count of words in the specified length range.
         """
-        assert 0 <= min_len <= max_len <= self._fixed_slice
+        assert 0 <= min_len <= max_len <= self._length
         return sum(
             self._T[self._start_state][length]
             for length in range(min_len, max_len + 1)

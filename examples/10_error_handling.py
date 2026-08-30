@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Example: Proper error handling.
 
-Shows the exceptions the regex Encoder and the FTE engine raise, and how to
-handle each one.
+Shows the exceptions the FTE engine and RegexFormat raise, and how to handle
+each one.
 """
 
 import os
@@ -15,57 +15,50 @@ def main():
     print("=== Error Handling ===\n")
 
     key = os.urandom(32)
-    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=key)
+    cipher = fte.FTE(format=fte.RegexFormat('^[a-z]+$', length=128), key=key)
 
-    # 1. Invalid input type
-    print("1. Invalid input type:")
+    # 1. Non-bytes plaintext
+    print("1. Non-bytes plaintext:")
     try:
-        encoder.encode("not bytes")  # must be bytes, not str
-    except fte.InvalidInputException as e:
-        print(f"   Caught InvalidInputException: {e}")
+        cipher.encrypt("not bytes")  # must be bytes, not str
+    except TypeError as e:
+        print(f"   Caught TypeError: {e}")
 
-    # 2. Covertext too short to decode
-    print("\n2. Covertext too short:")
+    # 2. Malformed covertext (wrong type or length)
+    print("\n2. Malformed covertext:")
     try:
-        encoder.decode(b'tooshort')
-    except fte.DecodeFailureError as e:
-        print(f"   Caught DecodeFailureError: {e}")
+        cipher.decrypt(b'tooshort')
+    except fte.InvalidCovertextError as e:
+        print(f"   Caught InvalidCovertextError: {e}")
 
-    # 3. Invalid ciphertext type
-    print("\n3. Invalid ciphertext type:")
+    # 3. Invalid key length
+    print("\n3. Invalid key length:")
     try:
-        encoder.decode("not bytes")
-    except fte.InvalidInputException as e:
-        print(f"   Caught InvalidInputException: {e}")
-
-    # 4. Invalid key length
-    print("\n4. Invalid key length:")
-    try:
-        fte.Encoder(regex='^[a-z]+$', fixed_slice=64, key=b'tooshort')
+        fte.FTE(format=fte.RegexFormat('^[a-z]+$', length=64), key=b'tooshort')
     except ValueError as e:
         print(f"   Caught ValueError: {e}")
 
-    # 5. Message too large for the fixed-length format
-    print("\n5. Insufficient capacity:")
+    # 4. Message too large for the fixed-length format
+    print("\n4. Insufficient capacity:")
     try:
-        tiny = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=8, key=key)
-        tiny.encode(b'x' * 100)
+        tiny = fte.FTE(format=fte.RegexFormat('^[0-9a-f]+$', length=8), key=key)
+        tiny.encrypt(b'x' * 100)
     except fte.FormatCapacityError as e:
         print(f"   Caught FormatCapacityError: {e}")
 
-    # 6. Regex with no words of the requested length
-    print("\n6. Empty language for (pattern, length):")
+    # 5. Regex with no words of the requested length
+    print("\n5. Empty language for (pattern, length):")
     try:
-        fte.Encoder(regex='^(ab)+$', fixed_slice=5, key=key)
+        fte.RegexFormat('^(ab)+$', length=5)  # no words of odd length
     except ValueError as e:
         print(f"   Caught ValueError: {e}")
 
-    # 7. Corrupted / unauthenticated covertext
-    print("\n7. Tampered covertext:")
-    covertext = encoder.encode(b'hello')
+    # 6. Corrupted / unauthenticated covertext
+    print("\n6. Tampered covertext:")
+    covertext = cipher.encrypt(b'hello')
     tampered = bytes([covertext[0] ^ 0x01]) + covertext[1:]
     try:
-        encoder.decode(tampered)
+        cipher.decrypt(tampered)
     except fte.InvalidCovertextError as e:
         print(f"   Caught InvalidCovertextError: {e}")
 
@@ -73,8 +66,8 @@ def main():
     print("\n" + "=" * 50)
     print("\nCorrect usage:")
     plaintext = b'Hello, World!'
-    ciphertext = encoder.encode(plaintext)
-    recovered, _ = encoder.decode(ciphertext)
+    ciphertext = cipher.encrypt(plaintext)
+    recovered = cipher.decrypt(ciphertext)
     print(f"   Original:  {plaintext}")
     print(f"   Recovered: {recovered}")
 

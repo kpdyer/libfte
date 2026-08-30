@@ -18,7 +18,7 @@ Example usage:
     >>> assert encoder.decode(covertext) == b'secret message'
     >>>
     >>> # fte.Encoder is a regex convenience wrapper over the same engine:
-    >>> regex_encoder = fte.Encoder('^[a-z]+$', 128)
+    >>> regex_encoder = fte.Encoder('^[a-z]+$', 128, key=bytes(range(32)))
     >>> ciphertext = regex_encoder.encode(b'secret message')
     >>> plaintext, _ = regex_encoder.decode(ciphertext)
 
@@ -27,9 +27,8 @@ Encryption" for details: https://kpdyer.com/publications/ccs2013-fte.pdf
 """
 
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Tuple
 
-from fte.bit_ops import random_bytes
 from fte.encoder import DecodeFailureError, InvalidInputException
 from fte.encrypter import Encrypter
 from fte.format import (
@@ -86,11 +85,11 @@ class Encoder:
         regex: A regular expression defining the output format.
             Examples: '^[a-z]+$', '^[0-9a-f]+$', '^[A-Za-z0-9]+$'
         fixed_slice: The exact byte length of each formatted covertext.
-        key: Optional 32-byte key (16 bytes encryption + 16 bytes MAC).
-            A random key is generated when omitted.
+        key: The 32-byte key (16 bytes encryption + 16 bytes MAC), shared by
+            both endpoints.
 
     Example:
-        >>> encoder = fte.Encoder('^[0-9a-f]+$', 128)
+        >>> encoder = fte.Encoder('^[0-9a-f]+$', 128, key=bytes(range(32)))
         >>> ciphertext = encoder.encode(b'secret')
         >>> plaintext, _ = encoder.decode(ciphertext)
     """
@@ -99,12 +98,10 @@ class Encoder:
         self,
         regex: str,
         fixed_slice: int,
-        key: Optional[bytes] = None,
+        key: bytes,
     ):
         self.regex = regex
         self.fixed_slice = fixed_slice
-        if key is None:
-            key = random_bytes(32)
         self._format = RegexFormat(regex, length=fixed_slice)
         self._fte = FTE(format=self._format, key=key)
 
@@ -171,7 +168,8 @@ def encode(
     plaintext: bytes,
     regex: str = '^[a-z]+$',
     fixed_slice: int = 256,
-    key: Optional[bytes] = None,
+    *,
+    key: bytes,
 ) -> bytes:
     """Encode plaintext with the regex Encoder (convenience function).
 
@@ -183,13 +181,13 @@ def encode(
         plaintext: The data to encrypt.
         regex: Output format as a regular expression.
         fixed_slice: Length of formatted output.
-        key: Optional 32-byte key.
+        key: The 32-byte key shared by both endpoints.
 
     Returns:
         Ciphertext formatted to match the regex.
 
     Example:
-        >>> ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$')
+        >>> ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$', key=key)
     """
     cache_key = (regex, fixed_slice, key)
     if cache_key not in _encoders:
@@ -201,7 +199,8 @@ def decode(
     ciphertext: bytes,
     regex: str = '^[a-z]+$',
     fixed_slice: int = 256,
-    key: Optional[bytes] = None,
+    *,
+    key: bytes,
 ) -> Tuple[bytes, bytes]:
     """Decode ciphertext with the regex Encoder (convenience function).
 
@@ -218,7 +217,7 @@ def decode(
         A tuple of (plaintext, remainder).
 
     Example:
-        >>> plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$')
+        >>> plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$', key=key)
     """
     cache_key = (regex, fixed_slice, key)
     if cache_key not in _encoders:

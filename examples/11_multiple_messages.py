@@ -6,13 +6,15 @@ This example shows how to encode and decode multiple messages
 in sequence, demonstrating the remainder handling.
 """
 
+import os
+
 import fte
 
 
 def main():
     print("=== Multiple Messages ===\n")
-    
-    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128)
+
+    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=os.urandom(32))
     
     # Encode multiple messages
     messages = [

@@ -6,12 +6,14 @@ This example demonstrates the simplest way to use FTE -
 encoding and decoding a message with a regex format.
 """
 
+import os
+
 import fte
 
 
 def main():
-    # Create an encoder with a regex and output length
-    encoder = fte.Encoder(regex='^(a|b)+$', fixed_slice=512)
+    # Create an encoder with a regex, output length, and a 32-byte key.
+    encoder = fte.Encoder(regex='^(a|b)+$', fixed_slice=512, key=os.urandom(32))
     
     # Encode a message
     plaintext = b'Hello, World!'

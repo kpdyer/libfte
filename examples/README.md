@@ -16,10 +16,10 @@ pip install fte
 | `02_custom_keys.py` | Using custom encryption keys |
 | `03_regex_formats.py` | A gallery of regex covertext formats |
 | `04_variable_length.py` | Variable-length covertext via `min_length`/`max_length` |
-| `06_capacity_calculation.py` | Understanding language capacity |
-| `10_error_handling.py` | Proper exception handling |
-| `11_multiple_messages.py` | Parsing a stream of fixed-length covertexts |
-| `12_custom_format.py` | Writing your own `RankedFormat` provider |
+| `05_capacity_calculation.py` | Understanding language capacity |
+| `06_error_handling.py` | Proper exception handling |
+| `07_multiple_messages.py` | Parsing a stream of fixed-length covertexts |
+| `08_custom_format.py` | Writing your own `RankedFormat` provider |
 
 ## Running Examples
 
@@ -44,7 +44,7 @@ plaintext = cipher.decrypt(ciphertext)
 ```
 
 To target a covertext language regex can't describe, supply your own
-`RankedFormat` (see `12_custom_format.py`).
+`RankedFormat` (see `08_custom_format.py`).
 
 ## Choosing a Format
 

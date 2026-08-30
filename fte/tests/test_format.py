@@ -4,12 +4,12 @@ import os
 import unittest
 
 import fte
-from fte.core import (
-    _bytes_to_rank,
-    _capacity_plaintext_limit,
-    _frame_rank_limit,
-    _rank_offset,
-    _rank_to_bytes,
+from fte.frame import (
+    bytes_to_rank,
+    capacity_plaintext_limit,
+    frame_rank_limit,
+    rank_offset,
+    rank_to_bytes,
 )
 
 
@@ -48,13 +48,13 @@ class Tests(unittest.TestCase):
             bytes(range(256)),
         )
 
-        ranks = [_bytes_to_rank(value) for value in values]
+        ranks = [bytes_to_rank(value) for value in values]
 
         self.assertEqual(len(set(ranks)), len(values))
         for value, rank in zip(values, ranks):
-            self.assertEqual(_rank_to_bytes(rank), value)
+            self.assertEqual(rank_to_bytes(rank), value)
         for rank in range(10_000):
-            self.assertEqual(_bytes_to_rank(_rank_to_bytes(rank)), rank)
+            self.assertEqual(bytes_to_rank(rank_to_bytes(rank)), rank)
 
     def test_invalid_plaintext(self):
         cipher = fte.FTE(format=HexFormat(), key=KEY)
@@ -106,7 +106,7 @@ class Tests(unittest.TestCase):
         with self.assertRaises(fte.MessageTooLargeError):
             cipher.encrypt(b"12345")
 
-        oversized_rank = _rank_offset(cipher._max_frame_bytes + 1)
+        oversized_rank = rank_offset(cipher._max_frame_bytes + 1)
         oversized = cipher.format.unrank(oversized_rank)
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt(oversized)
@@ -125,7 +125,7 @@ class Tests(unittest.TestCase):
         limit = cipher.max_plaintext_bytes
         self.assertEqual(
             limit,
-            _capacity_plaintext_limit(
+            capacity_plaintext_limit(
                 fmt.cardinality, fte.FTE._CIPHERTEXT_EXPANSION
             ),
         )
@@ -176,16 +176,16 @@ class Tests(unittest.TestCase):
 
         def brute(cardinality):
             frame = 1 + exp
-            if cardinality < _frame_rank_limit(frame):
+            if cardinality < frame_rank_limit(frame):
                 return -1
-            while cardinality >= _frame_rank_limit(frame + 1):
+            while cardinality >= frame_rank_limit(frame + 1):
                 frame += 1
             return frame - 1 - exp
 
         cardinalities = [
             1,
-            _frame_rank_limit(1 + exp) - 1,
-            _frame_rank_limit(1 + exp),
+            frame_rank_limit(1 + exp) - 1,
+            frame_rank_limit(1 + exp),
             16 ** 8,
             16 ** 65,
             16 ** 96,
@@ -195,12 +195,12 @@ class Tests(unittest.TestCase):
         ]
         for cardinality in cardinalities:
             self.assertEqual(
-                _capacity_plaintext_limit(cardinality, exp), brute(cardinality)
+                capacity_plaintext_limit(cardinality, exp), brute(cardinality)
             )
 
     def test_frame_preserves_leading_zero_bytes(self):
         framed = b"\x01\x00\x00" + b"e" * 30
-        self.assertEqual(_rank_to_bytes(_bytes_to_rank(framed)), framed)
+        self.assertEqual(rank_to_bytes(bytes_to_rank(framed)), framed)
 
     def test_decode_rejects_unframed_rank(self):
         cipher = fte.FTE(format=HexFormat(), key=KEY)
@@ -212,7 +212,7 @@ class Tests(unittest.TestCase):
 
         ciphertext = cipher._encrypter.encrypt(b"hello")
         wrong_version = cipher.format.unrank(
-            _bytes_to_rank(b"\x02" + ciphertext)
+            bytes_to_rank(b"\x02" + ciphertext)
         )
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt(wrong_version)
@@ -220,7 +220,7 @@ class Tests(unittest.TestCase):
     def test_decode_rejects_trailing_ciphertext(self):
         cipher = fte.FTE(format=HexFormat(), key=KEY)
         ciphertext = cipher._encrypter.encrypt(b"hello") + b"trailing"
-        index = _bytes_to_rank(b"\x01" + ciphertext)
+        index = bytes_to_rank(b"\x01" + ciphertext)
         covertext = cipher.format.unrank(index)
 
         with self.assertRaises(fte.InvalidCovertextError):
@@ -233,7 +233,7 @@ class Tests(unittest.TestCase):
         ciphertext = cipher._encrypter.encrypt(b"hello")
 
         for damaged in (ciphertext[:-1], ciphertext + b"x"):
-            covertext = cipher.format.unrank(_bytes_to_rank(b"\x01" + damaged))
+            covertext = cipher.format.unrank(bytes_to_rank(b"\x01" + damaged))
             with self.assertRaises(fte.InvalidCovertextError) as caught:
                 cipher.decrypt(covertext)
             self.assertEqual(str(caught.exception), "invalid covertext")
@@ -272,7 +272,7 @@ class Tests(unittest.TestCase):
 
     def test_finite_capacity_is_preflighted_at_exact_boundary(self):
         frame_length = 1 + fte.FTE._CIPHERTEXT_EXPANSION
-        required_cardinality = _frame_rank_limit(frame_length)
+        required_cardinality = frame_rank_limit(frame_length)
 
         class ExactFiniteHex(HexFormat):
             cardinality = required_cardinality

@@ -30,8 +30,6 @@ Based on the paper [Protocol Misidentification Made Easy with Format-Transformin
 pip install fte
 ```
 
-Works out of the box with pure Python, no compilation required.
-
 ## Quick Example
 
 Encrypt a secret so the ciphertext looks like words:

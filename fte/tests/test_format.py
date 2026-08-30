@@ -6,6 +6,7 @@ import unittest
 import fte
 from fte.core import (
     _bytes_to_rank,
+    _capacity_plaintext_limit,
     _frame_rank_limit,
     _rank_offset,
     _rank_to_bytes,
@@ -120,6 +121,87 @@ class Tests(unittest.TestCase):
         )
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt(excessive_bits)
+
+    def test_finite_format_derives_max_plaintext_from_capacity(self):
+        # A finite format (RegexFormat exposes cardinality) sets the ceiling
+        # from its own capacity, not the 1 MiB default.
+        fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
+        cipher = fte.FTE(format=fmt, key=KEY)
+        limit = cipher.max_plaintext_bytes
+        self.assertEqual(
+            limit,
+            _capacity_plaintext_limit(
+                fmt.cardinality, fte.Encrypter._CTXT_EXPANSION
+            ),
+        )
+        self.assertLess(limit, fte.FTE._DEFAULT_MAX_PLAINTEXT_BYTES)
+        # The derived limit is exact: `limit` bytes fit, one more overflows.
+        self.assertEqual(
+            cipher.decrypt(cipher.encrypt(b"x" * limit)), b"x" * limit
+        )
+        with self.assertRaises(fte.FormatCapacityError):
+            cipher.encrypt(b"x" * (limit + 1))
+
+    def test_unbounded_format_uses_default_ceiling(self):
+        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        self.assertEqual(
+            cipher.max_plaintext_bytes, fte.FTE._DEFAULT_MAX_PLAINTEXT_BYTES
+        )
+
+    def test_explicit_max_tightens_finite_format(self):
+        # An explicit value lowers the ceiling below the format's capacity and
+        # is reported as a resource limit, not a capacity error.
+        cipher = fte.FTE(
+            format=fte.RegexFormat(r"^[0-9a-f]+$", length=96),
+            key=KEY,
+            max_plaintext_bytes=5,
+        )
+        self.assertEqual(cipher.max_plaintext_bytes, 5)
+        self.assertEqual(cipher.decrypt(cipher.encrypt(b"12345")), b"12345")
+        with self.assertRaises(fte.MessageTooLargeError):
+            cipher.encrypt(b"123456")
+
+    def test_finite_format_too_small_is_rejected_at_construction(self):
+        # length=8 hex holds 16**8 == 2**32 values, far too few for the 33-byte
+        # authenticated frame, so the format cannot hold even an empty message
+        # and building an FTE around it fails fast.
+        with self.assertRaises(fte.FormatCapacityError):
+            fte.FTE(format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
+
+    def test_finite_format_capacity_zero_allows_only_empty(self):
+        # length=65 hex holds exactly enough for the empty-message frame.
+        cipher = fte.FTE(format=fte.RegexFormat(r"^[0-9a-f]+$", length=65), key=KEY)
+        self.assertEqual(cipher.max_plaintext_bytes, 0)
+        self.assertEqual(cipher.decrypt(cipher.encrypt(b"")), b"")
+        with self.assertRaises(fte.FormatCapacityError):
+            cipher.encrypt(b"x")
+
+    def test_capacity_plaintext_limit_matches_bruteforce(self):
+        exp = fte.Encrypter._CTXT_EXPANSION
+
+        def brute(cardinality):
+            frame = 1 + exp
+            if cardinality < _frame_rank_limit(frame):
+                return -1
+            while cardinality >= _frame_rank_limit(frame + 1):
+                frame += 1
+            return frame - 1 - exp
+
+        cardinalities = [
+            1,
+            _frame_rank_limit(1 + exp) - 1,
+            _frame_rank_limit(1 + exp),
+            16 ** 8,
+            16 ** 65,
+            16 ** 96,
+            26 ** 128,
+            2 ** 1000,
+            2 ** 5000,
+        ]
+        for cardinality in cardinalities:
+            self.assertEqual(
+                _capacity_plaintext_limit(cardinality, exp), brute(cardinality)
+            )
 
     def test_frame_preserves_leading_zero_bytes(self):
         framed = b"\x01\x00\x00" + b"e" * 30

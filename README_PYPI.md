@@ -33,17 +33,22 @@ Encrypt a secret so the ciphertext looks like words:
 import os
 import fte
 
-key = os.urandom(32)  # 32-byte key, shared by both endpoints
-cipher = fte.FTE(format=fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80), key=key)
+key = os.urandom(32)  # 32 bytes, shared by both endpoints
+
+# Pick a covertext format, then build a cipher over it and the key.
+word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80)
+cipher = fte.FTE(format=word_format, key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
 # → "a kgxbpxy vpgdigzczzkwlgmapocgjzspnqzilpyhezdbtxalonocvhlpc bbtflzgxhjjjpvmmnvvu"
-#   (always exactly length=80 bytes)
 
 plaintext = cipher.decrypt(ciphertext)
 # → b'Attack at dawn'
 ```
+
+`RegexFormat` also takes a `min_length`/`max_length` range for variable-length
+covertext; a fixed `length` is the special case where they are equal.
 
 ### Ranked-Format Providers
 

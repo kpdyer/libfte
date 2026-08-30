@@ -40,13 +40,15 @@ Encrypt a secret so the ciphertext looks like words:
 import os
 import fte
 
-key = os.urandom(32)  # 32-byte key, shared by both endpoints
-cipher = fte.FTE(format=fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80), key=key)
+key = os.urandom(32)  # 32 bytes, shared by both endpoints
+
+# Pick a covertext format, then build a cipher over it and the key.
+word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80)
+cipher = fte.FTE(format=word_format, key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
 # → "a kgxbpxy vpgdigzczzkwlgmapocgjzspnqzilpyhezdbtxalonocvhlpc bbtflzgxhjjjpvmmnvvu"
-#   (always exactly length=80 bytes)
 
 plaintext = cipher.decrypt(ciphertext)
 # → b'Attack at dawn'
@@ -77,6 +79,16 @@ cipher.encrypt(b'secret')
 cipher = fte.FTE(format=fte.RegexFormat('^[A-Za-z0-9]+$', length=64), key=key)
 cipher.encrypt(b'secret')
 # → "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
+```
+
+### Variable-length covertext
+Give a `min_length`/`max_length` range instead of a fixed `length`, and the
+covertext length varies with the message (`min_length == max_length` is the
+fixed case):
+```python
+lowercase = fte.RegexFormat('^[a-z]+$', min_length=40, max_length=400)
+cipher = fte.FTE(format=lowercase, key=key)
+cipher.encrypt(b'secret')       # a lowercase string somewhere in 40..400 bytes
 ```
 
 ### Custom ranked-format providers
@@ -137,7 +149,7 @@ fte.FTE(
     *,
     format: RankedFormat[T],
     key: bytes,
-    max_plaintext_bytes: int = 1_048_576,
+    max_plaintext_bytes: int | None = None,
 )
 ```
 
@@ -145,22 +157,37 @@ fte.FTE(
 |--------|-------------|
 | `encrypt(plaintext: bytes) -> T` | Encrypt and unrank into a covertext value |
 | `decrypt(covertext: T) -> bytes` | Rank and decrypt one complete value |
-| `max_plaintext_bytes` | Local resource ceiling; format capacity may be lower |
+| `max_plaintext_bytes` | Largest plaintext accepted (see below) |
+
+`max_plaintext_bytes` is chosen for you when left unset: a finite format (one
+with a `cardinality`, like `RegexFormat`) uses the exact size its capacity
+allows, and an unbounded format falls back to a 1 MiB default. It is also the
+guard that lets `decrypt` reject an oversized covertext cheaply, so set it
+explicitly only to tighten that bound or to cap an unbounded format. When
+messages may exceed the default, both endpoints should use the same value.
 
 ### `fte.RegexFormat`
 
-The built-in `RankedFormat`: a fixed-length byte language compiled from a
-regular expression. Every covertext is exactly `length` bytes.
+The built-in `RankedFormat`: a byte language compiled from a regular expression.
+Choose a fixed covertext length, or a `[min_length, max_length]` range for
+variable-length covertext (`min_length == max_length` is the fixed case).
 
 ```python
-fte.RegexFormat(pattern: str, *, length: int)
+fte.RegexFormat(pattern: str, *, length: int)                       # fixed
+fte.RegexFormat(pattern: str, *, min_length: int, max_length: int)  # range
 ```
 
 | Member | Description |
 |--------|-------------|
-| `rank(value: bytes) -> int` | Lexicographic rank of a canonical value |
-| `unrank(index: int) -> bytes` | The fixed-length value at `index` |
-| `cardinality` | Number of length-byte words in the language |
+| `pattern` | The regular expression |
+| `min_length`, `max_length` | Covertext length bounds (equal for a fixed length) |
+| `cardinality` | Number of matching words in the length range |
+| `rank(value: bytes) -> int` | Rank of a canonical covertext value |
+| `unrank(index: int) -> bytes` | The covertext value at `index` |
+
+`length=N` is shorthand for `min_length=max_length=N`; pass either `length` or
+the `min_length`/`max_length` pair, not both. Construction raises `ValueError`
+if the language has no words in the requested length range.
 
 ### `fte.RankedFormat`
 

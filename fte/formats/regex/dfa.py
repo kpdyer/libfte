@@ -10,7 +10,6 @@ The algorithm is based on:
 - "Protocol Misidentification Made Easy with Format-Transforming Encryption"
 """
 
-import math
 from typing import Dict, List, Set
 
 
@@ -26,28 +25,19 @@ class InvalidUnrankInput(Exception):
     """Raised when a rank is outside the valid range."""
 
 
-class LanguageIsEmptySetException(Exception):
-    """Raised when the language has no words of the fixed length."""
-
-
 class DFA:
-    """Rank and unrank strings of a regular language.
+    """Rank and unrank the words of a regular language by length.
 
-    Parses a minimized AT&T FST, builds the Goldberg-Sipser counting table, and
-    maps between strings of the fixed ``length`` and their lexicographic index
-    via :meth:`rank` and :meth:`unrank`.
+    Parses a minimized AT&T FST and builds the Goldberg-Sipser counting table up
+    to a maximum ``length``. :meth:`rank` and :meth:`unrank` then map between a
+    word and its lexicographic index among the accepted words of that word's
+    length, and :meth:`num_words_in_language` counts words over a length range.
+    Whether any words exist in the range the caller cares about is the caller's
+    concern.
 
     Args:
         dfa_str: A minimized AT&T FST formatted DFA string.
-        length: The fixed string length for ranking/unranking.
-
-    Attributes:
-        capacity: Usable capacity in bits, ``floor(log2(N)) - 1`` where ``N`` is
-            the number of words of the fixed ``length`` in the language.
-
-    Raises:
-        LanguageIsEmptySetException: If the language has no words of the fixed
-            ``length``.
+        length: The maximum word length the counting table supports.
     """
 
     def __init__(self, dfa_str: str, length: int):
@@ -64,11 +54,6 @@ class DFA:
 
         self._parse_dfa(dfa_str)
         self._build_table()
-
-        self._num_words = self.num_words_in_language(length, length)
-        if self._num_words == 0:
-            raise LanguageIsEmptySetException()
-        self.capacity = int(math.floor(math.log(self._num_words, 2))) - 1
 
     def _parse_dfa(self, dfa_str: str) -> None:
         """Parse the AT&T FST formatted DFA string."""
@@ -143,7 +128,7 @@ class DFA:
             if num_symbols > 0:
                 first_dst = self._delta[q][0]
                 is_dense = all(self._delta[q][a] == first_dst for a in range(num_symbols))
-            else:
+            else:  # pragma: no cover - a DFA with no symbols is rejected above
                 is_dense = True
             self._delta_dense.append(is_dense)
 
@@ -199,21 +184,24 @@ class DFA:
             prev_col = cur_col
 
     def rank(self, X: bytes) -> int:
-        """Return the lexicographic rank of string ``X`` in the language.
+        """Return the lexicographic rank of ``X`` among words of its own length.
+
+        The rank is taken within the accepted words of length ``len(X)``; the
+        caller composes a whole-language rank across lengths.
 
         Args:
-            X: A bytes string of the fixed ``length``.
+            X: A bytes string no longer than the built ``length``.
 
         Returns:
-            The integer rank of ``X``.
+            The integer rank of ``X`` among accepted words of length ``len(X)``.
 
         Raises:
-            InvalidRankInput: If ``X`` has the wrong length or is not in the
+            InvalidRankInput: If ``X`` is longer than ``length`` or is not in the
                 language.
         """
-        if len(X) != self._length:
+        if len(X) > self._length:
             raise InvalidRankInput(
-                f"Input length {len(X)} != fixed length {self._length}"
+                f"Input length {len(X)} exceeds built length {self._length}"
             )
 
         q = self._start_state
@@ -267,30 +255,37 @@ class DFA:
         # the reversed sequence adds smallest-first.
         return sum(reversed(terms))
 
-    def unrank(self, c: int) -> bytes:
-        """Return the string at lexicographic rank ``c`` in the language.
+    def unrank(self, c: int, length: int | None = None) -> bytes:
+        """Return the word of the given ``length`` at rank ``c``.
 
-        This is the inverse of :meth:`rank`.
+        Inverse of :meth:`rank` for words of exactly ``length`` bytes. ``length``
+        defaults to the built length.
 
         Args:
-            c: The integer rank.
+            c: The integer rank among accepted words of ``length`` bytes.
+            length: The word length to produce (0 <= length <= built length).
 
         Returns:
-            The bytes string at rank ``c``.
+            The bytes string at rank ``c`` among words of ``length`` bytes.
 
         Raises:
-            InvalidUnrankInput: If ``c`` is out of range.
+            InvalidUnrankInput: If ``c`` is out of range for that length.
         """
-        num_words = self._num_words
+        if length is None:
+            length = self._length
+        if not 0 <= length <= self._length:
+            raise InvalidUnrankInput(
+                f"length {length} outside [0, {self._length}]"
+            )
 
+        num_words = self._T[self._start_state][length]
         if c < 0 or c >= num_words:
             raise InvalidUnrankInput(
-                f"Rank {c} out of range [0, {num_words})"
+                f"Rank {c} out of range [0, {num_words}) for length {length}"
             )
 
         result = bytearray()
         q = self._start_state
-        length = self._length
 
         # Hoist attribute lookups out of the per-character loop.
         T = self._T

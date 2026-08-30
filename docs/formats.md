@@ -74,12 +74,12 @@ covertext = cipher.encrypt(b"hello")
 assert cipher.decrypt(covertext) == b"hello"
 ```
 
-`FTE` defaults to a 1 MiB plaintext resource limit. Set
-`max_plaintext_bytes` lower for expensive formats or explicitly raise it for a
-trusted high-capacity provider. This is a resource ceiling, not a promise that
-the selected provider can represent every message up to that size. Decryption
-rejects ranks beyond the corresponding bound before converting them back into
-a potentially large byte string.
+`max_plaintext_bytes` is the largest plaintext an `FTE` will accept, and left
+unset it is derived: a finite provider (one exposing `cardinality`) uses the
+exact size its capacity allows, and an unbounded provider falls back to a 1 MiB
+default. That same limit is the guard that lets decryption reject an oversized
+rank before converting it back into a potentially large byte string, so set it
+explicitly only to tighten that bound or to cap an unbounded provider.
 
 The version-one frame is variable length. Anyone who can rank a covertext can
 therefore infer its exact plaintext byte length without knowing the key. The
@@ -103,17 +103,24 @@ exactly the same extension point:
 ```python
 from fte import FTE, RegexFormat
 
-fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
+fmt = RegexFormat(r"^[0-9a-f]+$", length=96)          # fixed 96-byte covertext
 cipher = FTE(format=fmt, key=shared_32_byte_key)
 
 covertext: bytes = cipher.encrypt(b"hello")
 assert cipher.decrypt(covertext) == b"hello"
 ```
 
-`RegexFormat.cardinality` is the exact number of fixed-length values. Encryption
-raises `FormatCapacityError` when that finite rank space cannot contain the
-complete encrypted message. Construction raises `ValueError` if `pattern` is not
-a valid regular expression or has no words of exactly `length` bytes.
+Pass a `min_length`/`max_length` range instead of `length` for variable-length
+covertext; the words are ordered by length, then lexicographically within a
+length, and `min_length == max_length` recovers the fixed case with an identical
+wire format.
+
+`RegexFormat.cardinality` is the exact number of matching words across the length
+range. Encryption raises `FormatCapacityError` when that finite rank space cannot
+contain the complete encrypted message. Construction raises `ValueError` if the
+length arguments are missing, mixed, or not positive integers with
+`min_length <= max_length`; if `pattern` is not a valid regular expression; or if
+the language has no words in the requested length range.
 
 ## Provider checklist
 

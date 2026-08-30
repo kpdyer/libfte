@@ -3,9 +3,9 @@
 """Example: Writing a custom format provider.
 
 FTE's one extension point is the ranked format: any object with reversible
-``rank()`` / ``unrank()`` methods. No inheritance or registration is needed --
-the same structural contract that ``fte.RegexFormat`` implements (see
-``fte/formats/regex.py``). Here we target decimal-digit strings.
+``rank()`` / ``unrank()`` methods. No inheritance or registration is needed,
+just the same structural contract that ``fte.RegexFormat`` implements (see
+``fte/formats/regex/``). Here we target decimal-digit strings.
 """
 
 import os

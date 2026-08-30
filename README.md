@@ -7,12 +7,12 @@
 
 ## Overview
 
-Format-Transforming Encryption (FTE) transforms ciphertext to match a target format—one given by a regular expression, or by any *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—hexadecimal strings, alphanumeric tokens, any pattern expressible as a regex, or a custom format such as decimal text or a domain-specific grammar.
+Format-Transforming Encryption (FTE) transforms ciphertext to match a target format: one given by a regular expression, or by any *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify: hexadecimal strings, alphanumeric tokens, any pattern expressible as a regex, or a custom format such as decimal text or a domain-specific grammar.
 
 This is useful for:
 - **Protocol obfuscation**: Make encrypted traffic look like benign data
 - **Bypassing filters**: Evade systems that block encrypted-looking content
-- **Steganography**: Hide data in plain sight within expected formats
+- **Constrained fields**: Confine ciphertext to a required character set or field shape, such as an alphanumeric account token or a fixed-width record field
 
 Based on the paper [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
 
@@ -30,7 +30,7 @@ Based on the paper [Protocol Misidentification Made Easy with Format-Transformin
 pip install fte
 ```
 
-Works out of the box with pure Python—no compilation required.
+Works out of the box with pure Python, no compilation required.
 
 ## Quick Example
 
@@ -82,7 +82,7 @@ cipher.encrypt(b'secret')
 
 The `format` can be any structural `RankedFormat`: an object with reversible
 `rank()` and `unrank()` methods. No inheritance, registration, or dependency
-between libfte and the provider is required — `fte.RegexFormat` is just the
+between libfte and the provider is required. `fte.RegexFormat` is just the
 built-in one (see [`fte/formats/`](fte/formats/)):
 
 ```python
@@ -187,7 +187,7 @@ exact plaintext byte length, even without the key. FTE guarantees membership in
 the selected format, not a uniform distribution over every rank when the
 provider offers more capacity than the message needs.
 
-The capacity depends on your regex—more symbols means more bits per character:
+The capacity depends on your regex: more symbols means more bits per character:
 
 | Format | Regex | Bits/char |
 |--------|-------|-----------|
@@ -200,9 +200,9 @@ The capacity depends on your regex—more symbols means more bits per character:
 The repository ships with [`benchmark.py`](benchmark.py), a self-contained
 script that measures the two costs that matter in practice:
 
-- **Cipher construction** — the one-time cost of compiling a regex into a DFA
+- **Cipher construction**: the one-time cost of compiling a regex into a DFA
   and pre-computing the ranking tables.
-- **`encrypt()` / `decrypt()`** — the per-message cost, dominated by the DFA
+- **`encrypt()` / `decrypt()`**: the per-message cost, dominated by the DFA
   rank/unrank over large integers. This scales with the covertext `length`,
   *not* with the plaintext size.
 

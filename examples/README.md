@@ -60,5 +60,5 @@ To target a covertext language regex can't describe, supply your own
 
 1. **Larger `length`** = more capacity but longer covertext
 2. **More symbols in regex** = more bits per character
-3. **Each `RegexFormat` covertext is exactly `length` bytes** — slice a stream into fixed-size chunks
+3. **Each `RegexFormat` covertext is exactly `length` bytes**: slice a stream into fixed-size chunks
 4. **Pass an explicit `key`** so both endpoints share the same one

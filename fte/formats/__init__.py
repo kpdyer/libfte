@@ -2,8 +2,9 @@
 
 A provider is the one thing you supply to the engine to choose what covertext
 looks like. :mod:`~fte.formats.base` defines the contract every provider
-implements; :mod:`~fte.formats.regex` is the built-in reference implementation
-and the template to copy for a new format.
+implements. Each concrete format lives in its own subpackage;
+:mod:`~fte.formats.regex` is the built-in reference implementation and the
+subpackage to copy for a new format.
 
     >>> import fte
     >>> from fte.formats import RegexFormat

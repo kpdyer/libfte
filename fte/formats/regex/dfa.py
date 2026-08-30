@@ -164,7 +164,7 @@ class DFA:
         # split states by how many distinct destinations they have. Most states
         # send *every* symbol to a single destination (e.g. every letter in
         # ``[a-z]`` leads to the same next state), so those reduce to one
-        # ``count * T[next_state]`` multiply -- replacing a run of identical
+        # ``count * T[next_state]`` multiply, replacing a run of identical
         # big-integer additions. Partitioning up front keeps that common
         # single-destination path free of any per-state branching.
         single = []   # (q, next_state, count)

@@ -96,7 +96,7 @@ on-path observer sees covertext but has no decryption oracle. Do not expose
 
 ## Built-in regex provider
 
-`fte.RegexFormat` lives in [`fte/formats/regex.py`](../fte/formats/regex.py) and
+`fte.RegexFormat` lives in [`fte/formats/regex/`](../fte/formats/regex/) and
 is the reference implementation to copy when writing your own provider. It uses
 exactly the same extension point:
 

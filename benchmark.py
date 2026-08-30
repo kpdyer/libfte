@@ -5,9 +5,9 @@
 libfte is pure Python, and this script measures the two costs that matter
 when you use it:
 
-  1. Cipher construction   -- the one-time cost of compiling a regex into a
+  1. Cipher construction:  the one-time cost of compiling a regex into a
      DFA and pre-computing the ranking tables. Paid once per (regex, length).
-  2. encrypt() / decrypt() -- the steady-state cost paid per message. This is
+  2. encrypt() / decrypt(): the steady-state cost paid per message. This is
      dominated by the DFA rank/unrank on large integers, so it grows with the
      covertext ``length``, not with the plaintext size.
 
@@ -32,7 +32,7 @@ import time
 import fte
 
 
-# (label, regex, length) -- one representative format per output style.
+# (label, regex, length): one representative format per output style.
 # length values are chosen so each language has ample capacity for the
 # sample payload while keeping runtimes comparable.
 FORMATS = [
@@ -52,7 +52,7 @@ LENGTH_SWEEP_VALUES = [128, 256, 512, 1024, 2048]
 # with the covertext length, not with the plaintext size.
 SAMPLE_PAYLOAD = b"benchmark payload."
 
-# Fixed key -- its value does not affect timing.
+# Fixed key; its value does not affect timing.
 BENCH_KEY = bytes(range(32))
 
 

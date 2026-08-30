@@ -1,27 +1,28 @@
-"""``RegexFormat`` -- the reference :class:`~fte.formats.base.RankedFormat`.
+"""``RegexFormat``: the reference :class:`~fte.formats.base.RankedFormat`.
 
 This is the format libfte ships with, and the worked example to copy when you
 write your own provider. It turns a regular expression into a fixed-length byte
 language and ranks that language, so ciphertext comes out looking like the
-pattern you chose -- hex, alphanumeric tokens, URL paths, and so on.
+pattern you chose: hex, alphanumeric tokens, URL paths, and so on.
 
-The whole provider is three things:
+The whole provider is two things:
 
 * a constructor that compiles the pattern once and records the language size
   (``cardinality``), and
 * the two inverse methods every ranked format owes the engine: ``rank`` and
   ``unrank``.
 
-There is deliberately no cryptography here. Compiling and ranking a DFA is the
-provider's only job; :class:`fte.FTE` owns encryption, authentication, and
-framing. That separation is exactly what makes a new format easy to add.
+There is deliberately no cryptography here. Compiling and ranking the DFA (in
+the sibling :mod:`~fte.formats.regex.dfa` module) is the provider's only job;
+:class:`fte.FTE` owns encryption, authentication, and framing. That separation
+is exactly what makes a new format easy to add.
 """
 
 from __future__ import annotations
 
 import regex2dfa
 
-from fte.dfa import DFA, LanguageIsEmptySetException
+from fte.formats.regex.dfa import DFA, LanguageIsEmptySetException
 
 
 __all__ = ["RegexFormat"]
@@ -32,7 +33,7 @@ class RegexFormat:
 
     Every covertext is exactly ``length`` bytes and matches ``pattern``. The
     rank space is ``range(cardinality)``, where ``cardinality`` is the number of
-    words of that exact length in the language -- so the format is a
+    words of that exact length in the language, so the format is a
     :class:`~fte.formats.base.FiniteRankedFormat`, and :class:`fte.FTE` can
     reject an over-long message before encrypting it.
 

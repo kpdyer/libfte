@@ -5,11 +5,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Format-Transforming Encryption** — encrypt data so the ciphertext matches any format you specify.
+**Format-Transforming Encryption**: encrypt data so the ciphertext matches any format you specify.
 
 ## What is FTE?
 
-Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—via a regular expression, or any `RankedFormat` provider you supply—so it can look like hex strings, alphanumeric tokens, any regex-expressible pattern, or a custom format of your own.
+Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify (via a regular expression, or any `RankedFormat` provider you supply), so it can look like hex strings, alphanumeric tokens, any regex-expressible pattern, or a custom format of your own.
 
 > **One engine.** libfte encrypts through a single path: `fte.FTE` over a
 > `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
@@ -23,7 +23,7 @@ Unlike standard encryption that produces random-looking output, FTE produces cip
 pip install fte
 ```
 
-Works out of the box with pure Python—no compilation required.
+Works out of the box with pure Python, no compilation required.
 
 ## Quick Example
 
@@ -82,8 +82,8 @@ membership, not a uniform distribution over unused provider capacity.
 ## Use Cases
 
 - **Protocol obfuscation**: Make encrypted traffic look like benign data
-- **Bypassing filters**: Evade systems that block encrypted-looking content  
-- **Steganography**: Hide data within expected formats
+- **Bypassing filters**: Evade systems that block encrypted-looking content
+- **Constrained fields**: Confine ciphertext to a required character set or field shape, such as an alphanumeric account token or a fixed-width record field
 
 ## Documentation
 

@@ -53,7 +53,7 @@ version = {file = "fte/_version.txt"}
 include = ["fte*"]
 
 [tool.setuptools.package-data]
-fte = ["_version.txt", "py.typed"]
+fte = ["_version.txt", "py.typed", "formats/regex/README.md"]
 
 # All tests live in the top-level tests/ directory.
 [tool.pytest.ini_options]

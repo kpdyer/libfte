@@ -14,8 +14,8 @@ Unlike standard encryption that produces random-looking output, FTE produces cip
 > **One engine.** libfte encrypts through a single path: `fte.FTE` over a
 > `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
 > `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
-> own `RankedFormat` for any other format. The wire format changed in this
-> release and is not compatible with libfte 0.3.x and earlier.
+> own `RankedFormat` for any other format. The wire format changed in 0.4.0
+> and is not compatible with libfte 0.3.x and earlier.
 
 ## Installation
 

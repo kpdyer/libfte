@@ -60,9 +60,6 @@ fte = ["_version.txt", "py.typed"]
 # shared fte/tests/ package, so discover test_*.py anywhere under fte/.
 [tool.pytest.ini_options]
 testpaths = ["fte"]
-python_files = ["test_*.py"]
-python_classes = ["Tests"]
-python_functions = ["test_*"]
 
 [tool.coverage.run]
 source = ["fte"]

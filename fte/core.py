@@ -132,7 +132,7 @@ class FTE(Generic[Covertext]):
     _CIPHERTEXT_EXPANSION = Encrypter._CTXT_EXPANSION
 
     _DEFAULT_MAX_PLAINTEXT_BYTES = 1 << 20
-    _ENCRYPTER_MAX_PLAINTEXT_BYTES = (1 << 32) - 1
+    _ENCRYPTER_MAX_PLAINTEXT_BYTES = Encrypter._MAX_PLAINTEXT_LENGTH
 
     __slots__ = (
         "_format",

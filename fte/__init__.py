@@ -34,7 +34,6 @@ from fte.core import (
     InvalidCovertextError,
     MessageTooLargeError,
 )
-from fte.encrypter import Encrypter
 from fte.formats import RankedFormat, RegexFormat
 
 __version__ = (Path(__file__).parent / '_version.txt').read_text().strip()
@@ -50,5 +49,4 @@ __all__ = [
     'FormatContractError',
     'InvalidCovertextError',
     'MessageTooLargeError',
-    'Encrypter',
 ]

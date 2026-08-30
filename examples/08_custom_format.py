@@ -33,7 +33,7 @@ def main():
     print("=== Custom Format Provider ===\n")
 
     # Plug the provider into the same engine used for regex formats.
-    cipher = fte.FTE(format=DecimalText(), key=os.urandom(32))
+    cipher = fte.FTE(output_format=DecimalText(), key=os.urandom(32))
 
     plaintext = b'Quick and easy!'
     covertext = cipher.encrypt(plaintext)

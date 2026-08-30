@@ -16,7 +16,7 @@ def main():
 
     # Create a cipher with a custom key
     cipher = fte.FTE(
-        format=fte.RegexFormat('^[a-z]+$', length=256),
+        output_format=fte.RegexFormat('^[a-z]+$', length=256),
         key=key,
     )
 
@@ -34,7 +34,7 @@ def main():
     # Different key produces different ciphertext
     key_alt = b'different_key!!!another_mac_key!'
     cipher_alt = fte.FTE(
-        format=fte.RegexFormat('^[a-z]+$', length=256),
+        output_format=fte.RegexFormat('^[a-z]+$', length=256),
         key=key_alt,
     )
     ciphertext_alt = cipher_alt.encrypt(plaintext)

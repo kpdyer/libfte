@@ -154,7 +154,7 @@ class Tests(unittest.TestCase):
 
     def test_fixed_length_covertext_through_fte(self):
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
-        cipher = fte.FTE(format=fmt, key=KEY)
+        cipher = fte.FTE(output_format=fmt, key=KEY)
         for plaintext in (b"", b"x", b"hello", os.urandom(10)):
             covertext = cipher.encrypt(plaintext)
             self.assertEqual(len(covertext), 96)
@@ -163,7 +163,7 @@ class Tests(unittest.TestCase):
 
     def test_variable_length_covertext_through_fte(self):
         fmt = fte.RegexFormat(r"^[a-z]+$", min_length=40, max_length=400)
-        cipher = fte.FTE(format=fmt, key=KEY)
+        cipher = fte.FTE(output_format=fmt, key=KEY)
         lengths = set()
         for plaintext in (b"", b"hi", b"hello world", os.urandom(64)):
             covertext = cipher.encrypt(plaintext)
@@ -177,10 +177,10 @@ class Tests(unittest.TestCase):
     def test_cross_endpoint_roundtrip(self):
         for fmt_kwargs in ({"length": 96}, {"min_length": 40, "max_length": 200}):
             sender = fte.FTE(
-                format=fte.RegexFormat(r"^[0-9a-f]+$", **fmt_kwargs), key=KEY
+                output_format=fte.RegexFormat(r"^[0-9a-f]+$", **fmt_kwargs), key=KEY
             )
             receiver = fte.FTE(
-                format=fte.RegexFormat(r"^[0-9a-f]+$", **fmt_kwargs), key=KEY
+                output_format=fte.RegexFormat(r"^[0-9a-f]+$", **fmt_kwargs), key=KEY
             )
             self.assertEqual(
                 receiver.decrypt(sender.encrypt(b"hello")), b"hello"
@@ -190,11 +190,11 @@ class Tests(unittest.TestCase):
         # length=8 is far too small for the authenticated frame, so building an
         # FTE around it fails fast.
         with self.assertRaises(fte.FormatCapacityError):
-            fte.FTE(format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
+            fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
 
     def test_fte_derives_capacity_ceiling_from_the_format(self):
         cipher = fte.FTE(
-            format=fte.RegexFormat(r"^[0-9a-f]+$", length=96), key=KEY
+            output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=96), key=KEY
         )
         limit = cipher.max_plaintext_bytes
         self.assertEqual(

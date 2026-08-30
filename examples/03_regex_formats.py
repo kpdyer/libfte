@@ -27,7 +27,7 @@ def main():
     plaintext = b'Secret message'
 
     for name, pattern, length in FORMATS:
-        cipher = fte.FTE(format=fte.RegexFormat(pattern, length=length), key=key)
+        cipher = fte.FTE(output_format=fte.RegexFormat(pattern, length=length), key=key)
         covertext = cipher.encrypt(plaintext)
 
         print(f"=== {name} ===")

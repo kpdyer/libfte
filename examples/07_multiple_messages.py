@@ -17,7 +17,7 @@ def main():
 
     length = 128
     cipher = fte.FTE(
-        format=fte.RegexFormat('^[a-z]+$', length=length),
+        output_format=fte.RegexFormat('^[a-z]+$', length=length),
         key=os.urandom(32),
     )
 

@@ -20,6 +20,7 @@ pip install fte
 | `06_error_handling.py` | Proper exception handling |
 | `07_multiple_messages.py` | Parsing a stream of fixed-length covertexts |
 | `08_custom_format.py` | Writing your own `RankedFormat` provider |
+| `09_authenticated_fte.py` | Authenticated FTE (`aes-ctr-hmac`) over a non-bytes input format |
 
 ## Running Examples
 
@@ -37,7 +38,7 @@ import os
 import fte
 
 key = os.urandom(32)  # 32-byte key, shared by both endpoints
-cipher = fte.FTE(format=fte.RegexFormat('^[0-9a-f]+$', length=128), key=key)
+cipher = fte.FTE(output_format=fte.RegexFormat('^[0-9a-f]+$', length=128), key=key)
 
 ciphertext = cipher.encrypt(b'secret message')
 plaintext = cipher.decrypt(ciphertext)

@@ -16,13 +16,36 @@ This is useful for:
 
 Based on the paper [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
 
-> **One engine.** libfte encrypts through a single path: `fte.FTE` over a
-> `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
-> `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
-> own `RankedFormat` to target any other covertext language.
->
-> The wire format changed in 0.4.0 and is **not** compatible with libfte
-> 0.3.x and earlier.
+### One engine, two axes
+
+There is a single engine, `fte.FTE`, that maps `rank_in -> transform ->
+unrank_out`: it ranks a value of the input format to an integer, transforms
+that integer, and unranks the result into the output format. Two independent
+choices shape it:
+
+- the **format pair**: `input_format` and `output_format` (the input defaults
+  to raw bytes, `BytesFormat`); and
+- the **cipher** on the integer in between: `"aes-ctr-hmac"` (randomized,
+  authenticated, expanding: the classic AES-CTR + HMAC path) or a deterministic,
+  zero-expansion cipher **object** exposing `encrypt_int` / `decrypt_int`.
+
+That gives a 2x2 of behaviors:
+
+| cipher \ formats | `input == output` | `input != output` |
+|---|---|---|
+| **deterministic** (a cipher object, zero-expansion) | **FPE**: re-encrypt a value in place | **deterministic FTE**: a reversible rank map between two formats |
+| **`aes-ctr-hmac`** (randomized, authenticated, expanding) | authenticated encryption over bytes | **classic FTE**: bytes hidden as a chosen covertext format |
+
+The deterministic column takes any object with `encrypt_int(x, *, domain,
+tweak)` / `decrypt_int(y, *, domain, tweak)` forming a permutation of
+`range(domain)`. A built-in `cipher="ff1"` format-preserving cipher (NIST
+SP 800-38G FF1, via the optional [libffx](https://github.com/kpdyer/libffx)
+integration) is added separately.
+
+> The wire format changed in 0.4.0 and is **not** compatible with libfte 0.3.x
+> and earlier. A deterministic cipher is unauthenticated and leaks plaintext
+> equality; pass per-record `tweak` values and never reuse a key across the two
+> ciphers.
 
 ## Installation
 
@@ -42,7 +65,7 @@ key = os.urandom(32)  # 32 bytes, shared by both endpoints
 
 # Pick a covertext format, then build a cipher over it and the key.
 word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80)
-cipher = fte.FTE(format=word_format, key=key)
+cipher = fte.FTE(output_format=word_format, key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
@@ -60,21 +83,21 @@ The snippets below reuse a shared 32-byte `key = os.urandom(32)`.
 
 ### URL paths
 ```python
-cipher = fte.FTE(format=fte.RegexFormat(r'^/[a-z]+/[a-z]+\.html$', length=96), key=key)
+cipher = fte.FTE(output_format=fte.RegexFormat(r'^/[a-z]+/[a-z]+\.html$', length=96), key=key)
 cipher.encrypt(b'secret')
 # → "/hsdxanghqvdhb/pvzvdsrpnjktdhnewdfhehaftajibecrluewdyrbe...html"
 ```
 
 ### URL slugs
 ```python
-cipher = fte.FTE(format=fte.RegexFormat(r'^[a-z]+-[a-z]+-[a-z]+$', length=80), key=key)
+cipher = fte.FTE(output_format=fte.RegexFormat(r'^[a-z]+-[a-z]+-[a-z]+$', length=80), key=key)
 cipher.encrypt(b'secret')
 # → "dxosmywnpyjuarsfvcado-osmdsyvovfnnsgzhzelpujnya-qfwbekwh..."
 ```
 
 ### Alphanumeric tokens
 ```python
-cipher = fte.FTE(format=fte.RegexFormat('^[A-Za-z0-9]+$', length=64), key=key)
+cipher = fte.FTE(output_format=fte.RegexFormat('^[A-Za-z0-9]+$', length=64), key=key)
 cipher.encrypt(b'secret')
 # → "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
 ```
@@ -85,7 +108,7 @@ covertext length varies with the message (`min_length == max_length` is the
 fixed case):
 ```python
 lowercase = fte.RegexFormat('^[a-z]+$', min_length=40, max_length=400)
-cipher = fte.FTE(format=lowercase, key=key)
+cipher = fte.FTE(output_format=lowercase, key=key)
 cipher.encrypt(b'secret')       # a lowercase string somewhere in 40..400 bytes
 ```
 
@@ -118,7 +141,7 @@ key = bytes.fromhex(
     "101112131415161718191a1b1c1d1e1f"
 )
 # Demonstration key only; load a securely shared secret in production.
-cipher = fte.FTE(format=DecimalText(), key=key)
+cipher = fte.FTE(output_format=DecimalText(), key=key)
 
 covertext: str = cipher.encrypt(b"secret")
 plaintext = cipher.decrypt(covertext)
@@ -139,30 +162,45 @@ for more use cases.
 
 ### `fte.FTE`
 
-The engine. Encrypts bytes into values drawn from any structural
-`RankedFormat[T]`.
+The engine. Maps a value of `input_format` to a value of `output_format` via
+the chosen cipher.
 
 ```python
 fte.FTE(
     *,
-    format: RankedFormat[T],
+    input_format: RankedFormat = BytesFormat(),
+    output_format: RankedFormat,
     key: bytes,
-    max_plaintext_bytes: int | None = None,
+    cipher: str | object | None = None,   # "aes-ctr-hmac" | object | inferred
+    max_plaintext_bytes: int | None = None,   # aes-ctr-hmac, bytes input only
 )
 ```
 
 | Member | Description |
 |--------|-------------|
-| `encrypt(plaintext: bytes) -> T` | Encrypt and unrank into a covertext value |
-| `decrypt(covertext: T) -> bytes` | Rank and decrypt one complete value |
-| `max_plaintext_bytes` | Largest plaintext accepted (see below) |
+| `encrypt(plaintext, *, tweak=b"") -> T` | Rank the input, transform, unrank into a covertext (tweak: deterministic cipher only) |
+| `decrypt(covertext, *, tweak=b"") -> P` | Rank the covertext, invert the transform, unrank the plaintext |
+| `input_format` / `output_format` | The two formats |
+| `cipher` | Resolved mode: `"aes-ctr-hmac"` or `"deterministic"` |
+| `preserve_length` | Read-only: whether a deterministic cipher preserves length in place (inferred) |
+| `max_plaintext_bytes` | Largest plaintext accepted, aes-ctr-hmac only (see below) |
 
-`max_plaintext_bytes` is chosen for you when left unset: a finite format (one
-with a `cardinality`, like `RegexFormat`) uses the exact size its capacity
-allows, and an unbounded format falls back to a 1 MiB default. It is also the
-guard that lets `decrypt` reject an oversized covertext cheaply, so set it
-explicitly only to tighten that bound or to cap an unbounded format. When
-messages may exceed the default, both endpoints should use the same value.
+The `cipher` is `"aes-ctr-hmac"`, a deterministic cipher **object** (any object
+with `encrypt_int` / `decrypt_int`), or `None` to infer it: a bytes input picks
+`"aes-ctr-hmac"`; any other pair must name the cipher. `"aes-ctr-hmac"` needs a
+32-byte key (16 encryption + 16 MAC); a cipher object carries its own key.
+
+A deterministic cipher infers **length preservation** from the formats: when
+input and output are the same format and it can name its per-length slices, a
+value keeps its length; otherwise the whole language is permuted. It also
+enforces a **one-million domain floor** (Draft SP 800-38G Rev 1), raising
+`SmallDomainError` on a smaller domain, with no opt-out.
+
+`max_plaintext_bytes` (the `aes-ctr-hmac` cipher, bytes input) is chosen for
+you when left unset: a finite output format uses the exact size its capacity
+allows, and an unbounded one falls back to a 1 MiB default. It also lets
+`decrypt` reject an oversized covertext cheaply. It is rejected for a non-bytes
+input, whose size the format's cardinality already fixes.
 
 ### `fte.RegexFormat`
 

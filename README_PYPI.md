@@ -11,11 +11,13 @@
 
 Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify (via a regular expression, or any `RankedFormat` provider you supply), so it can look like hex strings, alphanumeric tokens, any language a regex can denote, or a custom format of your own.
 
-> **One engine.** libfte encrypts through a single path: `fte.FTE` over a
-> `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
-> `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
-> own `RankedFormat` for any other covertext language. The wire format changed
-> in 0.4.0 and is not compatible with libfte 0.3.x and earlier.
+> **One engine, two axes.** `fte.FTE` maps `rank_in -> transform ->
+> unrank_out` over an `input_format` / `output_format` pair (the input defaults
+> to raw bytes) and a `cipher`: `"aes-ctr-hmac"` (randomized, authenticated) or
+> a deterministic cipher object. FPE is the equal-formats case; classic FTE is
+> the bytes-input case. `fte.RegexFormat` is the built-in provider; supply your
+> own `RankedFormat` for any other language. The wire format changed in 0.4.0
+> and is not compatible with libfte 0.3.x and earlier.
 
 ## Installation
 
@@ -37,7 +39,7 @@ key = os.urandom(32)  # 32 bytes, shared by both endpoints
 
 # Pick a covertext format, then build a cipher over it and the key.
 word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80)
-cipher = fte.FTE(format=word_format, key=key)
+cipher = fte.FTE(output_format=word_format, key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
@@ -76,7 +78,7 @@ class DecimalText:
         return str(index)
 
 shared_32_byte_key = secrets.token_bytes(32)
-cipher = fte.FTE(format=DecimalText(), key=shared_32_byte_key)
+cipher = fte.FTE(output_format=DecimalText(), key=shared_32_byte_key)
 covertext: str = cipher.encrypt(b"secret")
 assert cipher.decrypt(covertext) == b"secret"
 ```

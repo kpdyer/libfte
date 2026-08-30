@@ -15,7 +15,7 @@ def main():
     print("=== Error Handling ===\n")
 
     key = os.urandom(32)
-    cipher = fte.FTE(format=fte.RegexFormat('^[a-z]+$', length=128), key=key)
+    cipher = fte.FTE(output_format=fte.RegexFormat('^[a-z]+$', length=128), key=key)
 
     # 1. Non-bytes plaintext
     print("1. Non-bytes plaintext:")
@@ -34,14 +34,14 @@ def main():
     # 3. Invalid key length
     print("\n3. Invalid key length:")
     try:
-        fte.FTE(format=fte.RegexFormat('^[a-z]+$', length=64), key=b'tooshort')
+        fte.FTE(output_format=fte.RegexFormat('^[a-z]+$', length=64), key=b'tooshort')
     except ValueError as e:
         print(f"   Caught ValueError: {e}")
 
     # 4. Message too large for the fixed-length format
     print("\n4. Insufficient capacity:")
     try:
-        tiny = fte.FTE(format=fte.RegexFormat('^[0-9a-f]+$', length=8), key=key)
+        tiny = fte.FTE(output_format=fte.RegexFormat('^[0-9a-f]+$', length=8), key=key)
         tiny.encrypt(b'x' * 100)
     except fte.FormatCapacityError as e:
         print(f"   Caught FormatCapacityError: {e}")

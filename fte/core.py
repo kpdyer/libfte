@@ -1,18 +1,40 @@
-"""The FTE engine: encrypt bytes into values drawn from a ranked format.
+"""The FTE engine: ``rank_in -> transform -> unrank_out``.
 
-This module owns the engine itself: authenticated encryption wrapped in the
-version-1 wire frame defined by :mod:`fte.frame`. The covertext language is
-supplied from :mod:`fte.formats` as a :class:`RankedFormat`, so the engine
-never needs to know what the output looks like.
+The engine ranks a value of the *input format* to an integer, transforms that
+integer, and unranks the result into the *output format*. Two independent
+choices shape it:
+
+* the **format pair**: ``input_format`` (default
+  :class:`~fte.formats.bytes.BytesFormat`, i.e. raw bytes) and
+  ``output_format``, each a :class:`RankedFormat`; and
+* the **cipher** on the integer in between: the randomized, authenticated,
+  expanding AES-CTR+HMAC scheme (``"aes-ctr-hmac"``, the wire-frozen path
+  framed by
+  :mod:`fte.frame`) or a deterministic, zero-expansion format-preserving
+  permutation (``"ff1"`` via libffx, or any duck-typed object).
+
+That gives a 2x2 of behaviors:
+
+===============  =========================  ============================
+cipher \\ format  input == output            input != output
+===============  =========================  ============================
+``ff1`` / obj    FPE (in place)             deterministic FTE (rank map)
+``aes-ctr-hmac``           authenticated, expanding   classic bytes -> AE -> format
+===============  =========================  ============================
+
+The engine owns the cryptography; a format owns nothing but its ordering. See
+:mod:`fte.formats` for the provider contract.
 """
 
 from __future__ import annotations
 
+import hashlib
 from typing import Generic, TypeVar
 
 from fte import frame
 from fte._encrypter import DecryptionError, Encrypter
 from fte.formats.base import RankedFormat
+from fte.formats.bytes import BytesFormat
 
 
 __all__ = [
@@ -21,11 +43,14 @@ __all__ = [
     "FormatCapacityError",
     "FormatContractError",
     "InvalidCovertextError",
+    "InvalidPlaintextError",
     "MessageTooLargeError",
+    "SmallDomainError",
 ]
 
 
 Covertext = TypeVar("Covertext")
+Plaintext = TypeVar("Plaintext")
 
 
 class FTEError(Exception):
@@ -45,29 +70,79 @@ class MessageTooLargeError(FTEError):
 
 
 class InvalidCovertextError(FTEError):
-    """Raised when a format value cannot be authenticated and decrypted."""
+    """Raised when a covertext cannot be decrypted back to a plaintext."""
 
 
-class FTE(Generic[Covertext]):
-    """Encrypt bytes into values supplied by a :class:`RankedFormat`.
+class InvalidPlaintextError(FTEError):
+    """Raised when a plaintext is not a member of the input format."""
 
-    The format is structural: any object with callable ``rank`` and ``unrank``
-    methods works without inheriting from this package or importing it at
-    runtime.
 
-    One complete format value represents one encrypted message. Since an
-    arbitrary value has no generic stream boundary, ``decrypt`` consumes exactly
-    one value and returns plaintext directly, without a stream remainder.
+class SmallDomainError(FTEError):
+    """Raised when a deterministic domain is below the format-preserving floor."""
 
-    ``max_plaintext_bytes`` is the largest plaintext this instance will accept.
-    Leave it unset and it is chosen for you: a finite format (one that exposes a
-    ``cardinality``, such as :class:`~fte.formats.regex.RegexFormat`) uses the
-    exact size its capacity allows, and an unbounded format falls back to a 1 MiB
-    default. It is also the guard that lets ``decrypt`` reject an oversized
-    covertext before materializing a huge integer, so set it explicitly only to
-    tighten that bound (a smaller resource ceiling) or to cap an otherwise
-    unbounded format. Both endpoints should agree on it when messages may exceed
-    the default.
+
+# Domain floors for the deterministic (format-preserving) cipher, mirroring
+# FF1's own refusal to permute a domain that is too small to hide anything
+# (Draft SP 800-38G Rev 1). Always enforced; there is no opt-out.
+_FF1_DOMAIN_FLOOR = 1_000_000
+
+# Namespace prefix for the deterministic effective tweak. Bumping it changes the
+# tweak of every deterministic covertext, so it is part of the wire contract.
+_DETERMINISTIC_TWEAK_PREFIX = b"fte:v2:ff1:1|"
+
+
+class FTE(Generic[Plaintext, Covertext]):
+    """Encrypt a value of the input format into one of the output format.
+
+    Construct with keyword-only arguments::
+
+        FTE(input_format=..., output_format=..., key=..., cipher=...)
+
+    * ``input_format`` defaults to :class:`~fte.formats.bytes.BytesFormat`, so
+      ``FTE(output_format=fmt, key=key)`` is the classic pipeline: bytes in,
+      the AE cipher, ``fmt`` out.
+    * **FPE is the equal-formats case**: passing the same format as
+      ``input_format`` and ``output_format`` with a deterministic cipher
+      re-encrypts a value in place. Length is preserved automatically when the
+      format can name its per-length slices (a ``slice_bounds`` method plus
+      integer ``min_length`` / ``max_length``), so a value keeps its length;
+      otherwise the whole language is permuted. See :attr:`preserve_length`.
+    * ``cipher`` is ``"aes-ctr-hmac"``, a duck-typed object exposing
+      ``encrypt_int(x, *, domain, tweak) -> int`` /
+      ``decrypt_int(y, *, domain, tweak) -> int`` (the deterministic transform),
+      or ``None`` to infer it: a bytes input picks ``"aes-ctr-hmac"``; any other
+      pair must name the cipher. (A built-in ``"ff1"`` deterministic cipher is
+      added by the optional libffx integration.)
+
+    The deterministic cipher refuses a domain below one million (Draft
+    SP 800-38G Rev 1), raising :class:`SmallDomainError`, because FF1 is
+    insecure over a domain small enough to brute-force. There is no opt-out.
+
+    ``key`` is 32 bytes for ``"aes-ctr-hmac"`` (16 encryption + 16 MAC) and
+    16/24/32
+    bytes for ``"ff1"``. **Never reuse a key across the two ciphers**: the AE
+    and format-preserving constructions are unrelated and share no security
+    proof.
+
+    ``tweak`` (a per-call keyword on :meth:`encrypt` / :meth:`decrypt`) is only
+    meaningful with the deterministic cipher; the AE path has no
+    associated-data support and rejects a non-empty tweak.
+
+    ``max_plaintext_bytes`` keeps its classic meaning for a bytes input (a
+    resource ceiling and decrypt-side size guard; see the property) and is
+    rejected for a non-bytes input, whose size the format's cardinality
+    already fixes.
+
+    With the ``aes-ctr-hmac`` cipher the covertext is randomized and authenticated, so
+    encrypting the same plaintext twice yields two different covertexts: they
+    are re-drawn per call. This holds for a non-bytes input too, whose rank is
+    serialized and then run through the same randomized AE frame.
+
+    The deterministic (``ff1`` / object) cipher is, by contrast,
+    *deterministic* and *unauthenticated*: equal plaintexts map to equal
+    covertexts, so it leaks plaintext equality, and its effective strength is
+    bounded by the size of the input space rather than by the key. Pass a
+    distinct per-record ``tweak`` to separate encryptions.
     """
 
     _FRAME_VERSION = frame.FRAME_VERSION
@@ -77,9 +152,17 @@ class FTE(Generic[Covertext]):
     _ENCRYPTER_MAX_PLAINTEXT_BYTES = Encrypter._MAX_PLAINTEXT_LENGTH
 
     __slots__ = (
-        "_format",
-        "_encrypter",
-        "_cardinality",
+        "_input_format",
+        "_output_format",
+        "_input_is_bytes",
+        "_cipher_mode",  # "aes-ctr-hmac" | "deterministic"
+        "_cipher",       # the deterministic cipher object, else None
+        "_encrypter",    # the AE encrypter, else None
+        "_preserve_length",
+        "_tweak_base",   # deterministic effective-tweak stem, else None
+        "_n_in",         # finite input cardinality, else None
+        "_n_out",        # finite output cardinality, else None
+        # AE-path resource / capacity machinery:
         "_resource_max",
         "_capacity_limit",
         "_max_plaintext_bytes",
@@ -89,24 +172,68 @@ class FTE(Generic[Covertext]):
     def __init__(
         self,
         *,
-        format: RankedFormat[Covertext],
+        input_format: RankedFormat[Plaintext] | None = None,
+        output_format: RankedFormat[Covertext] | None = None,
         key: bytes,
+        cipher: str | object | None = None,
         max_plaintext_bytes: int | None = None,
     ) -> None:
-        if isinstance(format, type):
-            raise TypeError("format must be an instance, not a class")
-        if not callable(getattr(format, "rank", None)) or not callable(
-            getattr(format, "unrank", None)
-        ):
-            raise TypeError(
-                "format must provide callable rank() and unrank() methods"
-            )
+        # ---- resolve the format pair -----------------------------------
+        if output_format is None:
+            raise ValueError("output_format is required")
+        if input_format is None:
+            input_format = BytesFormat()
+
+        self._validate_format(input_format, "input_format")
+        self._validate_format(output_format, "output_format")
+
+        input_is_bytes = isinstance(input_format, BytesFormat)
+
+        n_in = self._finite_cardinality(input_format, "input_format")
+        n_out = self._finite_cardinality(output_format, "output_format")
+
+        fp_in = getattr(input_format, "fingerprint", None)
+        fp_out = getattr(output_format, "fingerprint", None)
+
+        # ---- resolve the cipher ----------------------------------------
+        if cipher is None:
+            if input_is_bytes:
+                cipher = "aes-ctr-hmac"
+            else:
+                raise ValueError(
+                    "cannot infer cipher for this format pair; pass "
+                    "cipher='aes-ctr-hmac' for authenticated encryption, or a "
+                    "cipher object with encrypt_int()/decrypt_int() for a "
+                    "deterministic transform"
+                )
+
+        if isinstance(cipher, str):
+            if cipher == "aes-ctr-hmac":
+                cipher_mode = "aes-ctr-hmac"
+            else:
+                raise ValueError(
+                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac' or an "
+                    "object with encrypt_int()/decrypt_int()"
+                )
+        else:
+            if not callable(getattr(cipher, "encrypt_int", None)) or not callable(
+                getattr(cipher, "decrypt_int", None)
+            ):
+                raise TypeError(
+                    "cipher object must provide callable encrypt_int() and "
+                    "decrypt_int() methods"
+                )
+            cipher_mode = "deterministic"
+
         if not isinstance(key, bytes):
             raise TypeError("key must be bytes")
-        if len(key) != 32:
+
+        # max_plaintext_bytes is a bytes-input resource knob; it has no meaning
+        # for a non-bytes input, whose size the format cardinality already
+        # fixes.
+        if not input_is_bytes and max_plaintext_bytes is not None:
             raise ValueError(
-                "Key must be exactly 32 bytes "
-                "(16 for encryption + 16 for MAC)"
+                "max_plaintext_bytes is only valid with a bytes input_format"
             )
         if max_plaintext_bytes is not None and (
             type(max_plaintext_bytes) is not int
@@ -116,101 +243,401 @@ class FTE(Generic[Covertext]):
                 "max_plaintext_bytes must be an integer between 0 and 2**32 - 1"
             )
 
-        cardinality = getattr(format, "cardinality", None)
+        self._input_format = input_format
+        self._output_format = output_format
+        self._input_is_bytes = input_is_bytes
+        self._cipher_mode = cipher_mode
+        self._preserve_length = False  # set by _init_deterministic if inferred
+        self._n_in = n_in
+        self._n_out = n_out
+        self._cipher = None
+        self._encrypter = None
+        self._tweak_base = None
+        self._resource_max = None
+        self._capacity_limit = None
+        self._max_plaintext_bytes = None
+        self._max_frame_bytes = None
+
+        if cipher_mode == "deterministic":
+            self._init_deterministic(cipher, fp_in, fp_out)
+        else:
+            if len(key) != 32:
+                raise ValueError(
+                    "Key must be exactly 32 bytes "
+                    "(16 for encryption + 16 for MAC)"
+                )
+            self._encrypter = Encrypter(key[:16], key[16:])
+            self._init_ae_capacity(max_plaintext_bytes)
+
+    # ------------------------------------------------------------------ #
+    # Construction helpers                                               #
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _validate_format(fmt: object, name: str) -> None:
+        if isinstance(fmt, type):
+            raise TypeError(f"{name} must be an instance, not a class")
+        if not callable(getattr(fmt, "rank", None)) or not callable(
+            getattr(fmt, "unrank", None)
+        ):
+            raise TypeError(
+                f"{name} must provide callable rank() and unrank() methods"
+            )
+
+    @staticmethod
+    def _finite_cardinality(fmt: object, name: str) -> int | None:
+        cardinality = getattr(fmt, "cardinality", None)
         if cardinality is not None and (
             type(cardinality) is not int or cardinality <= 0
         ):
             raise FormatContractError(
-                "format.cardinality must be a positive integer when provided"
+                f"{name}.cardinality must be a positive integer when provided"
+            )
+        return cardinality
+
+    def _init_deterministic(
+        self,
+        cipher: object,
+        fp_in: object,
+        fp_out: object,
+    ) -> None:
+        if self._n_in is None or self._n_out is None:
+            raise FormatCapacityError(
+                "the deterministic cipher requires both formats to be finite "
+                "(expose a positive cardinality)"
+            )
+        if self._n_in > self._n_out:
+            raise FormatCapacityError(
+                f"input cardinality {self._n_in} exceeds output cardinality "
+                f"{self._n_out}; a permutation cannot be injective"
+            )
+        if not isinstance(fp_in, bytes) or not isinstance(fp_out, bytes):
+            raise ValueError(
+                "the deterministic cipher requires both formats to expose a "
+                "bytes fingerprint"
             )
 
-        # The resource / DoS ceiling: an explicit value, else a flat default. It
-        # is never derived, so it stays a real bound even for unbounded formats.
-        resource_max = (
-            self._DEFAULT_MAX_PLAINTEXT_BYTES
-            if max_plaintext_bytes is None
-            else max_plaintext_bytes
+        # Length preservation is inferred, not requested: when the input and
+        # output are the same format and it can name its per-length slices,
+        # permute each length in place so a value keeps its length. Otherwise
+        # (cross-format, or a format with no slice_bounds) permute over the
+        # whole cardinality.
+        preserve_length = (
+            fp_in == fp_out
+            and callable(getattr(self._input_format, "slice_bounds", None))
+            and type(getattr(self._input_format, "min_length", None)) is int
+            and type(getattr(self._input_format, "max_length", None)) is int
         )
+        self._preserve_length = preserve_length
 
-        # For a finite format, the largest plaintext its capacity can hold; None
-        # for an unbounded format. The effective ceiling is the tighter of the
-        # two, and it drives the decrypt-side size guard.
-        if cardinality is None:
-            capacity_limit = None
-            effective = resource_max
-        else:
-            capacity_limit = min(
-                frame.capacity_plaintext_limit(
-                    cardinality, self._CIPHERTEXT_EXPANSION
-                ),
-                self._ENCRYPTER_MAX_PLAINTEXT_BYTES,
+        # The format-preserving floor is always enforced: FF1 is insecure over a
+        # domain small enough to brute-force, so a too-small domain is refused
+        # rather than made opt-outable.
+        if preserve_length:
+            self._check_slice_domains(_FF1_DOMAIN_FLOOR)
+        elif self._n_out < _FF1_DOMAIN_FLOOR:
+            raise SmallDomainError(
+                f"output domain {self._n_out} is below the format-preserving "
+                f"floor {_FF1_DOMAIN_FLOOR}; enlarge the format"
             )
-            if capacity_limit < 0:
-                raise FormatCapacityError(
-                    "format is too small to hold even an empty encrypted message"
+
+        # The deterministic cipher is supplied as an object (it carries its own
+        # key). A built-in ``cipher="ff1"`` shorthand is added separately.
+        self._cipher = cipher
+
+        # Length-prefix the fingerprints so the digest input is injective in
+        # (fp_in, fp_out, mode) even for fingerprints containing separator
+        # bytes or of unusual lengths.
+        mode_tag = b"L" if preserve_length else b"G"
+        self._tweak_base = hashlib.sha256(
+            _DETERMINISTIC_TWEAK_PREFIX
+            + len(fp_in).to_bytes(4, "big")
+            + fp_in
+            + len(fp_out).to_bytes(4, "big")
+            + fp_out
+            + mode_tag
+        ).digest()
+
+    def _check_slice_domains(self, floor: int) -> None:
+        fmt = self._input_format
+        lo = fmt.min_length
+        hi = fmt.max_length
+        offending = []
+        for length in range(lo, hi + 1):
+            _, count = fmt.slice_bounds(length)
+            if 0 < count < floor:
+                offending.append(length)
+        if offending:
+            raise SmallDomainError(
+                f"length slices {offending} are below the format-preserving "
+                f"floor {floor}; widen the alphabet or raise the minimum length"
+            )
+
+    def _init_ae_capacity(self, max_plaintext_bytes: int | None) -> None:
+        if self._input_is_bytes:
+            # Classic behavior: the resource ceiling and capacity limit are
+            # driven by the output format alone; the bytes input is unbounded.
+            cardinality = self._n_out
+            resource_max = (
+                self._DEFAULT_MAX_PLAINTEXT_BYTES
+                if max_plaintext_bytes is None
+                else max_plaintext_bytes
+            )
+            if cardinality is None:
+                capacity_limit = None
+                effective = resource_max
+            else:
+                capacity_limit = min(
+                    frame.capacity_plaintext_limit(
+                        cardinality, self._CIPHERTEXT_EXPANSION
+                    ),
+                    self._ENCRYPTER_MAX_PLAINTEXT_BYTES,
                 )
-            effective = min(resource_max, capacity_limit)
+                if capacity_limit < 0:
+                    raise FormatCapacityError(
+                        "format is too small to hold even an empty encrypted "
+                        "message"
+                    )
+                effective = min(resource_max, capacity_limit)
 
-        self._format = format
-        self._encrypter = Encrypter(key[:16], key[16:])
-        self._cardinality = cardinality
-        self._resource_max = resource_max
-        self._capacity_limit = capacity_limit
-        self._max_plaintext_bytes = effective
-        self._max_frame_bytes = effective + 1 + self._CIPHERTEXT_EXPANSION
+            self._resource_max = resource_max
+            self._capacity_limit = capacity_limit
+            self._max_plaintext_bytes = effective
+            self._max_frame_bytes = effective + 1 + self._CIPHERTEXT_EXPANSION
+            return
+
+        # AE over a finite non-bytes input: the plaintext is the shortlex
+        # serialization of an input rank in [0, n_in), so the largest frame is
+        # fixed by the serialization of n_in - 1. There is no separate resource
+        # knob (max_plaintext_bytes was rejected earlier).
+        max_pt_bytes = frame.rank_byte_length(self._n_in - 1)
+        self._resource_max = max_pt_bytes
+        self._capacity_limit = max_pt_bytes
+        self._max_plaintext_bytes = max_pt_bytes
+        self._max_frame_bytes = max_pt_bytes + 1 + self._CIPHERTEXT_EXPANSION
+
+        if self._n_out is not None:
+            output_capacity = frame.capacity_plaintext_limit(
+                self._n_out, self._CIPHERTEXT_EXPANSION
+            )
+            if output_capacity < max_pt_bytes:
+                raise FormatCapacityError(
+                    "output format cannot represent every authenticated frame "
+                    f"for this input (needs room for {max_pt_bytes} plaintext "
+                    f"bytes, holds {max(output_capacity, 0)})"
+                )
+
+    # ------------------------------------------------------------------ #
+    # Public properties                                                  #
+    # ------------------------------------------------------------------ #
+    @property
+    def input_format(self) -> RankedFormat[Plaintext]:
+        """The input (plaintext) format."""
+
+        return self._input_format
 
     @property
-    def format(self) -> RankedFormat[Covertext]:
-        """The ranked format used for covertext values."""
+    def output_format(self) -> RankedFormat[Covertext]:
+        """The output (covertext) format."""
 
-        return self._format
+        return self._output_format
 
     @property
-    def max_plaintext_bytes(self) -> int:
-        """Largest plaintext this instance accepts.
+    def cipher(self) -> str:
+        """The resolved cipher mode: ``"aes-ctr-hmac"`` or ``"deterministic"``."""
 
-        For a finite format this defaults to the exact size its capacity allows;
-        for an unbounded format it is the configured ceiling (1 MiB by default).
-        An explicit ``max_plaintext_bytes`` lowers it further.
+        return self._cipher_mode
+
+    @property
+    def preserve_length(self) -> bool:
+        """Whether the deterministic transform permutes each length in place.
+
+        Inferred, not configured: true when the input and output are the same
+        format and it can name its per-length slices, so a value keeps its
+        length; false otherwise (a cross-format map, or a format without
+        ``slice_bounds``). Always false for the ``aes-ctr-hmac`` cipher.
+        """
+
+        return self._preserve_length
+
+    @property
+    def max_plaintext_bytes(self) -> int | None:
+        """Largest plaintext this instance accepts (AE cipher only).
+
+        For a bytes input with a finite output format this defaults to the
+        exact size the output's capacity allows; an unbounded output falls
+        back to a 1 MiB default, and an explicit ``max_plaintext_bytes``
+        lowers it further. It is also the guard that lets ``decrypt`` reject
+        an oversized covertext before materializing a huge integer. For a
+        finite non-bytes input it is the fixed serialization size of the
+        input's largest rank; for the deterministic cipher it is ``None``.
         """
 
         return self._max_plaintext_bytes
 
-    def encrypt(self, plaintext: bytes, /) -> Covertext:
-        """Encrypt ``plaintext`` and unrank it into the configured format."""
+    # ------------------------------------------------------------------ #
+    # Encrypt / decrypt                                                  #
+    # ------------------------------------------------------------------ #
+    def encrypt(self, plaintext: Plaintext, /, *, tweak: bytes = b"") -> Covertext:
+        """Encrypt ``plaintext`` into a value of the output format."""
 
-        if not isinstance(plaintext, bytes):
-            raise TypeError("plaintext must be bytes")
-        # Exceeding the resource ceiling is the caller's own limit; exceeding a
-        # finite format's capacity is the format being too small. The capacity
-        # check is the exact inverse of frame.capacity_plaintext_limit.
-        if len(plaintext) > self._resource_max:
-            raise MessageTooLargeError(
-                "plaintext exceeds the configured max_plaintext_bytes"
-            )
-        if (
-            self._capacity_limit is not None
-            and len(plaintext) > self._capacity_limit
-        ):
-            raise FormatCapacityError(
-                "format cannot represent every encrypted payload at this length"
-            )
+        if not isinstance(tweak, (bytes, bytearray)):
+            raise TypeError("tweak must be bytes")
+        tweak = bytes(tweak)
+        if self._cipher_mode == "aes-ctr-hmac":
+            if tweak:
+                raise ValueError(
+                    "the 'aes-ctr-hmac' cipher has no associated-data "
+                    "support; a "
+                    "non-empty tweak is only valid with a deterministic cipher"
+                )
+            return self._encrypt_ae(plaintext)
+        return self._encrypt_deterministic(plaintext, tweak)
 
-        ciphertext = self._encrypter.encrypt(plaintext)
+    def decrypt(self, covertext: Covertext, /, *, tweak: bytes = b"") -> Plaintext:
+        """Decrypt one output-format value back to a plaintext."""
+
+        if not isinstance(tweak, (bytes, bytearray)):
+            raise TypeError("tweak must be bytes")
+        tweak = bytes(tweak)
+        if self._cipher_mode == "aes-ctr-hmac":
+            if tweak:
+                raise ValueError(
+                    "the 'aes-ctr-hmac' cipher has no associated-data "
+                    "support; a "
+                    "non-empty tweak is only valid with a deterministic cipher"
+                )
+            return self._decrypt_ae(covertext)
+        return self._decrypt_deterministic(covertext, tweak)
+
+    # ---- deterministic path ------------------------------------------ #
+    def _encrypt_deterministic(self, plaintext: Plaintext, tweak: bytes):
+        if self._preserve_length:
+            return self._encrypt_preserve_length(plaintext, tweak)
+
+        try:
+            r = self._input_format.rank(plaintext)
+        except Exception as exc:
+            raise InvalidPlaintextError("invalid plaintext") from exc
+        if type(r) is not int or not 0 <= r < self._n_in:
+            raise InvalidPlaintextError(
+                "plaintext rank is outside the input format's rank space"
+            )
+        c = self._cipher.encrypt_int(
+            r, domain=self._n_out, tweak=self._tweak_base + tweak
+        )
+        return self._output_format.unrank(c)
+
+    def _decrypt_deterministic(self, covertext: Covertext, tweak: bytes):
+        if self._preserve_length:
+            # The preserve-length path re-derives the rank inside its own
+            # slice; ranking the whole covertext here first would be wasted.
+            return self._decrypt_preserve_length(covertext, tweak)
+        try:
+            r = self._output_format.rank(covertext)
+        except Exception as exc:
+            raise InvalidCovertextError("invalid covertext") from exc
+        if type(r) is not int or r < 0:
+            raise FormatContractError(
+                "format.rank() must return a non-negative integer"
+            )
+        if r >= self._n_out:
+            raise InvalidCovertextError("invalid covertext")
+        x = self._cipher.decrypt_int(
+            r, domain=self._n_out, tweak=self._tweak_base + tweak
+        )
+        if x >= self._n_in:
+            # The output space is larger than the input space; this ciphertext
+            # deciphers outside the valid inputs, so it was never a covertext.
+            raise InvalidCovertextError("invalid covertext")
+        return self._input_format.unrank(x)
+
+    def _encrypt_preserve_length(self, plaintext: Plaintext, tweak: bytes):
+        fmt = self._input_format
+        try:
+            length = len(plaintext)
+        except TypeError as exc:
+            raise InvalidPlaintextError("plaintext has no length") from exc
+        try:
+            offset, count = fmt.slice_bounds(length)
+            r = fmt.rank(plaintext) - offset
+        except Exception as exc:
+            raise InvalidPlaintextError("invalid plaintext") from exc
+        if count <= 0 or not 0 <= r < count:
+            raise InvalidPlaintextError(
+                "plaintext is not in the length slice it claims"
+            )
+        call_tweak = self._tweak_base + length.to_bytes(4, "big") + tweak
+        c = self._cipher.encrypt_int(r, domain=count, tweak=call_tweak)
+        return fmt.unrank(offset + c)
+
+    def _decrypt_preserve_length(self, covertext: Covertext, tweak: bytes):
+        fmt = self._input_format
+        try:
+            length = len(covertext)
+        except TypeError as exc:
+            raise InvalidCovertextError("invalid covertext") from exc
+        try:
+            offset, count = fmt.slice_bounds(length)
+        except Exception as exc:
+            raise InvalidCovertextError("invalid covertext") from exc
+        if count <= 0:
+            raise InvalidCovertextError("invalid covertext")
+        try:
+            r = fmt.rank(covertext) - offset
+        except Exception as exc:
+            raise InvalidCovertextError("invalid covertext") from exc
+        if not 0 <= r < count:
+            raise InvalidCovertextError("invalid covertext")
+        call_tweak = self._tweak_base + length.to_bytes(4, "big") + tweak
+        x = self._cipher.decrypt_int(r, domain=count, tweak=call_tweak)
+        return fmt.unrank(offset + x)
+
+    # ---- AE path ------------------------------------------------------ #
+    def _encrypt_ae(self, plaintext: Plaintext) -> Covertext:
+        if self._input_is_bytes:
+            if not isinstance(plaintext, bytes):
+                raise TypeError("plaintext must be bytes")
+            pt_bytes = plaintext
+            # Exceeding the resource ceiling is the caller's own limit;
+            # exceeding a finite format's capacity is the format being too
+            # small. The capacity check is the exact inverse of
+            # frame.capacity_plaintext_limit.
+            if len(pt_bytes) > self._resource_max:
+                raise MessageTooLargeError(
+                    "plaintext exceeds the configured max_plaintext_bytes"
+                )
+            if (
+                self._capacity_limit is not None
+                and len(pt_bytes) > self._capacity_limit
+            ):
+                raise FormatCapacityError(
+                    "format cannot represent every encrypted payload at this "
+                    "length"
+                )
+        else:
+            try:
+                r = self._input_format.rank(plaintext)
+            except Exception as exc:
+                raise InvalidPlaintextError("invalid plaintext") from exc
+            if type(r) is not int or not 0 <= r < self._n_in:
+                raise InvalidPlaintextError(
+                    "plaintext rank is outside the input format's rank space"
+                )
+            pt_bytes = frame.rank_to_bytes(r)
+
+        ciphertext = self._encrypter.encrypt(pt_bytes)
         framed = self._FRAME_VERSION + ciphertext
         index = frame.bytes_to_rank(framed)
         try:
-            return self._format.unrank(index)
+            return self._output_format.unrank(index)
         except Exception as exc:
             raise FormatCapacityError(
                 "format cannot represent the encrypted payload rank"
             ) from exc
 
-    def decrypt(self, covertext: Covertext, /) -> bytes:
-        """Rank one complete format value and decrypt its plaintext."""
-
+    def _decrypt_ae(self, covertext: Covertext) -> Plaintext:
         try:
-            index = self._format.rank(covertext)
+            index = self._output_format.rank(covertext)
         except Exception as exc:
             raise InvalidCovertextError("invalid covertext") from exc
 
@@ -221,7 +648,7 @@ class FTE(Generic[Covertext]):
         # These size guards stay lazy per call: a precomputed 256**N rank bound
         # would make __init__ cost and retained memory linear in
         # max_plaintext_bytes, while these checks are cheap on every decrypt.
-        if self._cardinality is not None and index >= self._cardinality:
+        if self._n_out is not None and index >= self._n_out:
             raise InvalidCovertextError("invalid covertext")
         if index.bit_length() > 8 * self._max_frame_bytes + 1:
             raise InvalidCovertextError("invalid covertext")
@@ -236,9 +663,17 @@ class FTE(Generic[Covertext]):
 
         ciphertext = framed[len(self._FRAME_VERSION):]
         try:
-            return self._encrypter.decrypt(ciphertext)
+            pt_bytes = self._encrypter.decrypt(ciphertext)
         except DecryptionError:
-            pass
-        # Raised outside the handler: pre-MAC header detail must not chain
-        # into public errors, so neither __cause__ nor __context__ is set.
-        raise InvalidCovertextError("invalid covertext") from None
+            pt_bytes = None
+        if pt_bytes is None:
+            # Raised outside the handler: pre-MAC header detail must not chain
+            # into public errors, so neither __cause__ nor __context__ is set.
+            raise InvalidCovertextError("invalid covertext") from None
+
+        if self._input_is_bytes:
+            return pt_bytes
+        r = frame.bytes_to_rank(pt_bytes)
+        if r >= self._n_in:
+            raise InvalidCovertextError("invalid covertext")
+        return self._input_format.unrank(r)

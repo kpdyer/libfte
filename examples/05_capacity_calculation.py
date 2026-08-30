@@ -31,7 +31,7 @@ def analyze_format(name, pattern, length):
     # approximate the framing overhead by hand. Too small a format cannot hold
     # even an empty message and is rejected at construction.
     try:
-        usable_bytes = fte.FTE(format=fmt, key=KEY).max_plaintext_bytes
+        usable_bytes = fte.FTE(output_format=fmt, key=KEY).max_plaintext_bytes
         print(f"  Usable for plaintext: {usable_bytes} bytes (exact)")
     except fte.FormatCapacityError:
         print(f"  Usable for plaintext: none (too small for the frame)")
@@ -75,7 +75,7 @@ def main():
         ("Alphanumeric", "^[A-Za-z0-9]+$", 256),
     ]:
         cipher = fte.FTE(
-            format=fte.RegexFormat(pattern, length=length),
+            output_format=fte.RegexFormat(pattern, length=length),
             key=os.urandom(32),
         )
 

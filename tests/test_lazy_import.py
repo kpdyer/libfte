@@ -31,7 +31,7 @@ class HexFormat:
         return format(index, "x")
 
 
-cipher = fte.FTE(format=HexFormat(), key=bytes(range(32)))
+cipher = fte.FTE(output_format=HexFormat(), key=bytes(range(32)))
 assert cipher.decrypt(cipher.encrypt(b"hello")) == b"hello"
 
 try:

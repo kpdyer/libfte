@@ -17,7 +17,7 @@ def main():
 
     # Lowercase covertext somewhere between 40 and 400 bytes long.
     cipher = fte.FTE(
-        format=fte.RegexFormat('^[a-z]+$', min_length=40, max_length=400),
+        output_format=fte.RegexFormat('^[a-z]+$', min_length=40, max_length=400),
         key=os.urandom(32),
     )
 

@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """Example: Encrypting multiple messages.
 
-Each covertext from a RegexFormat is exactly ``length`` bytes, so a stream of
-concatenated messages can be parsed back one fixed-size chunk at a time.
+Each covertext from a fixed-length RegexFormat is exactly ``length`` bytes, so
+a stream of concatenated messages can be parsed back one fixed-size chunk at a
+time.
 """
 
 import os

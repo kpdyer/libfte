@@ -2,7 +2,7 @@
 
 This module owns everything cryptographic: authenticated encryption, the
 versioned frame, and the reversible bytes-to-integer mapping. The covertext
-language is supplied from :mod:`fte.formats` as a :class:`RankedFormat`, so the
+format is supplied from :mod:`fte.formats` as a :class:`RankedFormat`, so the
 engine never needs to know what the output looks like.
 """
 

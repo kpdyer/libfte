@@ -52,15 +52,17 @@ include = ["fte*"]
 [tool.setuptools.package-data]
 fte = ["_version.txt", "py.typed"]
 
+# Tests live alongside the code they cover (e.g. fte/formats/regex/), plus the
+# shared fte/tests/ package, so discover test_*.py anywhere under fte/.
 [tool.pytest.ini_options]
-testpaths = ["fte/tests"]
+testpaths = ["fte"]
 python_files = ["test_*.py"]
 python_classes = ["Tests"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
 source = ["fte"]
-omit = ["fte/tests/*"]
+omit = ["fte/tests/*", "**/test_*.py"]
 
 [tool.coverage.report]
 exclude_lines = [

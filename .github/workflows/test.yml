@@ -34,7 +34,7 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest fte/tests/ -v --cov=fte --cov-report=xml
+          python -m pytest -v --cov=fte --cov-report=xml
 
       - name: Smoke test (encrypt/decrypt round-trip)
         run: |

@@ -8,14 +8,15 @@ subpackage to copy for a new provider.
 
     >>> import fte
     >>> from fte.formats import RegexFormat
-    >>> cipher = fte.FTE(format=RegexFormat(r"^[0-9a-f]+$", length=96),
+    >>> cipher = fte.FTE(output_format=RegexFormat(r"^[0-9a-f]+$", length=96),
     ...                  key=bytes(range(32)))
 """
 
 from fte.formats.base import RankedFormat
+from fte.formats.bytes import BytesFormat
 
 
-__all__ = ["RankedFormat", "RegexFormat"]
+__all__ = ["BytesFormat", "RankedFormat", "RegexFormat"]
 
 
 def __getattr__(name):

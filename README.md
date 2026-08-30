@@ -7,7 +7,7 @@
 
 ## Overview
 
-Format-Transforming Encryption (FTE) transforms ciphertext to match a target format: one given by a regular expression, or by any *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify: hexadecimal strings, alphanumeric tokens, any language a regex can denote, or a custom format such as decimal text or a domain-specific grammar.
+Format-Transforming Encryption (FTE) transforms ciphertext to match a target format: one given by a regular expression, or by any *ranked-format* provider you supply. Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify: hexadecimal strings, alphanumeric tokens, any pattern expressible as a regex, or a custom format such as decimal text or a domain-specific grammar.
 
 This is useful for:
 - **Protocol obfuscation**: Make encrypted traffic look like benign data
@@ -16,19 +16,42 @@ This is useful for:
 
 Based on the paper [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
 
-> **One engine.** libfte encrypts through a single path: `fte.FTE` over a
-> `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
-> `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
-> own `RankedFormat` to target any other covertext language.
->
-> The wire format changed in 0.4.0 and is **not** compatible with libfte
-> 0.3.x and earlier.
+### One engine, two axes
+
+There is a single engine, `fte.FTE`, that maps `rank_in -> transform ->
+unrank_out`: it ranks a value of the input format to an integer, transforms
+that integer, and unranks the result into the output format. Two independent
+choices shape it:
+
+- the **format pair**: `input_format` and `output_format` (the input defaults
+  to raw bytes, `BytesFormat`); and
+- the **cipher** on the integer in between: `"ae"` (randomized, authenticated,
+  expanding: the classic AES-CTR + HMAC path) or `"ff1"` (deterministic,
+  zero-expansion, format-preserving, via the optional
+  [libffx](https://github.com/kpdyer/libffx) extra).
+
+That gives a 2x2 of behaviors:
+
+| cipher \ formats | `input == output` | `input != output` |
+|---|---|---|
+| **`ff1`** (deterministic, zero-expansion, unauthenticated) | **FPE**: re-encrypt a value in place, optionally length-preserving | **deterministic FTE**: a reversible rank map between two formats |
+| **`ae`** (randomized, authenticated, expanding) | authenticated encryption over bytes | **classic FTE**: bytes hidden as a chosen covertext format |
+
+**FPE is simply the equal-formats case**: pass the same format as
+`input_format` and `output_format` and the deterministic cipher is inferred.
+
+> The wire format changed in 0.4.0 and is **not** compatible with libfte 0.3.x
+> and earlier. The `ff1` cipher is deterministic and **unauthenticated**: it
+> leaks plaintext equality and is only as strong as the input space is large,
+> so use per-record `tweak` values. Never reuse a key across the two ciphers.
 
 ## Installation
 
 ```bash
 pip install fte
 ```
+
+Works out of the box with pure Python, no compilation required.
 
 ## Quick Example
 
@@ -42,7 +65,7 @@ key = os.urandom(32)  # 32 bytes, shared by both endpoints
 
 # Pick a covertext format, then build a cipher over it and the key.
 word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80)
-cipher = fte.FTE(format=word_format, key=key)
+cipher = fte.FTE(output_format=word_format, key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
@@ -54,27 +77,39 @@ plaintext = cipher.decrypt(ciphertext)
 
 The ciphertext looks like random text but contains your encrypted message.
 
+For **format-preserving encryption**, use the same format on both sides. Equal
+formats infer the deterministic `ff1` cipher (needs `pip install fte[fpe]`):
+
+```python
+digits = fte.RegexFormat(r'^[0-9]+$', length=9)   # a 9-digit language
+fpe = fte.FTE(input_format=digits, output_format=digits,
+              key=os.urandom(16), preserve_length=True)
+
+token = fpe.encrypt(b'078051120', tweak=b'ssn')   # another 9-digit string
+assert fpe.decrypt(token, tweak=b'ssn') == b'078051120'
+```
+
 ## More Examples
 
 The snippets below reuse a shared 32-byte `key = os.urandom(32)`.
 
 ### URL paths
 ```python
-cipher = fte.FTE(format=fte.RegexFormat(r'^/[a-z]+/[a-z]+\.html$', length=96), key=key)
+cipher = fte.FTE(output_format=fte.RegexFormat(r'^/[a-z]+/[a-z]+\.html$', length=96), key=key)
 cipher.encrypt(b'secret')
 # → "/hsdxanghqvdhb/pvzvdsrpnjktdhnewdfhehaftajibecrluewdyrbe...html"
 ```
 
 ### URL slugs
 ```python
-cipher = fte.FTE(format=fte.RegexFormat(r'^[a-z]+-[a-z]+-[a-z]+$', length=80), key=key)
+cipher = fte.FTE(output_format=fte.RegexFormat(r'^[a-z]+-[a-z]+-[a-z]+$', length=80), key=key)
 cipher.encrypt(b'secret')
 # → "dxosmywnpyjuarsfvcado-osmdsyvovfnnsgzhzelpujnya-qfwbekwh..."
 ```
 
 ### Alphanumeric tokens
 ```python
-cipher = fte.FTE(format=fte.RegexFormat('^[A-Za-z0-9]+$', length=64), key=key)
+cipher = fte.FTE(output_format=fte.RegexFormat('^[A-Za-z0-9]+$', length=64), key=key)
 cipher.encrypt(b'secret')
 # → "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
 ```
@@ -85,7 +120,7 @@ covertext length varies with the message (`min_length == max_length` is the
 fixed case):
 ```python
 lowercase = fte.RegexFormat('^[a-z]+$', min_length=40, max_length=400)
-cipher = fte.FTE(format=lowercase, key=key)
+cipher = fte.FTE(output_format=lowercase, key=key)
 cipher.encrypt(b'secret')       # a lowercase string somewhere in 40..400 bytes
 ```
 
@@ -118,7 +153,7 @@ key = bytes.fromhex(
     "101112131415161718191a1b1c1d1e1f"
 )
 # Demonstration key only; load a securely shared secret in production.
-cipher = fte.FTE(format=DecimalText(), key=key)
+cipher = fte.FTE(output_format=DecimalText(), key=key)
 
 covertext: str = cipher.encrypt(b"secret")
 plaintext = cipher.decrypt(covertext)
@@ -139,23 +174,33 @@ for more use cases.
 
 ### `fte.FTE`
 
-The engine. Encrypts bytes into values drawn from any structural
-`RankedFormat[T]`.
+The engine. Maps a value of `input_format` to a value of `output_format` via
+the chosen cipher.
 
 ```python
 fte.FTE(
     *,
-    format: RankedFormat[T],
+    input_format: RankedFormat = BytesFormat(),
+    output_format: RankedFormat,
     key: bytes,
-    max_plaintext_bytes: int | None = None,
+    cipher: str | object | None = None,   # "ae" | "ff1" | object | inferred
+    preserve_length: bool = False,        # ff1, equal formats only
+    max_plaintext_bytes: int | None = None,   # ae, bytes input only
+    allow_small_domain: bool = False,     # ff1 domain floor 1e6 -> 100
 )
 ```
 
 | Member | Description |
 |--------|-------------|
-| `encrypt(plaintext: bytes) -> T` | Encrypt and unrank into a covertext value |
-| `decrypt(covertext: T) -> bytes` | Rank and decrypt one complete value |
-| `max_plaintext_bytes` | Largest plaintext accepted (see below) |
+| `encrypt(plaintext, *, tweak=b"") -> T` | Rank the input, transform, unrank into a covertext (tweak: ff1 only) |
+| `decrypt(covertext, *, tweak=b"") -> P` | Rank the covertext, invert the transform, unrank the plaintext |
+| `input_format` / `output_format` | The two formats |
+| `cipher` | Resolved mode: `"ae"` or `"deterministic"` |
+| `preserve_length` | Whether ff1 permutes each length slice in place |
+| `max_plaintext_bytes` | Largest plaintext accepted, ae only (see below) |
+
+Key sizes: `"ae"` needs exactly 32 bytes (16 encryption + 16 MAC); `"ff1"`
+needs 16/24/32. The `ff1` cipher requires the extra: `pip install fte[fpe]`.
 
 `max_plaintext_bytes` is chosen for you when left unset: a finite format (one
 with a `cardinality`, like `RegexFormat`) uses the exact size its capacity
@@ -166,10 +211,9 @@ messages may exceed the default, both endpoints should use the same value.
 
 ### `fte.RegexFormat`
 
-The built-in `RankedFormat`: a format over the byte language a regular
-expression denotes. Choose a fixed covertext length, or a
-`[min_length, max_length]` range for variable-length covertext
-(`min_length == max_length` is the fixed case).
+The built-in `RankedFormat`: a byte language compiled from a regular expression.
+Choose a fixed covertext length, or a `[min_length, max_length]` range for
+variable-length covertext (`min_length == max_length` is the fixed case).
 
 ```python
 fte.RegexFormat(pattern: str, *, length: int)                       # fixed
@@ -178,7 +222,7 @@ fte.RegexFormat(pattern: str, *, min_length: int, max_length: int)  # range
 
 | Member | Description |
 |--------|-------------|
-| `pattern` | The regular expression denoting the covertext language |
+| `pattern` | The regular expression |
 | `min_length`, `max_length` | Covertext length bounds (equal for a fixed length) |
 | `cardinality` | Number of matching words in the length range |
 | `rank(value: bytes) -> int` | Rank of a canonical covertext value |
@@ -211,20 +255,13 @@ performs capacity checks before encryption.
 
 The framing is variable-length. Anyone who can rank a covertext can infer its
 exact plaintext byte length, even without the key. FTE guarantees membership in
-the format's language, not a uniform distribution over every rank when the
-format offers more capacity than the message needs.
+the selected format, not a uniform distribution over every rank when the
+provider offers more capacity than the message needs.
 
-The vocabulary here is deliberate: a **pattern** (a regex) denotes a
-**language** (the set of matching words), a **format** ranks a finite slice of
-a language and is the wire contract endpoints must share, and a **provider**
-(such as `fte.formats.regex`, or your own `RankedFormat`) implements formats.
-See [Terminology](docs/formats.md#terminology) for the full glossary.
+The capacity depends on your regex: more symbols means more bits per character:
 
-The capacity depends on the language: a larger alphabet means more bits per
-character:
-
-| Format | Pattern | Bits/char |
-|--------|---------|-----------|
+| Format | Regex | Bits/char |
+|--------|-------|-----------|
 | Binary | `^[01]+$` | 1.0 |
 | Hex | `^[0-9a-f]+$` | 4.0 |
 | Alphanumeric | `^[A-Za-z0-9]+$` | 5.95 |

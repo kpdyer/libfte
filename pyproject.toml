@@ -38,6 +38,8 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
+# Format-preserving (deterministic, zero-expansion) transforms via libffx.
+fpe = ["libffx>=2.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/kpdyer/libfte"

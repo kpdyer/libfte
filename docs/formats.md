@@ -81,7 +81,7 @@ Use it without an adapter:
 ```python
 from fte import FTE
 
-cipher = FTE(format=LowerHex(), key=shared_32_byte_key)
+cipher = FTE(output_format=LowerHex(), key=shared_32_byte_key)
 covertext = cipher.encrypt(b"hello")
 assert cipher.decrypt(covertext) == b"hello"
 ```
@@ -116,7 +116,7 @@ exactly the same extension point:
 from fte import FTE, RegexFormat
 
 fmt = RegexFormat(r"^[0-9a-f]+$", length=96)          # fixed 96-byte covertext
-cipher = FTE(format=fmt, key=shared_32_byte_key)
+cipher = FTE(output_format=fmt, key=shared_32_byte_key)
 
 covertext: bytes = cipher.encrypt(b"hello")
 assert cipher.decrypt(covertext) == b"hello"

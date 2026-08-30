@@ -37,7 +37,7 @@ key = os.urandom(32)  # 32 bytes, shared by both endpoints
 
 # Pick a covertext format, then build a cipher over it and the key.
 word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80)
-cipher = fte.FTE(format=word_format, key=key)
+cipher = fte.FTE(output_format=word_format, key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
@@ -76,7 +76,7 @@ class DecimalText:
         return str(index)
 
 shared_32_byte_key = secrets.token_bytes(32)
-cipher = fte.FTE(format=DecimalText(), key=shared_32_byte_key)
+cipher = fte.FTE(output_format=DecimalText(), key=shared_32_byte_key)
 covertext: str = cipher.encrypt(b"secret")
 assert cipher.decrypt(covertext) == b"secret"
 ```

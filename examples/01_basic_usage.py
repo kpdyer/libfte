@@ -16,7 +16,7 @@ def main():
     # provider; give it a pattern and the exact covertext length. FTE takes the
     # format and a 32-byte key.
     cipher = fte.FTE(
-        format=fte.RegexFormat('^(a|b)+$', length=512),
+        output_format=fte.RegexFormat('^(a|b)+$', length=512),
         key=os.urandom(32),
     )
 

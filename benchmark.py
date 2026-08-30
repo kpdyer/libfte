@@ -108,7 +108,7 @@ def _median_ms(fn, iterations):
 def _bench_build(regex, length, iterations):
     """Median time to construct a cipher (regex -> DFA -> counting table)."""
     def build():
-        fte.FTE(format=fte.RegexFormat(regex, length=length), key=BENCH_KEY)
+        fte.FTE(output_format=fte.RegexFormat(regex, length=length), key=BENCH_KEY)
     return _median_ms(build, iterations)
 
 
@@ -117,7 +117,7 @@ def _bench_format(label, regex, length, payload, iterations, warmup):
     build_ms = _bench_build(regex, length, max(3, iterations // 5))
 
     fmt = fte.RegexFormat(regex, length=length)
-    cipher = fte.FTE(format=fmt, key=BENCH_KEY)
+    cipher = fte.FTE(output_format=fmt, key=BENCH_KEY)
     capacity = fmt.cardinality.bit_length() - 1  # floor(log2(cardinality))
 
     # Correctness: the whole benchmark is meaningless if the round-trip is wrong.

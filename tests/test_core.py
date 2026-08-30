@@ -31,7 +31,7 @@ class Tests(unittest.TestCase):
         self.assertIsInstance(HexFormat(), fte.RankedFormat)
 
     def test_roundtrip(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
 
         for plaintext in (b"", b"x", b"hello", b"embedded\x00zero"):
             covertext = cipher.encrypt(plaintext)
@@ -57,7 +57,7 @@ class Tests(unittest.TestCase):
             self.assertEqual(bytes_to_rank(rank_to_bytes(rank)), rank)
 
     def test_invalid_plaintext(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
 
         with self.assertRaises(TypeError):
             cipher.encrypt("not bytes")
@@ -68,22 +68,22 @@ class Tests(unittest.TestCase):
             unrank = 2
 
         with self.assertRaises(TypeError):
-            fte.FTE(format=object(), key=KEY)
+            fte.FTE(output_format=object(), key=KEY)
         with self.assertRaises(TypeError):
-            fte.FTE(format=NonCallableFormat(), key=KEY)
+            fte.FTE(output_format=NonCallableFormat(), key=KEY)
         with self.assertRaises(TypeError):
-            fte.FTE(format=HexFormat, key=KEY)
+            fte.FTE(output_format=HexFormat, key=KEY)
         with self.assertRaises(ValueError):
-            fte.FTE(format=HexFormat(), key=b"short")
+            fte.FTE(output_format=HexFormat(), key=b"short")
         with self.assertRaises(TypeError):
-            fte.FTE(format=HexFormat(), key="not bytes")
+            fte.FTE(output_format=HexFormat(), key="not bytes")
         with self.assertRaises(ValueError):
-            fte.FTE(format=HexFormat(), key=KEY, max_plaintext_bytes=-1)
+            fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=-1)
         with self.assertRaises(ValueError):
-            fte.FTE(format=HexFormat(), key=KEY, max_plaintext_bytes=True)
+            fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=True)
         with self.assertRaises(ValueError):
             fte.FTE(
-                format=HexFormat(),
+                output_format=HexFormat(),
                 key=KEY,
                 max_plaintext_bytes=1 << 32,
             )
@@ -92,11 +92,11 @@ class Tests(unittest.TestCase):
             cardinality = True
 
         with self.assertRaises(fte.FormatContractError):
-            fte.FTE(format=InvalidCardinality(), key=KEY)
+            fte.FTE(output_format=InvalidCardinality(), key=KEY)
 
     def test_plaintext_and_rank_resource_limit(self):
         cipher = fte.FTE(
-            format=HexFormat(),
+            output_format=HexFormat(),
             key=KEY,
             max_plaintext_bytes=4,
         )
@@ -107,11 +107,11 @@ class Tests(unittest.TestCase):
             cipher.encrypt(b"12345")
 
         oversized_rank = rank_offset(cipher._max_frame_bytes + 1)
-        oversized = cipher.format.unrank(oversized_rank)
+        oversized = cipher.output_format.unrank(oversized_rank)
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt(oversized)
 
-        excessive_bits = cipher.format.unrank(
+        excessive_bits = cipher.output_format.unrank(
             1 << (8 * cipher._max_frame_bytes + 1)
         )
         with self.assertRaises(fte.InvalidCovertextError):
@@ -121,7 +121,7 @@ class Tests(unittest.TestCase):
         # A finite format (RegexFormat exposes cardinality) sets the ceiling
         # from its own capacity, not the 1 MiB default.
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
-        cipher = fte.FTE(format=fmt, key=KEY)
+        cipher = fte.FTE(output_format=fmt, key=KEY)
         limit = cipher.max_plaintext_bytes
         self.assertEqual(
             limit,
@@ -138,7 +138,7 @@ class Tests(unittest.TestCase):
             cipher.encrypt(b"x" * (limit + 1))
 
     def test_unbounded_format_uses_default_ceiling(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
         self.assertEqual(
             cipher.max_plaintext_bytes, fte.FTE._DEFAULT_MAX_PLAINTEXT_BYTES
         )
@@ -147,7 +147,7 @@ class Tests(unittest.TestCase):
         # An explicit value lowers the ceiling below the format's capacity and
         # is reported as a resource limit, not a capacity error.
         cipher = fte.FTE(
-            format=fte.RegexFormat(r"^[0-9a-f]+$", length=96),
+            output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=96),
             key=KEY,
             max_plaintext_bytes=5,
         )
@@ -161,11 +161,11 @@ class Tests(unittest.TestCase):
         # authenticated frame, so the format cannot hold even an empty message
         # and building an FTE around it fails fast.
         with self.assertRaises(fte.FormatCapacityError):
-            fte.FTE(format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
+            fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
 
     def test_finite_format_capacity_zero_allows_only_empty(self):
         # length=65 hex holds exactly enough for the empty-message frame.
-        cipher = fte.FTE(format=fte.RegexFormat(r"^[0-9a-f]+$", length=65), key=KEY)
+        cipher = fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=65), key=KEY)
         self.assertEqual(cipher.max_plaintext_bytes, 0)
         self.assertEqual(cipher.decrypt(cipher.encrypt(b"")), b"")
         with self.assertRaises(fte.FormatCapacityError):
@@ -203,7 +203,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(rank_to_bytes(bytes_to_rank(framed)), framed)
 
     def test_decode_rejects_unframed_rank(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
 
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt("02")
@@ -211,17 +211,17 @@ class Tests(unittest.TestCase):
             cipher.decrypt("01")
 
         ciphertext = cipher._encrypter.encrypt(b"hello")
-        wrong_version = cipher.format.unrank(
+        wrong_version = cipher.output_format.unrank(
             bytes_to_rank(b"\x02" + ciphertext)
         )
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt(wrong_version)
 
     def test_decode_rejects_trailing_ciphertext(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
         ciphertext = cipher._encrypter.encrypt(b"hello") + b"trailing"
         index = bytes_to_rank(b"\x01" + ciphertext)
-        covertext = cipher.format.unrank(index)
+        covertext = cipher.output_format.unrank(index)
 
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt(covertext)
@@ -229,11 +229,11 @@ class Tests(unittest.TestCase):
     def test_decrypt_errors_carry_no_pre_mac_detail(self):
         # The encrypter reads the header's length field before verifying the
         # MAC, so its error must not chain into the public exception.
-        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
         ciphertext = cipher._encrypter.encrypt(b"hello")
 
         for damaged in (ciphertext[:-1], ciphertext + b"x"):
-            covertext = cipher.format.unrank(bytes_to_rank(b"\x01" + damaged))
+            covertext = cipher.output_format.unrank(bytes_to_rank(b"\x01" + damaged))
             with self.assertRaises(fte.InvalidCovertextError) as caught:
                 cipher.decrypt(covertext)
             self.assertEqual(str(caught.exception), "invalid covertext")
@@ -248,7 +248,7 @@ class Tests(unittest.TestCase):
             def unrank(self, index):
                 return "unused"
 
-        cipher = fte.FTE(format=BadFormat(), key=KEY)
+        cipher = fte.FTE(output_format=BadFormat(), key=KEY)
 
         with self.assertRaises(fte.FormatContractError):
             cipher.decrypt("anything")
@@ -263,11 +263,11 @@ class Tests(unittest.TestCase):
                 raise ValueError("not a member")
 
         with self.assertRaises(fte.FormatCapacityError) as capacity:
-            fte.FTE(format=FullFormat(), key=KEY).encrypt(b"hello")
+            fte.FTE(output_format=FullFormat(), key=KEY).encrypt(b"hello")
         self.assertIsInstance(capacity.exception.__cause__, IndexError)
 
         with self.assertRaises(fte.InvalidCovertextError) as invalid:
-            fte.FTE(format=RejectingFormat(), key=KEY).decrypt("anything")
+            fte.FTE(output_format=RejectingFormat(), key=KEY).decrypt("anything")
         self.assertIsInstance(invalid.exception.__cause__, ValueError)
 
     def test_finite_capacity_is_preflighted_at_exact_boundary(self):
@@ -280,31 +280,31 @@ class Tests(unittest.TestCase):
         class TooSmallFiniteHex(HexFormat):
             cardinality = required_cardinality - 1
 
-        exact = fte.FTE(format=ExactFiniteHex(), key=KEY)
+        exact = fte.FTE(output_format=ExactFiniteHex(), key=KEY)
         self.assertEqual(exact.decrypt(exact.encrypt(b"")), b"")
 
         with self.assertRaises(fte.FormatCapacityError):
-            fte.FTE(format=TooSmallFiniteHex(), key=KEY).encrypt(b"")
+            fte.FTE(output_format=TooSmallFiniteHex(), key=KEY).encrypt(b"")
 
         out_of_range = ExactFiniteHex().unrank(required_cardinality)
         with self.assertRaises(fte.InvalidCovertextError):
             exact.decrypt(out_of_range)
 
     def test_wrong_key_is_invalid_covertext(self):
-        sender = fte.FTE(format=HexFormat(), key=KEY)
-        receiver = fte.FTE(format=HexFormat(), key=bytes(reversed(KEY)))
+        sender = fte.FTE(output_format=HexFormat(), key=KEY)
+        receiver = fte.FTE(output_format=HexFormat(), key=bytes(reversed(KEY)))
 
         with self.assertRaises(fte.InvalidCovertextError):
             receiver.decrypt(sender.encrypt(b"hello"))
 
     def test_format_property_is_read_only(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
 
         with self.assertRaises(AttributeError):
-            cipher.format = HexFormat()
+            cipher.output_format = HexFormat()
 
     def test_roundtrip_over_varied_sizes(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY, max_plaintext_bytes=2048)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=2048)
 
         for length in list(range(0, 260)) + [512, 1024, 2048]:
             plaintext = os.urandom(length)
@@ -313,14 +313,14 @@ class Tests(unittest.TestCase):
     def test_cross_endpoint_roundtrip(self):
         # Two independently constructed instances must interoperate: the wire
         # format is a contract between separate sender and receiver processes.
-        sender = fte.FTE(format=HexFormat(), key=KEY)
-        receiver = fte.FTE(format=HexFormat(), key=KEY)
+        sender = fte.FTE(output_format=HexFormat(), key=KEY)
+        receiver = fte.FTE(output_format=HexFormat(), key=KEY)
 
         for plaintext in (b"", b"x", b"hello", os.urandom(64)):
             self.assertEqual(receiver.decrypt(sender.encrypt(plaintext)), plaintext)
 
     def test_max_plaintext_bytes_zero_allows_only_empty(self):
-        cipher = fte.FTE(format=HexFormat(), key=KEY, max_plaintext_bytes=0)
+        cipher = fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=0)
 
         self.assertEqual(cipher.max_plaintext_bytes, 0)
         self.assertEqual(cipher.decrypt(cipher.encrypt(b"")), b"")

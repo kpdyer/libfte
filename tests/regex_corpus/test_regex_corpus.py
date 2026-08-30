@@ -123,7 +123,7 @@ def test_out_of_range_ranks_rejected(label):
 def test_fte_end_to_end_where_capacity_allows(label):
     fmt = _format_for(label)
     try:
-        cipher = FTE(format=fmt, key=_KEY)
+        cipher = FTE(output_format=fmt, key=_KEY)
     except FormatCapacityError:
         pytest.skip("format too small to hold an encrypted frame")
     limit = cipher.max_plaintext_bytes

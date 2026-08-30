@@ -21,7 +21,7 @@ Based on the paper [Protocol Misidentification Made Easy with Format-Transformin
 > `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
 > own `RankedFormat` to target any other covertext format.
 >
-> The wire format changed in this release and is **not** compatible with libfte
+> The wire format changed in 0.4.0 and is **not** compatible with libfte
 > 0.3.x and earlier.
 
 ## Installation

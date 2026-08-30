@@ -14,9 +14,8 @@ pip install fte
 |------|-------------|
 | `01_basic_usage.py` | Simple encrypt/decrypt roundtrip |
 | `02_custom_keys.py` | Using custom encryption keys |
-| `03_hex_format.py` | Encrypting data into hexadecimal strings |
-| `04_alphanumeric_format.py` | Creating token-like ciphertexts |
-| `05_word_based_format.py` | Pronounceable word patterns |
+| `03_regex_formats.py` | A gallery of regex covertext formats |
+| `04_variable_length.py` | Variable-length covertext via `min_length`/`max_length` |
 | `06_capacity_calculation.py` | Understanding language capacity |
 | `10_error_handling.py` | Proper exception handling |
 | `11_multiple_messages.py` | Parsing a stream of fixed-length covertexts |
@@ -49,16 +48,14 @@ To target a covertext language regex can't describe, supply your own
 
 ## Choosing a Format
 
-| Format | Regex | Bits/char | Use case |
-|--------|-------|-----------|----------|
-| Binary | `^[01]+$` | 1.0 | Minimal alphabet |
-| Hex | `^[0-9a-f]+$` | 4.0 | Log files, debugging |
-| Alphanumeric | `^[A-Za-z0-9]+$` | 5.95 | Tokens, IDs |
-| Lowercase | `^[a-z]+$` | 4.7 | Simple text |
+See the [bits-per-character table](../README.md#how-it-works) in the main
+README for how alphabet size drives capacity.
 
 ## Tips
 
 1. **Larger `length`** = more capacity but longer covertext
 2. **More symbols in regex** = more bits per character
-3. **Each `RegexFormat` covertext is exactly `length` bytes**: slice a stream into fixed-size chunks
+3. **A fixed-`length` covertext is exactly `length` bytes**, so a stream of
+   them slices into fixed-size chunks; a `min_length`/`max_length` covertext
+   varies in length with the message (see `04_variable_length.py`)
 4. **Pass an explicit `key`** so both endpoints share the same one

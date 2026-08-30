@@ -35,7 +35,7 @@ from fte.core import (
     MessageTooLargeError,
 )
 from fte.encrypter import Encrypter
-from fte.formats import FiniteRankedFormat, RankedFormat, RegexFormat
+from fte.formats import RankedFormat, RegexFormat
 
 __version__ = (Path(__file__).parent / '_version.txt').read_text().strip()
 __author__ = 'Kevin P. Dyer'
@@ -45,7 +45,6 @@ __all__ = [
     'FTE',
     'RegexFormat',
     'RankedFormat',
-    'FiniteRankedFormat',
     'FTEError',
     'FormatCapacityError',
     'FormatContractError',

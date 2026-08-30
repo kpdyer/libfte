@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Protocol, TypeVar, runtime_checkable
 
 
-__all__ = ["RankedFormat", "FiniteRankedFormat"]
+__all__ = ["RankedFormat"]
 
 
 Covertext = TypeVar("Covertext")
@@ -35,6 +35,11 @@ class RankedFormat(Protocol[Covertext]):
 
     The protocol is structural: any object with callable ``rank`` and ``unrank``
     methods conforms, with no need to subclass or import this module at runtime.
+
+    A format may additionally expose a ``cardinality`` attribute, the exact
+    positive size of its contiguous rank space ``range(cardinality)``.
+    Declaring one lets :class:`fte.FTE` reject a message that can never fit
+    *before* it performs any encryption.
     """
 
     def rank(self, value: Covertext, /) -> int:
@@ -44,20 +49,5 @@ class RankedFormat(Protocol[Covertext]):
 
     def unrank(self, index: int, /) -> Covertext:
         """Return the canonical value assigned to non-negative ``index``."""
-
-        ...
-
-
-@runtime_checkable
-class FiniteRankedFormat(RankedFormat[Covertext], Protocol[Covertext]):
-    """A ranked format with an exact finite, contiguous rank space.
-
-    Declaring a ``cardinality`` lets :class:`fte.FTE` reject a message that can
-    never fit *before* it performs any encryption.
-    """
-
-    @property
-    def cardinality(self) -> int:
-        """Number of supported ranks, whose domain is ``range(cardinality)``."""
 
         ...

@@ -10,12 +10,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from fte.encrypter import (
-    CiphertextTypeError,
-    Encrypter,
-    RecoverableDecryptionError,
-    UnrecoverableDecryptionError,
-)
+from fte.encrypter import DecryptionError, Encrypter
 from fte.formats.base import RankedFormat
 
 
@@ -142,11 +137,11 @@ class FTE(Generic[Covertext]):
     __slots__ = (
         "_format",
         "_encrypter",
-        "_cardinality",
         "_resource_max",
         "_capacity_limit",
         "_max_plaintext_bytes",
         "_max_frame_bytes",
+        "_rank_limit",
     )
 
     def __init__(
@@ -214,11 +209,18 @@ class FTE(Generic[Covertext]):
 
         self._format = format
         self._encrypter = Encrypter(key[:16], key[16:])
-        self._cardinality = cardinality
         self._resource_max = resource_max
         self._capacity_limit = capacity_limit
         self._max_plaintext_bytes = effective
         self._max_frame_bytes = effective + 1 + self._CIPHERTEXT_EXPANSION
+        # One bound covers every decrypt-side size guard: shortlex ranks of
+        # byte strings up to _max_frame_bytes long fill exactly
+        # [0, _rank_offset(_max_frame_bytes + 1)), and a finite format's own
+        # rank space may cap it further.
+        rank_limit = _rank_offset(self._max_frame_bytes + 1)
+        if cardinality is not None:
+            rank_limit = min(rank_limit, cardinality)
+        self._rank_limit = rank_limit
 
     @property
     def format(self) -> RankedFormat[Covertext]:
@@ -279,11 +281,7 @@ class FTE(Generic[Covertext]):
             raise FormatContractError(
                 "format.rank() must return a non-negative integer"
             )
-        if self._cardinality is not None and index >= self._cardinality:
-            raise InvalidCovertextError("invalid covertext")
-        if index.bit_length() > 8 * self._max_frame_bytes + 1:
-            raise InvalidCovertextError("invalid covertext")
-        if _rank_byte_length(index) > self._max_frame_bytes:
+        if index >= self._rank_limit:
             raise InvalidCovertextError("invalid covertext")
 
         framed = _rank_to_bytes(index)
@@ -294,14 +292,6 @@ class FTE(Generic[Covertext]):
 
         ciphertext = framed[len(self._FRAME_VERSION):]
         try:
-            if self._encrypter.getCiphertextLen(ciphertext) != len(ciphertext):
-                raise InvalidCovertextError("invalid covertext")
             return self._encrypter.decrypt(ciphertext)
-        except InvalidCovertextError:
-            raise
-        except (
-            CiphertextTypeError,
-            RecoverableDecryptionError,
-            UnrecoverableDecryptionError,
-        ) as exc:
+        except DecryptionError as exc:
             raise InvalidCovertextError("invalid covertext") from exc

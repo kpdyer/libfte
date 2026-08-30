@@ -43,9 +43,9 @@ class RegexFormat:
 
     Every covertext matches ``pattern`` and has a length in
     ``[min_length, max_length]``. The rank space is ``range(cardinality)``, where
-    ``cardinality`` is the number of matching words in that length range, so the
-    format is a :class:`~fte.formats.base.FiniteRankedFormat` and
-    :class:`fte.FTE` can reject an over-long message before encrypting it.
+    ``cardinality`` is the number of matching words in that length range;
+    exposing it lets :class:`fte.FTE` reject an over-long message before
+    encrypting it.
 
     Args:
         pattern: A regular expression describing the covertext language.
@@ -133,7 +133,7 @@ class RegexFormat:
         counts = {}
         cumulative = 0
         for word_length in range(lo, hi + 1):
-            count = dfa.num_words_in_language(word_length, word_length)
+            count = dfa.num_words(word_length)
             offsets[word_length] = cumulative
             counts[word_length] = count
             cumulative += count

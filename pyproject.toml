@@ -50,7 +50,7 @@ version = {file = "fte/_version.txt"}
 include = ["fte*"]
 
 [tool.setuptools.package-data]
-fte = ["_version.txt"]
+fte = ["_version.txt", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["fte/tests"]

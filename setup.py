@@ -35,7 +35,7 @@ setup(
             'pytest-cov',
         ],
     },
-    package_data={'fte': ['_version.txt']},
+    package_data={'fte': ['_version.txt', 'py.typed']},
     test_suite='fte.tests',
     packages=['fte', 'fte.tests'],
     classifiers=[

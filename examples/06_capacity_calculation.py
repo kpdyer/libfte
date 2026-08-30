@@ -11,6 +11,8 @@ import os
 
 import fte
 
+KEY = bytes(range(32))  # capacity does not depend on the key value
+
 
 def analyze_language(name, regex, length):
     """Analyze a language's capacity via its format cardinality."""
@@ -18,16 +20,20 @@ def analyze_language(name, regex, length):
 
     # cardinality is the exact number of length-byte words in the language.
     capacity_bits = fmt.cardinality.bit_length() - 1  # floor(log2(cardinality))
-    capacity_bytes = capacity_bits // 8
-
-    # Account for FTE overhead (1-byte frame version + 32-byte ciphertext).
-    usable_bytes = max(0, capacity_bytes - 33)
 
     print(f"\n{name}:")
     print(f"  Regex: {regex}")
     print(f"  Output length: {length} bytes")
-    print(f"  Capacity: {capacity_bits} bits ({capacity_bytes} bytes)")
-    print(f"  Usable for plaintext: ~{usable_bytes} bytes")
+    print(f"  Capacity: {capacity_bits} bits")
+
+    # FTE reports the exact largest plaintext this format can carry; no need to
+    # approximate the framing overhead by hand. Too small a format cannot hold
+    # even an empty message and is rejected at construction.
+    try:
+        usable_bytes = fte.FTE(format=fmt, key=KEY).max_plaintext_bytes
+        print(f"  Usable for plaintext: {usable_bytes} bytes (exact)")
+    except fte.FormatCapacityError:
+        print(f"  Usable for plaintext: none (too small for the frame)")
 
     return capacity_bits
 

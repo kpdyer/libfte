@@ -45,7 +45,8 @@ cipher = fte.FTE(format=fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80), key=k
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
-# → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
+# → "a kgxbpxy vpgdigzczzkwlgmapocgjzspnqzilpyhezdbtxalonocvhlpc bbtflzgxhjjjpvmmnvvu"
+#   (always exactly length=80 bytes)
 
 plaintext = cipher.decrypt(ciphertext)
 # → b'Attack at dawn'

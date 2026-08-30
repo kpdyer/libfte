@@ -3,7 +3,7 @@
 ## Supported Versions
 
 Security fixes are applied to the latest released line only. Older versions do
-not receive backported patches — please upgrade to a supported version.
+not receive backported patches, so please upgrade to a supported version.
 
 | Version | Supported          |
 | ------- | ------------------ |

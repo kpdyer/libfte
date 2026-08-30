@@ -39,9 +39,11 @@ def main():
     )
     ciphertext_alt = cipher_alt.encrypt(plaintext)
 
+    # Compare the full covertexts: for a large fixed length the high-order
+    # padding can match, so a short prefix is not enough to tell them apart.
     print(f"\nWith different key:")
     print(f"Ciphertext: {ciphertext_alt[:50].decode()}...")
-    print(f"Ciphertexts differ: {ciphertext[:50] != ciphertext_alt[:50]}")
+    print(f"Ciphertexts differ: {ciphertext != ciphertext_alt}")
 
 
 if __name__ == '__main__':

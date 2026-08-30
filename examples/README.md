@@ -18,8 +18,6 @@ pip install fte
 | `04_alphanumeric_format.py` | Creating token-like ciphertexts |
 | `05_word_based_format.py` | Pronounceable word patterns |
 | `06_capacity_calculation.py` | Understanding language capacity |
-| `07_deterministic_encoding.py` | Reproducible encoding with seeds |
-| `08_large_messages.py` | Handling overflow for large data |
 | `10_error_handling.py` | Proper exception handling |
 | `11_multiple_messages.py` | Encoding/decoding message streams |
 | `12_convenience_functions.py` | One-liner encode/decode |
@@ -67,5 +65,5 @@ plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$')
 
 1. **Larger `fixed_slice`** = more capacity but longer output
 2. **More symbols in regex** = more efficient encoding
-3. **Use seeds** for deterministic/testable output
-4. **Handle remainder** when decoding streams
+3. **Handle remainder** when decoding streams of concatenated covertexts
+4. **Pass an explicit `key`** so both endpoints share the same one

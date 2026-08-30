@@ -14,7 +14,7 @@ This is useful for:
 - **Bypassing filters**: Evade systems that block encrypted-looking content
 - **Constrained fields**: Confine ciphertext to a required character set or field shape, such as an alphanumeric account token or a fixed-width record field
 
-Based on the paper [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013).
+Based on the papers [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013), which introduced the FTE scheme, and [LibFTE: A Toolkit for Constructing Practical, Format-Abiding Encryption Schemes](https://kpdyer.com/publications/usenix2014-fte.pdf) (USENIX Security 2014), which described the FPE/FTE toolkit this library is named for. See [References](#references).
 
 ### One engine, two axes
 
@@ -331,6 +331,10 @@ mean larger integers in the rank/unrank arithmetic. Use
 [1] [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf)
     Kevin P. Dyer, Scott E. Coull, Thomas Ristenpart and Thomas Shrimpton
     ACM CCS 2013
+
+[2] [LibFTE: A Toolkit for Constructing Practical, Format-Abiding Encryption Schemes](https://kpdyer.com/publications/usenix2014-fte.pdf)
+    Daniel Luchaup, Kevin P. Dyer, Somesh Jha, Thomas Ristenpart and Thomas Shrimpton
+    USENIX Security 2014
 
 ## License
 

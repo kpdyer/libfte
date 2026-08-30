@@ -68,5 +68,5 @@ makes a new format easy to add.
 contract (any object with reversible `rank`/`unrank`). To target a covertext
 language a regex cannot describe, write your own provider. See the
 [ranked-format provider guide](../../../docs/formats.md) for the contract and a
-conformance checklist, and `examples/12_custom_format.py` for a small worked
+conformance checklist, and `examples/08_custom_format.py` for a small worked
 provider.

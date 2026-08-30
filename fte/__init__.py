@@ -36,7 +36,10 @@ the raw-bytes identity format (the default input). Supply your own
 for the provider contract and the reference implementation.
 
 See the paper "Protocol Misidentification Made Easy with Format-Transforming
-Encryption" for details: https://kpdyer.com/publications/ccs2013-fte.pdf
+Encryption" for scheme details (https://kpdyer.com/publications/ccs2013-fte.pdf)
+and "LibFTE: A Toolkit for Constructing Practical, Format-Abiding Encryption
+Schemes" for the FPE/FTE toolkit this library is named for
+(https://kpdyer.com/publications/usenix2014-fte.pdf).
 """
 
 from pathlib import Path

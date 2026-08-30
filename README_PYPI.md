@@ -100,7 +100,7 @@ Full docs and examples: [github.com/kpdyer/libfte](https://github.com/kpdyer/lib
 
 ## Reference
 
-Based on [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (ACM CCS 2013).
+Based on [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (ACM CCS 2013) and [LibFTE: A Toolkit for Constructing Practical, Format-Abiding Encryption Schemes](https://kpdyer.com/publications/usenix2014-fte.pdf) (USENIX Security 2014).
 
 ## License
 

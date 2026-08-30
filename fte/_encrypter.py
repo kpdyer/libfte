@@ -5,7 +5,8 @@
 This module provides authenticated encryption using AES-CTR mode
 with HMAC-SHA512 for message authentication.
 
-See https://kpdyer.com/publications/ccs2013-fte.pdf for scheme details.
+See https://kpdyer.com/publications/ccs2013-fte.pdf for scheme details, and
+https://kpdyer.com/publications/usenix2014-fte.pdf for the libFTE toolkit.
 """
 
 from Crypto.Cipher import AES

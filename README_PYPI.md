@@ -12,10 +12,10 @@
 Unlike standard encryption that produces random-looking output, FTE produces ciphertext that looks like whatever format you specify—via a regular expression, or any `RankedFormat` provider you supply—so it can look like hex strings, alphanumeric tokens, any regex-expressible pattern, or a custom format of your own.
 
 > **One engine.** libfte encrypts through a single path: `fte.FTE` over a
-> `RankedFormat` provider. `fte.RegexFormat` is the built-in regex provider, and
-> `fte.Encoder` / `fte.encrypt` / `fte.decrypt` are thin regex convenience
-> wrappers over it — all interoperable. The wire format changed in this release
-> and is not compatible with libfte 0.3.x and earlier.
+> `RankedFormat` provider. Pass a `format` and a 32-byte `key`, then call
+> `encrypt` / `decrypt`. `fte.RegexFormat` is the built-in provider; supply your
+> own `RankedFormat` for any other format. The wire format changed in this
+> release and is not compatible with libfte 0.3.x and earlier.
 
 ## Installation
 
@@ -34,13 +34,13 @@ import os
 import fte
 
 key = os.urandom(32)  # 32-byte key, shared by both endpoints
-cipher = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80, key=key)
+cipher = fte.FTE(format=fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80), key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
 # → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
 
-plaintext, _ = cipher.decrypt(ciphertext)
+plaintext = cipher.decrypt(ciphertext)
 # → b'Attack at dawn'
 ```
 

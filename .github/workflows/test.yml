@@ -38,7 +38,7 @@ jobs:
 
       - name: Smoke test (encrypt/decrypt round-trip)
         run: |
-          python -c "import os, fte; e = fte.Encoder(r'^[a-z]+$', 256, key=os.urandom(32)); m = b'hello world'; assert e.decrypt(e.encrypt(m))[0] == m; print('ok')"
+          python -c "import os, fte; c = fte.FTE(format=fte.RegexFormat(r'^[a-z]+$', length=256), key=os.urandom(32)); m = b'hello world'; assert c.decrypt(c.encrypt(m)) == m; print('ok')"
 
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0

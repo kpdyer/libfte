@@ -5,21 +5,21 @@
 libfte is pure Python, and this script measures the two costs that matter
 when you use it:
 
-  1. Encoder construction  -- the one-time cost of compiling a regex into a
-     DFA and pre-computing the ranking tables. Paid once per (regex, slice).
+  1. Cipher construction   -- the one-time cost of compiling a regex into a
+     DFA and pre-computing the ranking tables. Paid once per (regex, length).
   2. encrypt() / decrypt() -- the steady-state cost paid per message. This is
      dominated by the DFA rank/unrank on large integers, so it grows with the
-     ``fixed_slice`` (output length), not with the plaintext size.
+     covertext ``length``, not with the plaintext size.
 
 It runs across a range of output formats (binary, hex, words, URLs, ...) and
-also sweeps ``fixed_slice`` for one format to show how per-message cost scales.
-Every timed round-trip is verified, so a clean run also doubles as a
-correctness check. It prints the CPU / OS / Python it ran on, since absolute
+also sweeps the covertext ``length`` for one format to show how per-message
+cost scales. Every timed round-trip is verified, so a clean run also doubles as
+a correctness check. It prints the CPU / OS / Python it ran on, since absolute
 timings only mean something alongside the hardware.
 
 Usage:
     python benchmark.py                 # full run
-    python benchmark.py --quick         # fewer iterations, skip the slice sweep
+    python benchmark.py --quick         # fewer iterations, skip the length sweep
     python benchmark.py --iterations 500
 """
 
@@ -30,11 +30,10 @@ import subprocess
 import time
 
 import fte
-import fte.encoder
 
 
-# (label, regex, fixed_slice) -- one representative encoder per output format.
-# fixed_slice values are chosen so each language has ample capacity for the
+# (label, regex, length) -- one representative format per output style.
+# length values are chosen so each language has ample capacity for the
 # sample payload while keeping runtimes comparable.
 FORMATS = [
     ("Binary",       r"^[01]+$",                  512),
@@ -45,12 +44,12 @@ FORMATS = [
     ("Words",        r"^([a-z]+ )+[a-z]+$",       120),
 ]
 
-# fixed_slice values swept for a single format to show per-message scaling.
-SLICE_SWEEP_REGEX = r"^[a-z]+$"
-SLICE_SWEEP_VALUES = [128, 256, 512, 1024, 2048]
+# length values swept for a single format to show per-message scaling.
+LENGTH_SWEEP_REGEX = r"^[a-z]+$"
+LENGTH_SWEEP_VALUES = [128, 256, 512, 1024, 2048]
 
 # Kept short so it fits every fixed-length format above; per-message cost scales
-# with fixed_slice (the output length), not with the plaintext size.
+# with the covertext length, not with the plaintext size.
 SAMPLE_PAYLOAD = b"benchmark payload."
 
 # Fixed key -- its value does not affect timing.
@@ -106,30 +105,23 @@ def _median_ms(fn, iterations):
     return statistics.median(samples)
 
 
-def _clear_encoder_cache():
-    """Drop libfte's internal encoder cache so each build is measured fresh."""
-    cache = getattr(fte.encoder, "_instance", None)
-    if isinstance(cache, dict):
-        cache.clear()
-
-
-def _bench_build(regex, fixed_slice, iterations):
-    """Median time to construct an Encoder (regex -> DFA -> counting table)."""
+def _bench_build(regex, length, iterations):
+    """Median time to construct a cipher (regex -> DFA -> counting table)."""
     def build():
-        _clear_encoder_cache()
-        fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=BENCH_KEY)
+        fte.FTE(format=fte.RegexFormat(regex, length=length), key=BENCH_KEY)
     return _median_ms(build, iterations)
 
 
-def _bench_format(label, regex, fixed_slice, payload, iterations, warmup):
-    """Benchmark one encoder: build, encrypt, decrypt, and verify the round-trip."""
-    build_ms = _bench_build(regex, fixed_slice, max(3, iterations // 5))
+def _bench_format(label, regex, length, payload, iterations, warmup):
+    """Benchmark one cipher: build, encrypt, decrypt, and verify the round-trip."""
+    build_ms = _bench_build(regex, length, max(3, iterations // 5))
 
-    cipher = fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=BENCH_KEY)
+    fmt = fte.RegexFormat(regex, length=length)
+    cipher = fte.FTE(format=fmt, key=BENCH_KEY)
+    capacity = fmt.cardinality.bit_length() - 1  # floor(log2(cardinality))
 
     # Correctness: the whole benchmark is meaningless if the round-trip is wrong.
-    recovered, _ = cipher.decrypt(cipher.encrypt(payload))
-    ok = recovered == payload
+    ok = cipher.decrypt(cipher.encrypt(payload)) == payload
 
     # Warm up so first-call overhead does not skew the median.
     for _ in range(warmup):
@@ -141,9 +133,9 @@ def _bench_format(label, regex, fixed_slice, payload, iterations, warmup):
 
     return {
         "label": label,
-        "fixed_slice": fixed_slice,
-        "capacity": cipher.capacity,
-        "bits_per_char": cipher.capacity / fixed_slice,
+        "length": length,
+        "capacity": capacity,
+        "bits_per_char": capacity / length,
         "build_ms": build_ms,
         "encrypt_ms": encrypt_ms,
         "decrypt_ms": decrypt_ms,
@@ -157,27 +149,27 @@ def _bench_format(label, regex, fixed_slice, payload, iterations, warmup):
 
 def _print_format_table(rows):
     header = (
-        f"{'Format':<14}{'slice':>7}{'cap(bits)':>11}{'bits/char':>11}"
-        f"{'build(ms)':>12}{'encrypt(ms)':>12}{'decrypt(ms)':>12}"
+        f"{'Format':<14}{'length':>8}{'cap(bits)':>11}{'bits/char':>11}"
+        f"{'build(ms)':>12}{'encrypt(ms)':>13}{'decrypt(ms)':>13}"
     )
     print(header)
     print("-" * len(header))
     for r in rows:
         print(
-            f"{r['label']:<14}{r['fixed_slice']:>7}{r['capacity']:>11}"
+            f"{r['label']:<14}{r['length']:>8}{r['capacity']:>11}"
             f"{r['bits_per_char']:>11.2f}{r['build_ms']:>12.3f}"
-            f"{r['encrypt_ms']:>12.3f}{r['decrypt_ms']:>12.3f}"
+            f"{r['encrypt_ms']:>13.3f}{r['decrypt_ms']:>13.3f}"
         )
 
 
 def _print_sweep_table(rows):
-    header = (f"{'fixed_slice':<13}{'cap(bits)':>11}"
-              f"{'encrypt(ms)':>12}{'decrypt(ms)':>12}")
+    header = (f"{'length':<8}{'cap(bits)':>11}"
+              f"{'encrypt(ms)':>13}{'decrypt(ms)':>13}")
     print(header)
     print("-" * len(header))
     for r in rows:
-        print(f"{r['fixed_slice']:<13}{r['capacity']:>11}"
-              f"{r['encrypt_ms']:>12.3f}{r['decrypt_ms']:>12.3f}")
+        print(f"{r['length']:<8}{r['capacity']:>11}"
+              f"{r['encrypt_ms']:>13.3f}{r['decrypt_ms']:>13.3f}")
 
 
 # --------------------------------------------------------------------------- #
@@ -198,7 +190,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--quick", action="store_true",
-        help="Fast run: 20 iterations and skip the fixed_slice sweep.",
+        help="Fast run: 20 iterations and skip the length sweep.",
     )
     args = parser.parse_args(argv)
 
@@ -214,19 +206,19 @@ def main(argv=None):
 
     print("Per-format performance")
     rows = [
-        _bench_format(label, regex, fixed_slice, payload, iterations, warmup)
-        for label, regex, fixed_slice in FORMATS
+        _bench_format(label, regex, length, payload, iterations, warmup)
+        for label, regex, length in FORMATS
     ]
     _print_format_table(rows)
 
     sweep = []
     if not args.quick:
         print()
-        print(f"Per-message scaling vs. fixed_slice (regex {SLICE_SWEEP_REGEX})")
+        print(f"Per-message scaling vs. length (regex {LENGTH_SWEEP_REGEX})")
         sweep = [
-            _bench_format(f"slice={fs}", SLICE_SWEEP_REGEX, fs,
+            _bench_format(f"length={n}", LENGTH_SWEEP_REGEX, n,
                           payload, iterations, warmup)
-            for fs in SLICE_SWEEP_VALUES
+            for n in LENGTH_SWEEP_VALUES
         ]
         _print_sweep_table(sweep)
 

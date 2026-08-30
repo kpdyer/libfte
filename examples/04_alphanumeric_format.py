@@ -13,20 +13,23 @@ import fte
 
 def main():
     # Alphanumeric format (like base62)
-    cipher = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64, key=os.urandom(32))
-    
+    cipher = fte.FTE(
+        format=fte.RegexFormat('^[A-Za-z0-9]+$', length=64),
+        key=os.urandom(32),
+    )
+
     plaintext = b'Sensitive data'
     ciphertext = cipher.encrypt(plaintext)
-    
+
     print("=== Alphanumeric Format ===")
     print(f"Plaintext: {plaintext}")
     print(f"Ciphertext: {ciphertext.decode('latin-1')}")
     print(f"\nThis could pass as:")
     print(f"  - Session ID: {ciphertext[:32].decode('latin-1')}")
     print(f"  - API Key: {ciphertext[:24].decode('latin-1')}")
-    
+
     # Verify roundtrip
-    recovered, _ = cipher.decrypt(ciphertext)
+    recovered = cipher.decrypt(ciphertext)
     print(f"\nRecovered: {recovered}")
     assert plaintext == recovered
 

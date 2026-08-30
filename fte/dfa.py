@@ -27,31 +27,31 @@ class InvalidUnrankInput(Exception):
 
 
 class LanguageIsEmptySetException(Exception):
-    """Raised when the language has no words of length ``fixed_slice``."""
+    """Raised when the language has no words of the fixed length."""
 
 
 class DFA:
     """Rank and unrank strings of a regular language.
 
     Parses a minimized AT&T FST, builds the Goldberg-Sipser counting table, and
-    maps between strings of length ``fixed_slice`` and their lexicographic index
+    maps between strings of the fixed ``length`` and their lexicographic index
     via :meth:`rank` and :meth:`unrank`.
 
     Args:
         dfa_str: A minimized AT&T FST formatted DFA string.
-        fixed_slice: The fixed string length for ranking/unranking.
+        length: The fixed string length for ranking/unranking.
 
     Attributes:
         capacity: Usable capacity in bits, ``floor(log2(N)) - 1`` where ``N`` is
-            the number of words of length ``fixed_slice`` in the language.
+            the number of words of the fixed ``length`` in the language.
 
     Raises:
-        LanguageIsEmptySetException: If the language has no words of length
-            ``fixed_slice``.
+        LanguageIsEmptySetException: If the language has no words of the fixed
+            ``length``.
     """
 
-    def __init__(self, dfa_str: str, fixed_slice: int):
-        self._fixed_slice = fixed_slice
+    def __init__(self, dfa_str: str, length: int):
+        self._length = length
         self._start_state = 0
         self._states: List[int] = []
         self._symbols: List[int] = []
@@ -65,10 +65,10 @@ class DFA:
         self._parse_dfa(dfa_str)
         self._build_table()
 
-        self._words_in_slice = self.num_words_in_language(fixed_slice, fixed_slice)
-        if self._words_in_slice == 0:
+        self._num_words = self.num_words_in_language(length, length)
+        if self._num_words == 0:
             raise LanguageIsEmptySetException()
-        self.capacity = int(math.floor(math.log(self._words_in_slice, 2))) - 1
+        self.capacity = int(math.floor(math.log(self._num_words, 2))) - 1
 
     def _parse_dfa(self, dfa_str: str) -> None:
         """Parse the AT&T FST formatted DFA string."""
@@ -152,7 +152,7 @@ class DFA:
         num_states = len(self._states)
 
         # Initialize T to zeros
-        self._T = [[0] * (self._fixed_slice + 1) for _ in range(num_states)]
+        self._T = [[0] * (self._length + 1) for _ in range(num_states)]
 
         # Base case: T[q][0] = 1 if q is a final state
         prev_col = [0] * num_states
@@ -182,7 +182,7 @@ class DFA:
         # Fill the table column by column: T[q][i] = sum over symbols a of
         # T[delta[q][a]][i-1].
         T = self._T
-        for i in range(1, self._fixed_slice + 1):
+        for i in range(1, self._length + 1):
             cur_col = [0] * num_states
             for q, next_state, count in single:
                 v = count * prev_col[next_state]
@@ -202,7 +202,7 @@ class DFA:
         """Return the lexicographic rank of string ``X`` in the language.
 
         Args:
-            X: A bytes string of length ``fixed_slice``.
+            X: A bytes string of the fixed ``length``.
 
         Returns:
             The integer rank of ``X``.
@@ -211,9 +211,9 @@ class DFA:
             InvalidRankInput: If ``X`` has the wrong length or is not in the
                 language.
         """
-        if len(X) != self._fixed_slice:
+        if len(X) != self._length:
             raise InvalidRankInput(
-                f"Input length {len(X)} != fixed_slice {self._fixed_slice}"
+                f"Input length {len(X)} != fixed length {self._length}"
             )
 
         q = self._start_state
@@ -281,16 +281,16 @@ class DFA:
         Raises:
             InvalidUnrankInput: If ``c`` is out of range.
         """
-        words_in_slice = self._words_in_slice
+        num_words = self._num_words
 
-        if c < 0 or c >= words_in_slice:
+        if c < 0 or c >= num_words:
             raise InvalidUnrankInput(
-                f"Rank {c} out of range [0, {words_in_slice})"
+                f"Rank {c} out of range [0, {num_words})"
             )
 
         result = bytearray()
         q = self._start_state
-        fixed_slice = self._fixed_slice
+        length = self._length
 
         # Hoist attribute lookups out of the per-character loop.
         T = self._T
@@ -298,9 +298,9 @@ class DFA:
         dense = self._delta_dense
         sigma = self._sigma
 
-        for i in range(1, fixed_slice + 1):
+        for i in range(1, length + 1):
             delta_q = delta[q]
-            col = fixed_slice - i
+            col = length - i
 
             if dense[q]:
                 # Optimized: all transitions from q go to same state
@@ -343,7 +343,7 @@ class DFA:
         Returns:
             The count of words in the specified length range.
         """
-        assert 0 <= min_len <= max_len <= self._fixed_slice
+        assert 0 <= min_len <= max_len <= self._length
         return sum(
             self._T[self._start_state][length]
             for length in range(min_len, max_len + 1)

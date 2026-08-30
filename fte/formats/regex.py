@@ -1,4 +1,21 @@
-"""Built-in regular-expression implementation of RankedFormat[bytes]."""
+"""``RegexFormat`` -- the reference :class:`~fte.formats.base.RankedFormat`.
+
+This is the format libfte ships with, and the worked example to copy when you
+write your own provider. It turns a regular expression into a fixed-length byte
+language and ranks that language, so ciphertext comes out looking like the
+pattern you chose -- hex, alphanumeric tokens, URL paths, and so on.
+
+The whole provider is three things:
+
+* a constructor that compiles the pattern once and records the language size
+  (``cardinality``), and
+* the two inverse methods every ranked format owes the engine: ``rank`` and
+  ``unrank``.
+
+There is deliberately no cryptography here. Compiling and ranking a DFA is the
+provider's only job; :class:`fte.FTE` owns encryption, authentication, and
+framing. That separation is exactly what makes a new format easy to add.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +28,21 @@ __all__ = ["RegexFormat"]
 
 
 class RegexFormat:
-    """A fixed-length byte format compiled from a regular expression."""
+    """A fixed-length byte format compiled from a regular expression.
 
-    __slots__ = ("pattern", "length", "_dfa", "cardinality")
+    Every covertext is exactly ``length`` bytes and matches ``pattern``. The
+    rank space is ``range(cardinality)``, where ``cardinality`` is the number of
+    words of that exact length in the language -- so the format is a
+    :class:`~fte.formats.base.FiniteRankedFormat`, and :class:`fte.FTE` can
+    reject an over-long message before encrypting it.
+
+    Example:
+        >>> fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
+        >>> fmt.unrank(fmt.rank(fmt.unrank(0))) == fmt.unrank(0)
+        True
+    """
+
+    __slots__ = ("pattern", "length", "cardinality", "_dfa")
 
     def __init__(self, pattern: str, *, length: int) -> None:
         """Compile ``pattern`` into a fixed-length ranked byte format.
@@ -50,7 +79,7 @@ class RegexFormat:
         self.pattern = pattern
         self.length = length
         self._dfa = dfa
-        self.cardinality = self._dfa.num_words_in_language(length, length)
+        self.cardinality = dfa.num_words_in_language(length, length)
 
     def rank(self, value: bytes, /) -> int:
         """Return the lexicographic rank of a canonical fixed-length value."""

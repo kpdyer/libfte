@@ -4,7 +4,7 @@ import os
 import unittest
 
 import fte
-from fte.format import (
+from fte.core import (
     _bytes_to_rank,
     _frame_rank_limit,
     _rank_offset,
@@ -244,8 +244,13 @@ class Tests(unittest.TestCase):
         self.assertIn("FormatContractError", fte.__all__)
         self.assertIn("InvalidCovertextError", fte.__all__)
         self.assertIn("MessageTooLargeError", fte.__all__)
-        self.assertIs(fte.FTE, fte.format.FTE)
-        self.assertIs(fte.RankedFormat, fte.format.RankedFormat)
+        self.assertIn("RegexFormat", fte.__all__)
+        self.assertIs(fte.FTE, fte.core.FTE)
+        self.assertIs(fte.RankedFormat, fte.formats.RankedFormat)
+        # The removed Encoder wrapper and convenience functions stay gone.
+        self.assertFalse(hasattr(fte, "Encoder"))
+        self.assertNotIn("encrypt", fte.__all__)
+        self.assertNotIn("decrypt", fte.__all__)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,14 @@
-"""Generic FTE support for pluggable ranked formats."""
+"""The FTE engine: encrypt bytes into values drawn from a ranked format.
+
+This module owns everything cryptographic -- authenticated encryption, the
+versioned frame, and the reversible bytes-to-integer mapping. The covertext
+language is supplied from :mod:`fte.formats` as a :class:`RankedFormat`, so the
+engine never needs to know what the output looks like.
+"""
 
 from __future__ import annotations
 
-from typing import Generic, Protocol, TypeVar, runtime_checkable
+from typing import Generic, TypeVar
 
 from fte.encrypter import (
     CiphertextTypeError,
@@ -10,17 +16,16 @@ from fte.encrypter import (
     RecoverableDecryptionError,
     UnrecoverableDecryptionError,
 )
+from fte.formats.base import RankedFormat
 
 
 __all__ = [
     "FTE",
     "FTEError",
-    "FiniteRankedFormat",
     "FormatCapacityError",
     "FormatContractError",
     "InvalidCovertextError",
     "MessageTooLargeError",
-    "RankedFormat",
 ]
 
 
@@ -28,7 +33,7 @@ Covertext = TypeVar("Covertext")
 
 
 class FTEError(Exception):
-    """Base class for errors raised by the generic format API."""
+    """Base class for errors raised by the FTE engine."""
 
 
 class FormatContractError(FTEError):
@@ -45,43 +50,6 @@ class MessageTooLargeError(FTEError):
 
 class InvalidCovertextError(FTEError):
     """Raised when a format value cannot be authenticated and decrypted."""
-
-
-@runtime_checkable
-class RankedFormat(Protocol[Covertext]):
-    """A deterministic, reversible ordering of canonical covertext values.
-
-    A conforming format must provide a contiguous zero-based rank space and
-    satisfy both inverse laws for every supported rank and canonical value::
-
-        format.rank(format.unrank(index)) == index
-        format.unrank(format.rank(value)) == value
-
-    The ordering is part of the wire format. Sender and receiver must therefore
-    use compatible implementations and versions. Implementations should reject
-    values outside their canonical format and indexes outside their capacity.
-    """
-
-    def rank(self, value: Covertext, /) -> int:
-        """Return the non-negative integer assigned to ``value``."""
-
-        ...
-
-    def unrank(self, index: int, /) -> Covertext:
-        """Return the canonical value assigned to non-negative ``index``."""
-
-        ...
-
-
-@runtime_checkable
-class FiniteRankedFormat(RankedFormat[Covertext], Protocol[Covertext]):
-    """A ranked format with an exact finite, contiguous rank space."""
-
-    @property
-    def cardinality(self) -> int:
-        """Number of supported ranks, whose domain is ``range(cardinality)``."""
-
-        ...
 
 
 def _rank_offset(length: int) -> int:

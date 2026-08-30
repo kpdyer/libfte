@@ -1,9 +1,10 @@
 # `fte.formats.regex`
 
 The built-in ranked-format provider, and the reference implementation to copy
-when you write your own. `RegexFormat` compiles a regular expression into a
-ranked byte language, so `fte.FTE` ciphertext comes out looking like the pattern
-you chose: hex, alphanumeric tokens, URL paths, lowercase words, and so on.
+when you write your own. `RegexFormat` compiles a pattern into a format, a
+ranked slice of the byte language the pattern denotes, so `fte.FTE` ciphertext
+comes out looking like the pattern you chose: hex, alphanumeric tokens, URL
+paths, lowercase words, and so on.
 
 ## Example
 
@@ -22,8 +23,8 @@ assert cipher.decrypt(covertext) == b'secret'
 
 ## Fixed vs variable length
 
-A regular expression like `^[0-9a-f]+$` describes an infinite language, so you
-bound it to make it rankable. There are two ways:
+A pattern like `^[0-9a-f]+$` denotes an infinite language, so you bound it to
+make it rankable. There are two ways:
 
 - **Fixed length.** `RegexFormat(pattern, length=N)` ranks the words of exactly
   `N` bytes, so every covertext is `N` bytes. This is the classic fixed-slice
@@ -43,7 +44,7 @@ Pass either `length`, or the `min_length`/`max_length` pair, not both.
 ## Choosing a length
 
 The covertext has to be big enough to hold FTE's authenticated frame (a fixed
-33-byte overhead plus the message). If the language is too small for even an
+33-byte overhead plus the message). If the format is too small for even an
 empty message, `fte.FTE(...)` raises `FormatCapacityError` at construction. As a
 rule of thumb, capacity grows with the alphabet size and the length: for the hex
 format above, `length=128` holds up to 31 plaintext bytes
@@ -59,14 +60,18 @@ language has no words in the requested length range.
   on. It counts and ranks the words of the language by length.
 
 The engine (`fte.FTE`) owns encryption, authentication, and framing; this
-subpackage owns only the covertext language. That separation is exactly what
-makes a new format easy to add.
+subpackage owns only the ranking of the covertext language. That separation is
+exactly what makes a new provider easy to add.
 
-## Writing your own format
+Because `regex2dfa` produces a minimized DFA, two patterns denoting the same
+language rank identically: the format depends on the language and length
+bounds, not on the pattern's spelling.
+
+## Writing your own provider
 
 `RegexFormat` is just one implementation of the structural `RankedFormat`
 contract (any object with reversible `rank`/`unrank`). To target a covertext
-language a regex cannot describe, write your own provider. See the
+language no regex denotes, write your own provider. See the
 [ranked-format provider guide](../../../docs/formats.md) for the contract and a
 conformance checklist, and `examples/08_custom_format.py` for a small worked
 provider.

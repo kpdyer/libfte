@@ -16,7 +16,7 @@ pip install fte
 | `02_custom_keys.py` | Using custom encryption keys |
 | `03_regex_formats.py` | A gallery of regex covertext formats |
 | `04_variable_length.py` | Variable-length covertext via `min_length`/`max_length` |
-| `05_capacity_calculation.py` | Understanding language capacity |
+| `05_capacity_calculation.py` | Understanding format capacity |
 | `06_error_handling.py` | Proper exception handling |
 | `07_multiple_messages.py` | Parsing a stream of fixed-length covertexts |
 | `08_custom_format.py` | Writing your own `RankedFormat` provider |
@@ -43,7 +43,7 @@ ciphertext = cipher.encrypt(b'secret message')
 plaintext = cipher.decrypt(ciphertext)
 ```
 
-To target a covertext language regex can't describe, supply your own
+To target a covertext language no regex denotes, supply your own
 `RankedFormat` (see `08_custom_format.py`).
 
 ## Choosing a Format
@@ -54,7 +54,7 @@ README for how alphabet size drives capacity.
 ## Tips
 
 1. **Larger `length`** = more capacity but longer covertext
-2. **More symbols in regex** = more bits per character
+2. **A larger alphabet in the pattern** = more bits per character
 3. **A fixed-`length` covertext is exactly `length` bytes**, so a stream of
    them slices into fixed-size chunks; a `min_length`/`max_length` covertext
    varies in length with the message (see `04_variable_length.py`)

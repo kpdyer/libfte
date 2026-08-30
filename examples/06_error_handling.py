@@ -46,7 +46,7 @@ def main():
     except fte.FormatCapacityError as e:
         print(f"   Caught FormatCapacityError: {e}")
 
-    # 5. Regex with no words of the requested length
+    # 5. Pattern with no words of the requested length
     print("\n5. Empty language for (pattern, length):")
     try:
         fte.RegexFormat('^(ab)+$', length=5)  # no words of odd length

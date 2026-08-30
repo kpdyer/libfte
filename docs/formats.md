@@ -5,6 +5,22 @@ boundary: a non-negative integer rank. libfte owns encryption, authentication,
 versioned byte framing, and bytes-to-integer conversion. A format provider owns
 only the reversible mapping between ranks and canonical covertext values.
 
+## Terminology
+
+libfte's code and docs use four terms precisely:
+
+| Term | What it is | Example |
+|------|-----------|---------|
+| **pattern** (a regex) | Syntax: the string you write | `^[0-9a-f]+$` |
+| **language** | Semantics: the set of words a pattern denotes | all nonempty lowercase hex strings |
+| **format** | A finite slice of a language plus its canonical ordering (`rank`/`unrank`). The wire contract. | `RegexFormat(r'^[0-9a-f]+$', length=128)` |
+| **provider** | The mechanism that implements formats | `fte.formats.regex`, or your own `RankedFormat` class |
+
+In one line: a pattern denotes a language; a format ranks a finite slice of a
+language; a provider implements formats. Two different patterns can denote the
+same language, and one language yields many formats (different length bounds or
+orderings). Endpoints must agree on the format, not the pattern.
+
 ## Interface
 
 ```python
@@ -33,7 +49,7 @@ A provider must satisfy all of these rules:
 4. `unrank(rank(value)) == value` for every canonical covertext value.
 5. Both operations are deterministic and perform no randomness, encryption,
    key handling, network I/O, or text normalization.
-6. Values outside the canonical format and unsupported indexes are rejected.
+6. Values outside the format's language and unsupported indexes are rejected.
 7. The ordering is a wire-level compatibility contract. Both endpoints must
    use implementations with identical ranking behavior.
 
@@ -79,7 +95,7 @@ explicitly only to tighten that bound or to cap an unbounded provider.
 
 The version-one frame is variable length. Anyone who can rank a covertext can
 therefore infer its exact plaintext byte length without knowing the key. The
-mapping guarantees membership in the provider's language, but it is not uniform
+mapping guarantees membership in the format's language, but it is not uniform
 over unused rank capacity when a finite provider is much larger than the
 message requires. Applications needing length hiding or a target distribution
 must add an appropriate fixed-size record/padding layer before `FTE.encrypt`.
@@ -117,6 +133,11 @@ contain the complete encrypted message. Construction raises `ValueError` if the
 length arguments are missing, mixed, or not positive integers with
 `min_length <= max_length`; if `pattern` is not a valid regular expression; or if
 the language has no words in the requested length range.
+
+`regex2dfa` compiles the pattern to a minimized DFA, so two patterns that denote
+the same language produce byte-identical ranking: `^[ab]+$` and `^(a|b)+$`
+interoperate. The wire contract is the format (the language, the length bounds,
+and the ordering version), never the pattern's spelling.
 
 ## Provider checklist
 

@@ -17,7 +17,7 @@ Example usage:
     >>> assert cipher.decrypt(covertext) == b'secret message'
 
 ``fte.RegexFormat`` is the built-in regex provider; supply your own
-:class:`fte.RankedFormat` to target any other covertext format. See
+:class:`fte.RankedFormat` to target any other covertext language. See
 :mod:`fte.formats` for the provider contract and the reference implementation.
 
 See the paper "Protocol Misidentification Made Easy with Format-Transforming

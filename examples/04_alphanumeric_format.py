@@ -6,12 +6,14 @@ This example creates ciphertext that looks like random IDs,
 session tokens, or API keys.
 """
 
+import os
+
 import fte
 
 
 def main():
     # Alphanumeric format (like base62)
-    encoder = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64)
+    encoder = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64, key=os.urandom(32))
     
     plaintext = b'Sensitive data'
     ciphertext = encoder.encode(plaintext)

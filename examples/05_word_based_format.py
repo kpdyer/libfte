@@ -6,6 +6,8 @@ This example creates ciphertext that looks like pronounceable
 words or names, useful for human-readable encoded data.
 """
 
+import os
+
 import fte
 
 
@@ -14,8 +16,8 @@ def main():
     consonants = 'bcdfghjklmnpqrstvwxyz'
     vowels = 'aeiou'
     regex = f'^([{consonants}][{vowels}])+$'
-    
-    encoder = fte.Encoder(regex=regex, fixed_slice=128)
+
+    encoder = fte.Encoder(regex=regex, fixed_slice=128, key=os.urandom(32))
     
     plaintext = b'Hidden'
     ciphertext = encoder.encode(plaintext)

@@ -7,12 +7,14 @@ how much data can be encoded, and how to choose parameters.
 """
 
 import math
+import os
+
 import fte
 
 
 def analyze_language(name, regex, fixed_slice):
     """Analyze a language's encoding capacity."""
-    encoder = fte.Encoder(regex=regex, fixed_slice=fixed_slice)
+    encoder = fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=os.urandom(32))
     
     capacity_bits = encoder.capacity
     capacity_bytes = capacity_bits // 8
@@ -64,8 +66,8 @@ def main():
         ("Hex format", "^[0-9a-f]+$", 512),
         ("Alphanumeric", "^[A-Za-z0-9]+$", 256),
     ]:
-        encoder = fte.Encoder(regex=regex, fixed_slice=length)
-        
+        encoder = fte.Encoder(regex=regex, fixed_slice=length, key=os.urandom(32))
+
         try:
             ciphertext = encoder.encode(test_data)
             print(f"\n{name} (length={length}):")

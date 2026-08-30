@@ -31,25 +31,25 @@ python examples/01_basic_usage.py
 ## Quick Start
 
 ```python
+import os
 import fte
 
-# Create an encoder
-encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128)
+key = os.urandom(32)  # 32-byte key, shared by both endpoints
+encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128, key=key)
 
-# Encode
 ciphertext = encoder.encode(b'secret message')
-
-# Decode
 plaintext, _ = encoder.decode(ciphertext)
 ```
 
 Or use convenience functions:
 
 ```python
+import os
 import fte
 
-ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$')
-plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$')
+key = os.urandom(32)
+ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$', key=key)
+plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$', key=key)
 ```
 
 ## Choosing a Format

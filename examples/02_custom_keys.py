@@ -14,8 +14,8 @@ def main():
     # In production, use secure random keys!
     key = b'0123456789abcdeffedcba9876543210'
     
-    # Create encoder with custom key
-    encoder = fte.Encoder(
+    # Create cipher with custom key
+    cipher = fte.Encoder(
         regex='^[a-z]+$',
         fixed_slice=256,
         key=key
@@ -23,19 +23,19 @@ def main():
     
     plaintext = b'Hello, World!'
     
-    # Encode with custom key
-    ciphertext = encoder.encode(plaintext)
+    # Encrypt with custom key
+    ciphertext = cipher.encrypt(plaintext)
     print(f"Plaintext: {plaintext}")
     print(f"Ciphertext: {ciphertext[:50].decode()}...")
     
-    # Decode - must use same key
-    recovered, _ = encoder.decode(ciphertext)
+    # Decrypt - must use same key
+    recovered, _ = cipher.decrypt(ciphertext)
     print(f"Recovered: {recovered}")
     
     # Different key produces different ciphertext
     key_alt = b'different_key!!!another_mac_key!'
-    encoder_alt = fte.Encoder(regex='^[a-z]+$', fixed_slice=256, key=key_alt)
-    ciphertext_alt = encoder_alt.encode(plaintext)
+    cipher_alt = fte.Encoder(regex='^[a-z]+$', fixed_slice=256, key=key_alt)
+    ciphertext_alt = cipher_alt.encrypt(plaintext)
     
     print(f"\nWith different key:")
     print(f"Ciphertext: {ciphertext_alt[:50].decode()}...")

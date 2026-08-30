@@ -13,38 +13,38 @@ KEY = bytes(range(32))
 class Tests(unittest.TestCase):
     def test_conforms_and_roundtrips(self):
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
-        encoder = fte.FTE(format=fmt, key=KEY)
+        cipher = fte.FTE(format=fmt, key=KEY)
 
-        covertext = encoder.encode(b"hello")
+        covertext = cipher.encrypt(b"hello")
 
         self.assertIsInstance(fmt, fte.RankedFormat)
         self.assertIsInstance(covertext, bytes)
         self.assertEqual(len(covertext), 96)
-        self.assertEqual(encoder.decode(covertext), b"hello")
+        self.assertEqual(cipher.decrypt(covertext), b"hello")
         self.assertEqual(fmt.cardinality, 16 ** 96)
 
     def test_insufficient_fixed_length_is_capacity_error(self):
-        encoder = fte.FTE(
+        cipher = fte.FTE(
             format=fte.RegexFormat(r"^[0-9a-f]+$", length=8),
             key=KEY,
         )
 
         with self.assertRaises(fte.FormatCapacityError):
-            encoder.encode(b"hello")
+            cipher.encrypt(b"hello")
 
     def test_multistate_dfa_roundtrips(self):
         # ``^(0|1)[a-z]+$`` compiles to a multi-state, non-dense DFA, exercising
         # the standard Goldberg-Sipser rank/unrank branches that the single
         # self-looping state of ``^[0-9a-f]+$`` never reaches.
         pattern = r"^(0|1)[a-z]+$"
-        encoder = fte.FTE(format=fte.RegexFormat(pattern, length=200), key=KEY)
+        cipher = fte.FTE(format=fte.RegexFormat(pattern, length=200), key=KEY)
         matcher = re.compile(pattern.encode())
 
         for plaintext in (b"", b"x", b"hello world", os.urandom(40)):
-            covertext = encoder.encode(plaintext)
+            covertext = cipher.encrypt(plaintext)
             self.assertEqual(len(covertext), 200)
             self.assertIsNotNone(matcher.fullmatch(covertext))
-            self.assertEqual(encoder.decode(covertext), plaintext)
+            self.assertEqual(cipher.decrypt(covertext), plaintext)
 
     def test_cross_endpoint_roundtrip(self):
         sender = fte.FTE(
@@ -54,7 +54,7 @@ class Tests(unittest.TestCase):
             format=fte.RegexFormat(r"^[0-9a-f]+$", length=96), key=KEY
         )
 
-        self.assertEqual(receiver.decode(sender.encode(b"hello")), b"hello")
+        self.assertEqual(receiver.decrypt(sender.encrypt(b"hello")), b"hello")
 
     def test_constructor_validation(self):
         with self.assertRaises(TypeError):

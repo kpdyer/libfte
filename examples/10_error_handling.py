@@ -15,26 +15,26 @@ def main():
     print("=== Error Handling ===\n")
 
     key = os.urandom(32)
-    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=key)
+    cipher = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=key)
 
     # 1. Invalid input type
     print("1. Invalid input type:")
     try:
-        encoder.encode("not bytes")  # must be bytes, not str
+        cipher.encrypt("not bytes")  # must be bytes, not str
     except fte.InvalidInputException as e:
         print(f"   Caught InvalidInputException: {e}")
 
-    # 2. Covertext too short to decode
+    # 2. Covertext too short to decrypt
     print("\n2. Covertext too short:")
     try:
-        encoder.decode(b'tooshort')
+        cipher.decrypt(b'tooshort')
     except fte.DecodeFailureError as e:
         print(f"   Caught DecodeFailureError: {e}")
 
     # 3. Invalid ciphertext type
     print("\n3. Invalid ciphertext type:")
     try:
-        encoder.decode("not bytes")
+        cipher.decrypt("not bytes")
     except fte.InvalidInputException as e:
         print(f"   Caught InvalidInputException: {e}")
 
@@ -49,7 +49,7 @@ def main():
     print("\n5. Insufficient capacity:")
     try:
         tiny = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=8, key=key)
-        tiny.encode(b'x' * 100)
+        tiny.encrypt(b'x' * 100)
     except fte.FormatCapacityError as e:
         print(f"   Caught FormatCapacityError: {e}")
 
@@ -62,10 +62,10 @@ def main():
 
     # 7. Corrupted / unauthenticated covertext
     print("\n7. Tampered covertext:")
-    covertext = encoder.encode(b'hello')
+    covertext = cipher.encrypt(b'hello')
     tampered = bytes([covertext[0] ^ 0x01]) + covertext[1:]
     try:
-        encoder.decode(tampered)
+        cipher.decrypt(tampered)
     except fte.InvalidCovertextError as e:
         print(f"   Caught InvalidCovertextError: {e}")
 
@@ -73,8 +73,8 @@ def main():
     print("\n" + "=" * 50)
     print("\nCorrect usage:")
     plaintext = b'Hello, World!'
-    ciphertext = encoder.encode(plaintext)
-    recovered, _ = encoder.decode(ciphertext)
+    ciphertext = cipher.encrypt(plaintext)
+    recovered, _ = cipher.decrypt(ciphertext)
     print(f"   Original:  {plaintext}")
     print(f"   Recovered: {recovered}")
 

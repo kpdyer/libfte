@@ -18,7 +18,7 @@ Based on the paper [Protocol Misidentification Made Easy with Format-Transformin
 
 > **One engine.** libfte encrypts through a single path: `fte.FTE` over a
 > `RankedFormat` provider. `fte.RegexFormat` is the built-in regex provider, and
-> `fte.Encoder` / `fte.encode` / `fte.decode` are thin regex convenience
+> `fte.Encoder` / `fte.encrypt` / `fte.decrypt` are thin regex convenience
 > wrappers over it — all of them interoperate. Supply your own `RankedFormat` to
 > target any other covertext format.
 >
@@ -42,13 +42,13 @@ import os
 import fte
 
 key = os.urandom(32)  # 32-byte key, shared by both endpoints
-encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80, key=key)
+cipher = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80, key=key)
 
-ciphertext = encoder.encode(b'Attack at dawn')
+ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
 # → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
 
-plaintext, _ = encoder.decode(ciphertext)
+plaintext, _ = cipher.decrypt(ciphertext)
 # → b'Attack at dawn'
 ```
 
@@ -60,29 +60,29 @@ The snippets below reuse a shared 32-byte `key = os.urandom(32)`.
 
 ### URL paths
 ```python
-encoder = fte.Encoder(regex=r'^/[a-z]+/[a-z]+\.html$', fixed_slice=96, key=key)
-encoder.encode(b'secret')
+cipher = fte.Encoder(regex=r'^/[a-z]+/[a-z]+\.html$', fixed_slice=96, key=key)
+cipher.encrypt(b'secret')
 # → "/hsdxanghqvdhb/pvzvdsrpnjktdhnewdfhehaftajibecrluewdyrbe...html"
 ```
 
 ### URL slugs
 ```python
-encoder = fte.Encoder(regex=r'^[a-z]+-[a-z]+-[a-z]+$', fixed_slice=80, key=key)
-encoder.encode(b'secret')
+cipher = fte.Encoder(regex=r'^[a-z]+-[a-z]+-[a-z]+$', fixed_slice=80, key=key)
+cipher.encrypt(b'secret')
 # → "dxosmywnpyjuarsfvcado-osmdsyvovfnnsgzhzelpujnya-qfwbekwh..."
 ```
 
 ### Alphanumeric tokens
 ```python
-encoder = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64, key=key)
-encoder.encode(b'secret')
+cipher = fte.Encoder(regex='^[A-Za-z0-9]+$', fixed_slice=64, key=key)
+cipher.encrypt(b'secret')
 # → "Kj8mNp2xQw4yLr9vBn3cHt6sFg0dAe5iUo7lMz1bXk..."
 ```
 
 ### One-liner convenience functions
 ```python
-ciphertext = fte.encode(b'secret', regex='^[a-z]+$', fixed_slice=128, key=key)
-plaintext, _ = fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=128, key=key)
+ciphertext = fte.encrypt(b'secret', regex='^[a-z]+$', fixed_slice=128, key=key)
+plaintext, _ = fte.decrypt(ciphertext, regex='^[a-z]+$', fixed_slice=128, key=key)
 ```
 
 ### Ranked-Format Providers
@@ -113,10 +113,10 @@ key = bytes.fromhex(
     "101112131415161718191a1b1c1d1e1f"
 )
 # Demonstration key only; load a securely shared secret in production.
-encoder = fte.FTE(format=DecimalText(), key=key)
+cipher = fte.FTE(format=DecimalText(), key=key)
 
-covertext: str = encoder.encode(b"secret")
-plaintext = encoder.decode(covertext)
+covertext: str = cipher.encrypt(b"secret")
+plaintext = cipher.decrypt(covertext)
 
 assert plaintext == b"secret"
 ```
@@ -135,7 +135,7 @@ See the [`examples/`](examples/) directory for more use cases.
 
 ### `fte.Encoder`
 
-A regex convenience wrapper over [`fte.FTE`](#ftefte) + `fte.RegexFormat` — the same engine, fully interoperable. Use it for the classic `(regex, fixed_slice)` ergonomics and stream-style `(plaintext, remainder)` decoding.
+A regex convenience wrapper over [`fte.FTE`](#ftefte) + `fte.RegexFormat` — the same engine, fully interoperable. Use it for the classic `(regex, fixed_slice)` ergonomics and stream-style `(plaintext, remainder)` decryption.
 
 ```python
 fte.Encoder(regex: str, fixed_slice: int, key: bytes)
@@ -151,8 +151,8 @@ fte.Encoder(regex: str, fixed_slice: int, key: bytes)
 
 | Method | Description |
 |--------|-------------|
-| `encode(plaintext: bytes) -> bytes` | Encrypt and format plaintext |
-| `decode(ciphertext: bytes) -> (bytes, bytes)` | Decrypt, returns (plaintext, remainder) |
+| `encrypt(plaintext: bytes) -> bytes` | Encrypt and format plaintext |
+| `decrypt(ciphertext: bytes) -> (bytes, bytes)` | Decrypt, returns (plaintext, remainder) |
 | `capacity` | Property: bits of data that fit in `fixed_slice` |
 
 ### `fte.FTE`
@@ -170,8 +170,8 @@ fte.FTE(
 
 | Method | Description |
 |--------|-------------|
-| `encode(plaintext: bytes) -> T` | Encrypt and unrank into a covertext value |
-| `decode(covertext: T) -> bytes` | Rank and decrypt one complete value |
+| `encrypt(plaintext: bytes) -> T` | Encrypt and unrank into a covertext value |
+| `decrypt(covertext: T) -> bytes` | Rank and decrypt one complete value |
 | `max_plaintext_bytes` | Local resource ceiling; format capacity may be lower |
 
 ### `fte.RankedFormat`
@@ -195,15 +195,15 @@ libfte's built-in regex provider implements the same protocol:
 
 ```python
 fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
-encoder = fte.FTE(format=fmt, key=key)
-covertext: bytes = encoder.encode(b"secret")
+cipher = fte.FTE(format=fmt, key=key)
+covertext: bytes = cipher.encrypt(b"secret")
 ```
 
 ### Convenience Functions
 
 ```python
-fte.encode(plaintext, regex='^[a-z]+$', fixed_slice=256, *, key)
-fte.decode(ciphertext, regex='^[a-z]+$', fixed_slice=256, *, key)
+fte.encrypt(plaintext, regex='^[a-z]+$', fixed_slice=256, *, key)
+fte.decrypt(ciphertext, regex='^[a-z]+$', fixed_slice=256, *, key)
 ```
 
 ## How It Works
@@ -232,7 +232,7 @@ script that measures the two costs that matter in practice:
 
 - **Encoder construction** — the one-time cost of compiling a regex into a DFA
   and pre-computing the ranking tables.
-- **`encode()` / `decode()`** — the per-message cost, dominated by the DFA
+- **`encrypt()` / `decrypt()`** — the per-message cost, dominated by the DFA
   rank/unrank over large integers. This scales with `fixed_slice` (the output
   length), *not* with the plaintext size.
 
@@ -250,14 +250,14 @@ Example output (Apple M3 Pro):
 
 ```
 Per-format performance
-Format          slice  cap(bits)  bits/char   build(ms)  encode(ms)  decode(ms)
+Format          slice  cap(bits)  bits/char   build(ms)  encrypt(ms)  decrypt(ms)
 -------------------------------------------------------------------------------
 Binary            512        511       1.00       0.24        0.098       0.087
 Hex               256       1023       4.00       0.68        0.087       0.061
 Alphanumeric      192       1142       5.95       1.79        0.076       0.053
 
 Per-message scaling vs. fixed_slice (regex ^[a-z]+$)
-fixed_slice    cap(bits)  encode(ms)  decode(ms)
+fixed_slice    cap(bits)  encrypt(ms)  decrypt(ms)
 ------------------------------------------------
 256                 1202       0.095       0.059
 2048                9625       3.076       1.198

@@ -3,7 +3,7 @@
 """Example: Understanding language capacity.
 
 This example explains how the capacity of a language affects
-how much data can be encoded, and how to choose parameters.
+how much data can be encrypted, and how to choose parameters.
 """
 
 import math
@@ -13,10 +13,10 @@ import fte
 
 
 def analyze_language(name, regex, fixed_slice):
-    """Analyze a language's encoding capacity."""
-    encoder = fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=os.urandom(32))
+    """Analyze a language's capacity."""
+    cipher = fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=os.urandom(32))
     
-    capacity_bits = encoder.capacity
+    capacity_bits = cipher.capacity
     capacity_bytes = capacity_bits // 8
     
     # Account for FTE overhead (16 bytes header + 32 bytes encryption)
@@ -66,16 +66,16 @@ def main():
         ("Hex format", "^[0-9a-f]+$", 512),
         ("Alphanumeric", "^[A-Za-z0-9]+$", 256),
     ]:
-        encoder = fte.Encoder(regex=regex, fixed_slice=length, key=os.urandom(32))
+        cipher = fte.Encoder(regex=regex, fixed_slice=length, key=os.urandom(32))
 
         try:
-            ciphertext = encoder.encode(test_data)
+            ciphertext = cipher.encrypt(test_data)
             print(f"\n{name} (length={length}):")
-            print(f"  Can encode 100 bytes: YES")
+            print(f"  Can encrypt 100 bytes: YES")
             print(f"  Output size: {len(ciphertext)} bytes")
         except Exception as e:
             print(f"\n{name} (length={length}):")
-            print(f"  Can encode 100 bytes: NO ({e})")
+            print(f"  Can encrypt 100 bytes: NO ({e})")
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ Unlike standard encryption that produces random-looking output, FTE produces cip
 
 > **One engine.** libfte encrypts through a single path: `fte.FTE` over a
 > `RankedFormat` provider. `fte.RegexFormat` is the built-in regex provider, and
-> `fte.Encoder` / `fte.encode` / `fte.decode` are thin regex convenience
+> `fte.Encoder` / `fte.encrypt` / `fte.decrypt` are thin regex convenience
 > wrappers over it — all interoperable. The wire format changed in this release
 > and is not compatible with libfte 0.3.x and earlier.
 
@@ -34,13 +34,13 @@ import os
 import fte
 
 key = os.urandom(32)  # 32-byte key, shared by both endpoints
-encoder = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80, key=key)
+cipher = fte.Encoder(regex=r'^([a-z]+ )+[a-z]+$', fixed_slice=80, key=key)
 
-ciphertext = encoder.encode(b'Attack at dawn')
+ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
 # → "kqpvx mzbjw tnrdc fyhls wqaem xocgi znvub pdkry lfstj bhwce"
 
-plaintext, _ = encoder.decode(ciphertext)
+plaintext, _ = cipher.decrypt(ciphertext)
 # → b'Attack at dawn'
 ```
 
@@ -70,9 +70,9 @@ class DecimalText:
         return str(index)
 
 shared_32_byte_key = secrets.token_bytes(32)
-encoder = fte.FTE(format=DecimalText(), key=shared_32_byte_key)
-covertext: str = encoder.encode(b"secret")
-assert encoder.decode(covertext) == b"secret"
+cipher = fte.FTE(format=DecimalText(), key=shared_32_byte_key)
+covertext: str = cipher.encrypt(b"secret")
+assert cipher.decrypt(covertext) == b"secret"
 ```
 
 The key and exact ranked-format ordering must match at both endpoints. Generic

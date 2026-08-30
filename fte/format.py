@@ -44,7 +44,7 @@ class MessageTooLargeError(FTEError):
 
 
 class InvalidCovertextError(FTEError):
-    """Raised when a format value cannot be authenticated and decoded."""
+    """Raised when a format value cannot be authenticated and decrypted."""
 
 
 @runtime_checkable
@@ -125,7 +125,7 @@ class FTE(Generic[Covertext]):
     runtime.
 
     One complete format value represents one encrypted message. Since an
-    arbitrary value has no generic stream boundary, ``decode`` consumes exactly
+    arbitrary value has no generic stream boundary, ``decrypt`` consumes exactly
     one value and returns plaintext directly, without a stream remainder.
     """
 
@@ -203,7 +203,7 @@ class FTE(Generic[Covertext]):
 
         return self._max_plaintext_bytes
 
-    def encode(self, plaintext: bytes, /) -> Covertext:
+    def encrypt(self, plaintext: bytes, /) -> Covertext:
         """Encrypt ``plaintext`` and unrank it into the configured format."""
 
         if not isinstance(plaintext, bytes):
@@ -232,7 +232,7 @@ class FTE(Generic[Covertext]):
                 "format cannot represent the encrypted payload rank"
             ) from exc
 
-    def decode(self, covertext: Covertext, /) -> bytes:
+    def decrypt(self, covertext: Covertext, /) -> bytes:
         """Rank one complete format value and decrypt its plaintext."""
 
         try:

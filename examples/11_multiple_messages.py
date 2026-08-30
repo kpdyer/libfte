@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Example: Encoding multiple messages.
+"""Example: Encrypting multiple messages.
 
-This example shows how to encode and decode multiple messages
+This example shows how to encrypt and decrypt multiple messages
 in sequence, demonstrating the remainder handling.
 """
 
@@ -14,19 +14,19 @@ import fte
 def main():
     print("=== Multiple Messages ===\n")
 
-    encoder = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=os.urandom(32))
+    cipher = fte.Encoder(regex='^[a-z]+$', fixed_slice=128, key=os.urandom(32))
     
-    # Encode multiple messages
+    # Encrypt multiple messages
     messages = [
         b'First message',
         b'Second message',
         b'Third message',
     ]
     
-    print("Encoding messages:")
+    print("Encrypting messages:")
     ciphertexts = []
     for i, msg in enumerate(messages):
-        ct = encoder.encode(msg)
+        ct = cipher.encrypt(msg)
         ciphertexts.append(ct)
         print(f"  Message {i+1}: {msg}")
         print(f"    Ciphertext length: {len(ct)} bytes")
@@ -35,15 +35,15 @@ def main():
     stream = b''.join(ciphertexts)
     print(f"\nConcatenated stream: {len(stream)} bytes")
     
-    # Decode from stream
-    print("\nDecoding from stream:")
+    # Decrypt from stream
+    print("\nDecrypting from stream:")
     buffer = stream
-    decoded_messages = []
+    decrypted_messages = []
     
     while len(buffer) >= 128:
-        plaintext, remainder = encoder.decode(buffer)
-        decoded_messages.append(plaintext)
-        print(f"  Decoded: {plaintext}")
+        plaintext, remainder = cipher.decrypt(buffer)
+        decrypted_messages.append(plaintext)
+        print(f"  Decrypted: {plaintext}")
         print(f"    Remainder: {len(remainder)} bytes")
         buffer = remainder
     
@@ -52,11 +52,11 @@ def main():
     
     # Verify all messages recovered
     print("\nVerification:")
-    for orig, recovered in zip(messages, decoded_messages):
+    for orig, recovered in zip(messages, decrypted_messages):
         match = "✓" if orig == recovered else "✗"
         print(f"  {match} {orig} == {recovered}")
     
-    assert messages == decoded_messages, "Message recovery failed!"
+    assert messages == decrypted_messages, "Message recovery failed!"
     print("\nAll messages recovered correctly!")
 
 

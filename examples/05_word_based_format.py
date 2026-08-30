@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Example: Encoding data as word-like patterns.
+"""Example: Encrypting data into word-like patterns.
 
 This example creates ciphertext that looks like pronounceable
-words or names, useful for human-readable encoded data.
+words or names, useful for human-readable ciphertext.
 """
 
 import os
@@ -17,10 +17,10 @@ def main():
     vowels = 'aeiou'
     regex = f'^([{consonants}][{vowels}])+$'
 
-    encoder = fte.Encoder(regex=regex, fixed_slice=128, key=os.urandom(32))
+    cipher = fte.Encoder(regex=regex, fixed_slice=128, key=os.urandom(32))
     
     plaintext = b'Hidden'
-    ciphertext = encoder.encode(plaintext)
+    ciphertext = cipher.encrypt(plaintext)
     
     print("=== Word-Based Format ===")
     print(f"Plaintext: {plaintext}")
@@ -33,7 +33,7 @@ def main():
     print(f"As 'words': {' '.join(words)}")
     
     # Verify roundtrip
-    recovered, _ = encoder.decode(ciphertext)
+    recovered, _ = cipher.decrypt(ciphertext)
     print(f"\nRecovered: {recovered}")
     assert plaintext == recovered
 

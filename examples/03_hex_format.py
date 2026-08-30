@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Example: Encoding data as hexadecimal strings.
+"""Example: Encrypting data into hexadecimal strings.
 
 This example shows how to make ciphertext look like hex data,
 which might blend in with log files or debugging output.
@@ -12,13 +12,13 @@ import fte
 
 
 def main():
-    # Create encoder for hex output
-    encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128, key=os.urandom(32))
+    # Create cipher for hex output
+    cipher = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128, key=os.urandom(32))
     
     plaintext = b'Secret message'
-    ciphertext = encoder.encode(plaintext)
+    ciphertext = cipher.encrypt(plaintext)
     
-    print("=== Hex Format Encoding ===")
+    print("=== Hex Format Encryption ===")
     print(f"Plaintext: {plaintext}")
     print(f"Ciphertext length: {len(ciphertext)} bytes")
     print(f"Ciphertext looks like hex:")
@@ -29,7 +29,7 @@ def main():
         print(f"  {ct_str[i:i+32]}")
     
     # Verify roundtrip
-    recovered, _ = encoder.decode(ciphertext)
+    recovered, _ = cipher.decrypt(ciphertext)
     print(f"\nRecovered: {recovered}")
     assert plaintext == recovered
 

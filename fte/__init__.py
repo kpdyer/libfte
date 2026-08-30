@@ -10,17 +10,17 @@ Example usage:
     >>>
     >>> # One engine: FTE over a RankedFormat provider. RegexFormat is the
     >>> # built-in regex provider (it uses regex2dfa under the hood).
-    >>> encoder = fte.FTE(
+    >>> cipher = fte.FTE(
     ...     format=fte.RegexFormat('^[a-z]+$', length=128),
     ...     key=bytes(range(32)),
     ... )
-    >>> covertext = encoder.encode(b'secret message')
-    >>> assert encoder.decode(covertext) == b'secret message'
+    >>> covertext = cipher.encrypt(b'secret message')
+    >>> assert cipher.decrypt(covertext) == b'secret message'
     >>>
     >>> # fte.Encoder is a regex convenience wrapper over the same engine:
-    >>> regex_encoder = fte.Encoder('^[a-z]+$', 128, key=bytes(range(32)))
-    >>> ciphertext = regex_encoder.encode(b'secret message')
-    >>> plaintext, _ = regex_encoder.decode(ciphertext)
+    >>> regex_cipher = fte.Encoder('^[a-z]+$', 128, key=bytes(range(32)))
+    >>> ciphertext = regex_cipher.encrypt(b'secret message')
+    >>> plaintext, _ = regex_cipher.decrypt(ciphertext)
 
 See the paper "Protocol Misidentification Made Easy with Format-Transforming
 Encryption" for details: https://kpdyer.com/publications/ccs2013-fte.pdf
@@ -61,8 +61,8 @@ __all__ = [
     'Encrypter',
     'InvalidInputException',
     'DecodeFailureError',
-    'encode',
-    'decode',
+    'encrypt',
+    'decrypt',
 ]
 
 
@@ -74,8 +74,8 @@ class Encoder:
     ``RegexFormat(regex, length=fixed_slice)``. The two share one wire format
     and interoperate. This wrapper adds the historical regex ergonomics: a
     positional ``(regex, fixed_slice)`` constructor, a ``(plaintext, remainder)``
-    decode return for parsing streams of fixed-length covertexts, an
-    ``encode(b"") == b""`` shortcut, and a ``capacity`` property.
+    decrypt return for parsing streams of fixed-length covertexts, an
+    ``encrypt(b"") == b""`` shortcut, and a ``capacity`` property.
 
     Note:
         The wire format changed in this release. Covertext produced here is NOT
@@ -89,9 +89,9 @@ class Encoder:
             both endpoints.
 
     Example:
-        >>> encoder = fte.Encoder('^[0-9a-f]+$', 128, key=bytes(range(32)))
-        >>> ciphertext = encoder.encode(b'secret')
-        >>> plaintext, _ = encoder.decode(ciphertext)
+        >>> cipher = fte.Encoder('^[0-9a-f]+$', 128, key=bytes(range(32)))
+        >>> ciphertext = cipher.encrypt(b'secret')
+        >>> plaintext, _ = cipher.decrypt(ciphertext)
     """
 
     def __init__(
@@ -105,7 +105,7 @@ class Encoder:
         self._format = RegexFormat(regex, length=fixed_slice)
         self._fte = FTE(format=self._format, key=key)
 
-    def encode(self, plaintext: bytes) -> bytes:
+    def encrypt(self, plaintext: bytes) -> bytes:
         """Encrypt ``plaintext`` and format it to match the regex.
 
         Args:
@@ -124,10 +124,10 @@ class Encoder:
             raise InvalidInputException('Input must be of type bytes.')
         if not plaintext:
             return b''
-        return self._fte.encode(plaintext)
+        return self._fte.encrypt(plaintext)
 
-    def decode(self, covertext: bytes) -> Tuple[bytes, bytes]:
-        """Decode one covertext value and decrypt its plaintext.
+    def decrypt(self, covertext: bytes) -> Tuple[bytes, bytes]:
+        """Decrypt one covertext value back to plaintext.
 
         Consumes exactly ``fixed_slice`` bytes and returns any trailing bytes as
         the remainder, so a stream of concatenated covertexts can be parsed one
@@ -148,11 +148,11 @@ class Encoder:
             raise InvalidInputException('Input must be of type bytes.')
         if len(covertext) < self.fixed_slice:
             raise DecodeFailureError(
-                "Covertext is shorter than fixed_slice, can't decode."
+                "Covertext is shorter than fixed_slice, can't decrypt."
             )
         value = covertext[:self.fixed_slice]
         remainder = covertext[self.fixed_slice:]
-        return self._fte.decode(value), remainder
+        return self._fte.decrypt(value), remainder
 
     @property
     def capacity(self) -> int:
@@ -160,18 +160,18 @@ class Encoder:
         return self._format.cardinality.bit_length() - 2
 
 
-# Convenience functions for one-shot encoding/decoding
+# Convenience functions for one-shot encrypting/decrypting
 _encoders = {}
 
 
-def encode(
+def encrypt(
     plaintext: bytes,
     regex: str = '^[a-z]+$',
     fixed_slice: int = 256,
     *,
     key: bytes,
 ) -> bytes:
-    """Encode plaintext with the regex Encoder (convenience function).
+    """Encrypt plaintext with the regex Encoder (convenience function).
 
     A thin wrapper over :class:`Encoder` (and therefore over :class:`FTE` with
     :class:`RegexFormat`). Encoders are cached per ``(regex, fixed_slice, key)``
@@ -187,39 +187,39 @@ def encode(
         Ciphertext formatted to match the regex.
 
     Example:
-        >>> ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$', key=key)
+        >>> ciphertext = fte.encrypt(b'secret', regex='^[0-9a-f]+$', key=key)
     """
     cache_key = (regex, fixed_slice, key)
     if cache_key not in _encoders:
         _encoders[cache_key] = Encoder(regex, fixed_slice, key)
-    return _encoders[cache_key].encode(plaintext)
+    return _encoders[cache_key].encrypt(plaintext)
 
 
-def decode(
+def decrypt(
     ciphertext: bytes,
     regex: str = '^[a-z]+$',
     fixed_slice: int = 256,
     *,
     key: bytes,
 ) -> Tuple[bytes, bytes]:
-    """Decode ciphertext with the regex Encoder (convenience function).
+    """Decrypt ciphertext with the regex Encoder (convenience function).
 
     A thin wrapper over :class:`Encoder`. The ``regex``, ``fixed_slice``, and
-    ``key`` must match those used to encode.
+    ``key`` must match those used to encrypt.
 
     Args:
         ciphertext: The formatted ciphertext.
-        regex: The regex used for encoding (must match).
-        fixed_slice: The fixed_slice used for encoding (must match).
-        key: The key used for encoding (must match).
+        regex: The regex used to encrypt (must match).
+        fixed_slice: The fixed_slice used to encrypt (must match).
+        key: The key used to encrypt (must match).
 
     Returns:
         A tuple of (plaintext, remainder).
 
     Example:
-        >>> plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$', key=key)
+        >>> plaintext, _ = fte.decrypt(ciphertext, regex='^[0-9a-f]+$', key=key)
     """
     cache_key = (regex, fixed_slice, key)
     if cache_key not in _encoders:
         _encoders[cache_key] = Encoder(regex, fixed_slice, key)
-    return _encoders[cache_key].decode(ciphertext)
+    return _encoders[cache_key].decrypt(ciphertext)

@@ -41,7 +41,7 @@ A provider must satisfy all of these rules:
 7. The ordering is a wire-level compatibility contract. Both endpoints must
    use implementations with identical ranking behavior.
 
-`unrank()` failures during encoding become `fte.FormatCapacityError`. Invalid
+`unrank()` failures during encryption become `fte.FormatCapacityError`. Invalid
 values or failures during ranking become `fte.InvalidCovertextError`. Returning
 a non-integer or negative rank is a provider bug and raises
 `fte.FormatContractError`. Original provider exceptions are retained as causes.
@@ -69,15 +69,15 @@ Use it without an adapter:
 ```python
 from fte import FTE
 
-encoder = FTE(format=LowerHex(), key=shared_32_byte_key)
-covertext = encoder.encode(b"hello")
-assert encoder.decode(covertext) == b"hello"
+cipher = FTE(format=LowerHex(), key=shared_32_byte_key)
+covertext = cipher.encrypt(b"hello")
+assert cipher.decrypt(covertext) == b"hello"
 ```
 
 `FTE` defaults to a 1 MiB plaintext resource limit. Set
 `max_plaintext_bytes` lower for expensive formats or explicitly raise it for a
 trusted high-capacity provider. This is a resource ceiling, not a promise that
-the selected provider can represent every message up to that size. Decode
+the selected provider can represent every message up to that size. Decryption
 rejects ranks beyond the corresponding bound before converting them back into
 a potentially large byte string.
 
@@ -86,13 +86,13 @@ therefore infer its exact plaintext byte length without knowing the key. The
 mapping guarantees membership in the provider's language, but it is not uniform
 over unused rank capacity when a finite provider is much larger than the
 message requires. Applications needing length hiding or a target distribution
-must add an appropriate fixed-size record/padding layer before `FTE.encode`.
+must add an appropriate fixed-size record/padding layer before `FTE.encrypt`.
 
-`FTE.decode` is not constant-time: it rejects malformed framing, length, and
+`FTE.decrypt` is not constant-time: it rejects malformed framing, length, and
 padding before verifying the authentication tag, so rejection latency depends on
 why a value was rejected. This is safe under FTE's threat model, where an
-on-path observer sees covertext but has no decode oracle. Do not expose `decode`
-directly as a remote timing oracle to untrusted callers.
+on-path observer sees covertext but has no decryption oracle. Do not expose
+`decrypt` directly as a remote timing oracle to untrusted callers.
 
 ## Built-in regex provider
 
@@ -102,13 +102,13 @@ The regex implementation uses exactly the same extension point:
 from fte import FTE, RegexFormat
 
 fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
-encoder = FTE(format=fmt, key=shared_32_byte_key)
+cipher = FTE(format=fmt, key=shared_32_byte_key)
 
-covertext: bytes = encoder.encode(b"hello")
-assert encoder.decode(covertext) == b"hello"
+covertext: bytes = cipher.encrypt(b"hello")
+assert cipher.decrypt(covertext) == b"hello"
 ```
 
-`RegexFormat.cardinality` is the exact number of fixed-length values. Encoding
+`RegexFormat.cardinality` is the exact number of fixed-length values. Encryption
 raises `FormatCapacityError` when that finite rank space cannot contain the
 complete encrypted message. Construction raises `ValueError` if `pattern` is not
 a valid regular expression or has no words of exactly `length` bytes.

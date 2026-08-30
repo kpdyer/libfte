@@ -12,15 +12,15 @@ pip install fte
 
 | File | Description |
 |------|-------------|
-| `01_basic_usage.py` | Simple encode/decode roundtrip |
+| `01_basic_usage.py` | Simple encrypt/decrypt roundtrip |
 | `02_custom_keys.py` | Using custom encryption keys |
-| `03_hex_format.py` | Encoding data as hexadecimal strings |
+| `03_hex_format.py` | Encrypting data into hexadecimal strings |
 | `04_alphanumeric_format.py` | Creating token-like ciphertexts |
 | `05_word_based_format.py` | Pronounceable word patterns |
 | `06_capacity_calculation.py` | Understanding language capacity |
 | `10_error_handling.py` | Proper exception handling |
-| `11_multiple_messages.py` | Encoding/decoding message streams |
-| `12_convenience_functions.py` | One-liner encode/decode |
+| `11_multiple_messages.py` | Encrypting/decrypting message streams |
+| `12_convenience_functions.py` | One-liner encrypt/decrypt |
 
 ## Running Examples
 
@@ -35,10 +35,10 @@ import os
 import fte
 
 key = os.urandom(32)  # 32-byte key, shared by both endpoints
-encoder = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128, key=key)
+cipher = fte.Encoder(regex='^[0-9a-f]+$', fixed_slice=128, key=key)
 
-ciphertext = encoder.encode(b'secret message')
-plaintext, _ = encoder.decode(ciphertext)
+ciphertext = cipher.encrypt(b'secret message')
+plaintext, _ = cipher.decrypt(ciphertext)
 ```
 
 Or use convenience functions:
@@ -48,8 +48,8 @@ import os
 import fte
 
 key = os.urandom(32)
-ciphertext = fte.encode(b'secret', regex='^[0-9a-f]+$', key=key)
-plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$', key=key)
+ciphertext = fte.encrypt(b'secret', regex='^[0-9a-f]+$', key=key)
+plaintext, _ = fte.decrypt(ciphertext, regex='^[0-9a-f]+$', key=key)
 ```
 
 ## Choosing a Format
@@ -65,5 +65,5 @@ plaintext, _ = fte.decode(ciphertext, regex='^[0-9a-f]+$', key=key)
 
 1. **Larger `fixed_slice`** = more capacity but longer output
 2. **More symbols in regex** = more efficient encoding
-3. **Handle remainder** when decoding streams of concatenated covertexts
+3. **Handle remainder** when decrypting streams of concatenated covertexts
 4. **Pass an explicit `key`** so both endpoints share the same one

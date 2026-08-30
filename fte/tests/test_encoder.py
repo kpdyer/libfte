@@ -16,15 +16,15 @@ CONCATS = 8
 
 
 class Tests(unittest.TestCase):
-    def test_single_encode_decode(self):
+    def test_single_encrypt_decrypt(self):
         for fixed_slice in FIXED_SLICES:
-            encoder = fte.Encoder(REGEX, fixed_slice, key=KEY)
+            cipher = fte.Encoder(REGEX, fixed_slice, key=KEY)
             plaintext = os.urandom(MSG_LEN)
 
-            covertext = encoder.encode(plaintext)
+            covertext = cipher.encrypt(plaintext)
             self.assertEqual(len(covertext), fixed_slice)
 
-            recovered, remainder = encoder.decode(covertext)
+            recovered, remainder = cipher.decrypt(covertext)
             self.assertEqual(recovered, plaintext)
             self.assertEqual(remainder, b"")
 
@@ -32,55 +32,55 @@ class Tests(unittest.TestCase):
         # Each covertext is exactly fixed_slice bytes, so a concatenated stream
         # is parsed one message at a time via the returned remainder.
         for fixed_slice in FIXED_SLICES:
-            encoder = fte.Encoder(REGEX, fixed_slice, key=KEY)
+            cipher = fte.Encoder(REGEX, fixed_slice, key=KEY)
             plaintext = os.urandom(MSG_LEN)
 
-            stream = b"".join(encoder.encode(plaintext) for _ in range(CONCATS))
+            stream = b"".join(cipher.encrypt(plaintext) for _ in range(CONCATS))
 
             recovered = []
             buffer = stream
             while buffer:
-                message, buffer = encoder.decode(buffer)
+                message, buffer = cipher.decrypt(buffer)
                 recovered.append(message)
 
             self.assertEqual(recovered, [plaintext] * CONCATS)
 
     def test_empty_input_returns_empty(self):
-        encoder = fte.Encoder(REGEX, 128, key=KEY)
-        self.assertEqual(encoder.encode(b""), b"")
+        cipher = fte.Encoder(REGEX, 128, key=KEY)
+        self.assertEqual(cipher.encrypt(b""), b"")
 
     def test_invalid_input_type(self):
-        encoder = fte.Encoder(REGEX, 128, key=KEY)
+        cipher = fte.Encoder(REGEX, 128, key=KEY)
         with self.assertRaises(fte.InvalidInputException):
-            encoder.encode("not bytes")
+            cipher.encrypt("not bytes")
         with self.assertRaises(fte.InvalidInputException):
-            encoder.decode("not bytes")
+            cipher.decrypt("not bytes")
 
     def test_covertext_too_short(self):
-        encoder = fte.Encoder(REGEX, 128, key=KEY)
+        cipher = fte.Encoder(REGEX, 128, key=KEY)
         with self.assertRaises(fte.DecodeFailureError):
-            encoder.decode(b"too short")
+            cipher.decrypt(b"too short")
 
     def test_invalid_key_length(self):
         with self.assertRaises(ValueError):
             fte.Encoder(REGEX, 128, key=b"too short")
 
     def test_capacity_matches_cardinality(self):
-        encoder = fte.Encoder(r"^[0-9a-f]+$", 128, key=KEY)
+        cipher = fte.Encoder(r"^[0-9a-f]+$", 128, key=KEY)
         # 16 ** 128 == 2 ** 512, so floor(log2(N)) - 1 == 511.
-        self.assertEqual(encoder.capacity, 511)
+        self.assertEqual(cipher.capacity, 511)
 
     def test_interoperable_with_fte_regexformat(self):
         # Encoder wraps the same engine, so an FTE built from the same regex,
         # length, and key decodes Encoder covertext and vice versa.
-        encoder = fte.Encoder(r"^[0-9a-f]+$", 96, key=KEY)
+        cipher = fte.Encoder(r"^[0-9a-f]+$", 96, key=KEY)
         engine = fte.FTE(
             format=fte.RegexFormat(r"^[0-9a-f]+$", length=96), key=KEY
         )
 
-        self.assertEqual(engine.decode(encoder.encode(b"hello")), b"hello")
+        self.assertEqual(engine.decrypt(cipher.encrypt(b"hello")), b"hello")
 
-        recovered, remainder = encoder.decode(engine.encode(b"hello"))
+        recovered, remainder = cipher.decrypt(engine.encrypt(b"hello"))
         self.assertEqual((recovered, remainder), (b"hello", b""))
 
 

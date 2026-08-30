@@ -7,7 +7,7 @@ when you use it:
 
   1. Encoder construction  -- the one-time cost of compiling a regex into a
      DFA and pre-computing the ranking tables. Paid once per (regex, slice).
-  2. encode() / decode()   -- the steady-state cost paid per message. This is
+  2. encrypt() / decrypt() -- the steady-state cost paid per message. This is
      dominated by the DFA rank/unrank on large integers, so it grows with the
      ``fixed_slice`` (output length), not with the plaintext size.
 
@@ -122,31 +122,31 @@ def _bench_build(regex, fixed_slice, iterations):
 
 
 def _bench_format(label, regex, fixed_slice, payload, iterations, warmup):
-    """Benchmark one encoder: build, encode, decode, and verify the round-trip."""
+    """Benchmark one encoder: build, encrypt, decrypt, and verify the round-trip."""
     build_ms = _bench_build(regex, fixed_slice, max(3, iterations // 5))
 
-    encoder = fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=BENCH_KEY)
+    cipher = fte.Encoder(regex=regex, fixed_slice=fixed_slice, key=BENCH_KEY)
 
     # Correctness: the whole benchmark is meaningless if the round-trip is wrong.
-    recovered, _ = encoder.decode(encoder.encode(payload))
+    recovered, _ = cipher.decrypt(cipher.encrypt(payload))
     ok = recovered == payload
 
     # Warm up so first-call overhead does not skew the median.
     for _ in range(warmup):
-        encoder.decode(encoder.encode(payload))
+        cipher.decrypt(cipher.encrypt(payload))
 
-    encode_ms = _median_ms(lambda: encoder.encode(payload), iterations)
-    ct = encoder.encode(payload)
-    decode_ms = _median_ms(lambda: encoder.decode(ct), iterations)
+    encrypt_ms = _median_ms(lambda: cipher.encrypt(payload), iterations)
+    ct = cipher.encrypt(payload)
+    decrypt_ms = _median_ms(lambda: cipher.decrypt(ct), iterations)
 
     return {
         "label": label,
         "fixed_slice": fixed_slice,
-        "capacity": encoder.capacity,
-        "bits_per_char": encoder.capacity / fixed_slice,
+        "capacity": cipher.capacity,
+        "bits_per_char": cipher.capacity / fixed_slice,
         "build_ms": build_ms,
-        "encode_ms": encode_ms,
-        "decode_ms": decode_ms,
+        "encrypt_ms": encrypt_ms,
+        "decrypt_ms": decrypt_ms,
         "ok": ok,
     }
 
@@ -158,7 +158,7 @@ def _bench_format(label, regex, fixed_slice, payload, iterations, warmup):
 def _print_format_table(rows):
     header = (
         f"{'Format':<14}{'slice':>7}{'cap(bits)':>11}{'bits/char':>11}"
-        f"{'build(ms)':>12}{'encode(ms)':>12}{'decode(ms)':>12}"
+        f"{'build(ms)':>12}{'encrypt(ms)':>12}{'decrypt(ms)':>12}"
     )
     print(header)
     print("-" * len(header))
@@ -166,18 +166,18 @@ def _print_format_table(rows):
         print(
             f"{r['label']:<14}{r['fixed_slice']:>7}{r['capacity']:>11}"
             f"{r['bits_per_char']:>11.2f}{r['build_ms']:>12.3f}"
-            f"{r['encode_ms']:>12.3f}{r['decode_ms']:>12.3f}"
+            f"{r['encrypt_ms']:>12.3f}{r['decrypt_ms']:>12.3f}"
         )
 
 
 def _print_sweep_table(rows):
     header = (f"{'fixed_slice':<13}{'cap(bits)':>11}"
-              f"{'encode(ms)':>12}{'decode(ms)':>12}")
+              f"{'encrypt(ms)':>12}{'decrypt(ms)':>12}")
     print(header)
     print("-" * len(header))
     for r in rows:
         print(f"{r['fixed_slice']:<13}{r['capacity']:>11}"
-              f"{r['encode_ms']:>12.3f}{r['decode_ms']:>12.3f}")
+              f"{r['encrypt_ms']:>12.3f}{r['decrypt_ms']:>12.3f}")
 
 
 # --------------------------------------------------------------------------- #
@@ -186,7 +186,7 @@ def _print_sweep_table(rows):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Benchmark libfte encode/decode performance.",
+        description="Benchmark libfte encrypt/decrypt performance.",
     )
     parser.add_argument(
         "-n", "--iterations", type=int, default=100,

@@ -1,4 +1,4 @@
-"""Tests for the ranked-format API."""
+"""Tests for the FTE engine and frame codec in fte.core."""
 
 import os
 import unittest

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from fte.encrypter import DecryptionError, Encrypter
+from fte._encrypter import DecryptionError, Encrypter
 from fte.formats.base import RankedFormat
 
 

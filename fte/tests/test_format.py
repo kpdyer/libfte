@@ -126,7 +126,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(
             limit,
             _capacity_plaintext_limit(
-                fmt.cardinality, fte.Encrypter._CTXT_EXPANSION
+                fmt.cardinality, fte.FTE._CIPHERTEXT_EXPANSION
             ),
         )
         self.assertLess(limit, fte.FTE._DEFAULT_MAX_PLAINTEXT_BYTES)
@@ -172,7 +172,7 @@ class Tests(unittest.TestCase):
             cipher.encrypt(b"x")
 
     def test_capacity_plaintext_limit_matches_bruteforce(self):
-        exp = fte.Encrypter._CTXT_EXPANSION
+        exp = fte.FTE._CIPHERTEXT_EXPANSION
 
         def brute(cardinality):
             frame = 1 + exp
@@ -271,7 +271,7 @@ class Tests(unittest.TestCase):
         self.assertIsInstance(invalid.exception.__cause__, ValueError)
 
     def test_finite_capacity_is_preflighted_at_exact_boundary(self):
-        frame_length = 1 + fte.Encrypter._CTXT_EXPANSION
+        frame_length = 1 + fte.FTE._CIPHERTEXT_EXPANSION
         required_cardinality = _frame_rank_limit(frame_length)
 
         class ExactFiniteHex(HexFormat):
@@ -343,6 +343,9 @@ class Tests(unittest.TestCase):
         self.assertFalse(hasattr(fte, "FiniteRankedFormat"))
         self.assertNotIn("encrypt", fte.__all__)
         self.assertNotIn("decrypt", fte.__all__)
+        # The Encrypter is internal now: not exported, not an attribute.
+        self.assertNotIn("Encrypter", fte.__all__)
+        self.assertFalse(hasattr(fte, "Encrypter"))
 
 
 if __name__ == "__main__":

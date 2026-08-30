@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Tests for fte.encrypter module."""
+"""Tests for fte._encrypter module."""
 
 import unittest
 
-import fte.encrypter
+import fte._encrypter
 
 TRIALS = 2 ** 8
 
@@ -14,7 +14,7 @@ class Tests(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.encrypter = fte.encrypter.Encrypter(
+        self.encrypter = fte._encrypter.Encrypter(
             K1=b'\xFF' * 16, K2=b'\x00' * 16
         )
 
@@ -55,16 +55,16 @@ class Tests(unittest.TestCase):
     def test_keys_are_required(self):
         """Test that constructing without both keys fails."""
         with self.assertRaises(TypeError):
-            fte.encrypter.Encrypter()
+            fte._encrypter.Encrypter()
         with self.assertRaises(TypeError):
-            fte.encrypter.Encrypter(K1=b'\x00' * 16)
+            fte._encrypter.Encrypter(K1=b'\x00' * 16)
 
     def test_invalid_key_length(self):
         """Test that invalid key lengths raise an exception."""
         with self.assertRaises(ValueError):
-            fte.encrypter.Encrypter(K1=b'short', K2=b'\x00' * 16)
+            fte._encrypter.Encrypter(K1=b'short', K2=b'\x00' * 16)
         with self.assertRaises(ValueError):
-            fte.encrypter.Encrypter(K1=b'\x00' * 16, K2=b'short')
+            fte._encrypter.Encrypter(K1=b'\x00' * 16, K2=b'short')
 
     def test_plaintext_type_error(self):
         """Test that non-bytes plaintext raises an exception."""
@@ -80,14 +80,14 @@ class Tests(unittest.TestCase):
         """Test that truncated or extended ciphertexts are rejected."""
         C = self.encrypter.encrypt(b'hello')
         for bad in (C[:-1], C + b'x', C[:8]):
-            with self.assertRaises(fte.encrypter.DecryptionError):
+            with self.assertRaises(fte._encrypter.DecryptionError):
                 self.encrypter.decrypt(bad)
 
     def test_decrypt_rejects_bad_mac(self):
         """Test that a tampered ciphertext fails MAC verification."""
         C = self.encrypter.encrypt(b'hello')
         tampered = C[:-1] + bytes([C[-1] ^ 0x01])
-        with self.assertRaises(fte.encrypter.DecryptionError):
+        with self.assertRaises(fte._encrypter.DecryptionError):
             self.encrypter.decrypt(tampered)
 
 

@@ -48,22 +48,19 @@ Documentation = "https://github.com/kpdyer/libfte#readme"
 version = {file = "fte/_version.txt"}
 
 [tool.setuptools.packages.find]
+# Tests live in the top-level tests/ directory, outside the fte package, so
+# nothing extra ships in wheels.
 include = ["fte*"]
-# Keep the shared test package out of wheels. The test modules colocated in
-# fte/formats/regex/ still ship; find-packages excludes packages, not modules.
-exclude = ["fte.tests*"]
 
 [tool.setuptools.package-data]
 fte = ["_version.txt", "py.typed"]
 
-# Tests live alongside the code they cover (e.g. fte/formats/regex/), plus the
-# shared fte/tests/ package, so discover test_*.py anywhere under fte/.
+# All tests live in the top-level tests/ directory.
 [tool.pytest.ini_options]
-testpaths = ["fte"]
+testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["fte"]
-omit = ["fte/tests/*", "**/test_*.py"]
 
 [tool.coverage.report]
 exclude_lines = [

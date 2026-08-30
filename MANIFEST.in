@@ -1,1 +1,3 @@
 include BUILDING.md
+graft tests
+prune tests/__pycache__

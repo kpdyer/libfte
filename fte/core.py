@@ -1,16 +1,17 @@
 """The FTE engine: encrypt bytes into values drawn from a ranked format.
 
-This module owns everything cryptographic: authenticated encryption, the
-versioned frame, and the reversible bytes-to-integer mapping. The covertext
-language is supplied from :mod:`fte.formats` as a :class:`RankedFormat`, so the
-engine never needs to know what the output looks like.
+This module owns the engine itself: authenticated encryption wrapped in the
+version-1 wire frame defined by :mod:`fte.frame`. The covertext language is
+supplied from :mod:`fte.formats` as a :class:`RankedFormat`, so the engine
+never needs to know what the output looks like.
 """
 
 from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from fte.encrypter import DecryptionError, Encrypter
+from fte import frame
+from fte._encrypter import DecryptionError, Encrypter
 from fte.formats.base import RankedFormat
 
 
@@ -47,63 +48,6 @@ class InvalidCovertextError(FTEError):
     """Raised when a format value cannot be authenticated and decrypted."""
 
 
-def _rank_offset(length: int) -> int:
-    """Return the first rank assigned to byte strings of ``length``."""
-
-    return (256 ** length - 1) // 255
-
-
-def _bytes_to_rank(value: bytes) -> int:
-    """Rank byte strings in length-first, then numeric, order."""
-
-    offset = _rank_offset(len(value))
-    return offset + int.from_bytes(value, "big")
-
-
-def _rank_to_bytes(index: int) -> bytes:
-    """Invert :func:`_bytes_to_rank`, preserving leading zero bytes."""
-
-    length = _rank_byte_length(index)
-    offset = _rank_offset(length)
-    return (index - offset).to_bytes(length, "big")
-
-
-def _rank_byte_length(index: int) -> int:
-    """Return the byte-string length represented by a shortlex rank."""
-
-    return ((255 * index + 1).bit_length() - 1) // 8
-
-
-def _frame_rank_limit(frame_length: int) -> int:
-    """Return the exclusive upper rank bound for version-one frames."""
-
-    return _rank_offset(frame_length) + 2 * 256 ** (frame_length - 1)
-
-
-def _capacity_plaintext_limit(cardinality: int, expansion: int) -> int:
-    """Largest plaintext length a finite format of ``cardinality`` can hold.
-
-    Returns the greatest plaintext length ``L`` whose encrypted frame the format
-    can still represent, or ``-1`` if it cannot represent even an empty message.
-    This is the exact inverse of the per-length capacity check, so ``L`` bytes
-    fit and ``L + 1`` bytes do not.
-    """
-
-    min_frame = 1 + expansion
-    if cardinality < _frame_rank_limit(min_frame):
-        return -1
-    # _frame_rank_limit(fl) is dominated by 256**fl, so the frame length is
-    # close to log256(cardinality). Estimate it, then correct by a step or two.
-    frame_length = max(min_frame, cardinality.bit_length() // 8)
-    # The estimate is never larger than the true frame length, so in practice
-    # only the upward correction runs; the downward one is a defensive guard.
-    while cardinality < _frame_rank_limit(frame_length):  # pragma: no cover
-        frame_length -= 1
-    while cardinality >= _frame_rank_limit(frame_length + 1):
-        frame_length += 1
-    return frame_length - 1 - expansion
-
-
 class FTE(Generic[Covertext]):
     """Encrypt bytes into values supplied by a :class:`RankedFormat`.
 
@@ -126,22 +70,20 @@ class FTE(Generic[Covertext]):
     the default.
     """
 
-    # The outer byte reserves a wire-format version. The shortlex byte ranking
-    # below independently preserves the frame length and leading zero bytes.
-    _FRAME_VERSION = b"\x01"
+    _FRAME_VERSION = frame.FRAME_VERSION
     _CIPHERTEXT_EXPANSION = Encrypter._CTXT_EXPANSION
 
     _DEFAULT_MAX_PLAINTEXT_BYTES = 1 << 20
-    _ENCRYPTER_MAX_PLAINTEXT_BYTES = (1 << 32) - 1
+    _ENCRYPTER_MAX_PLAINTEXT_BYTES = Encrypter._MAX_PLAINTEXT_LENGTH
 
     __slots__ = (
         "_format",
         "_encrypter",
+        "_cardinality",
         "_resource_max",
         "_capacity_limit",
         "_max_plaintext_bytes",
         "_max_frame_bytes",
-        "_rank_limit",
     )
 
     def __init__(
@@ -198,7 +140,9 @@ class FTE(Generic[Covertext]):
             effective = resource_max
         else:
             capacity_limit = min(
-                _capacity_plaintext_limit(cardinality, self._CIPHERTEXT_EXPANSION),
+                frame.capacity_plaintext_limit(
+                    cardinality, self._CIPHERTEXT_EXPANSION
+                ),
                 self._ENCRYPTER_MAX_PLAINTEXT_BYTES,
             )
             if capacity_limit < 0:
@@ -209,18 +153,11 @@ class FTE(Generic[Covertext]):
 
         self._format = format
         self._encrypter = Encrypter(key[:16], key[16:])
+        self._cardinality = cardinality
         self._resource_max = resource_max
         self._capacity_limit = capacity_limit
         self._max_plaintext_bytes = effective
         self._max_frame_bytes = effective + 1 + self._CIPHERTEXT_EXPANSION
-        # One bound covers every decrypt-side size guard: shortlex ranks of
-        # byte strings up to _max_frame_bytes long fill exactly
-        # [0, _rank_offset(_max_frame_bytes + 1)), and a finite format's own
-        # rank space may cap it further.
-        rank_limit = _rank_offset(self._max_frame_bytes + 1)
-        if cardinality is not None:
-            rank_limit = min(rank_limit, cardinality)
-        self._rank_limit = rank_limit
 
     @property
     def format(self) -> RankedFormat[Covertext]:
@@ -246,7 +183,7 @@ class FTE(Generic[Covertext]):
             raise TypeError("plaintext must be bytes")
         # Exceeding the resource ceiling is the caller's own limit; exceeding a
         # finite format's capacity is the format being too small. The capacity
-        # check is the exact inverse of _capacity_plaintext_limit.
+        # check is the exact inverse of frame.capacity_plaintext_limit.
         if len(plaintext) > self._resource_max:
             raise MessageTooLargeError(
                 "plaintext exceeds the configured max_plaintext_bytes"
@@ -261,7 +198,7 @@ class FTE(Generic[Covertext]):
 
         ciphertext = self._encrypter.encrypt(plaintext)
         framed = self._FRAME_VERSION + ciphertext
-        index = _bytes_to_rank(framed)
+        index = frame.bytes_to_rank(framed)
         try:
             return self._format.unrank(index)
         except Exception as exc:
@@ -281,10 +218,17 @@ class FTE(Generic[Covertext]):
             raise FormatContractError(
                 "format.rank() must return a non-negative integer"
             )
-        if index >= self._rank_limit:
+        # These size guards stay lazy per call: a precomputed 256**N rank bound
+        # would make __init__ cost and retained memory linear in
+        # max_plaintext_bytes, while these checks are cheap on every decrypt.
+        if self._cardinality is not None and index >= self._cardinality:
+            raise InvalidCovertextError("invalid covertext")
+        if index.bit_length() > 8 * self._max_frame_bytes + 1:
+            raise InvalidCovertextError("invalid covertext")
+        if frame.rank_byte_length(index) > self._max_frame_bytes:
             raise InvalidCovertextError("invalid covertext")
 
-        framed = _rank_to_bytes(index)
+        framed = frame.rank_to_bytes(index)
         if not framed.startswith(self._FRAME_VERSION) or len(framed) < (
             len(self._FRAME_VERSION) + self._CIPHERTEXT_EXPANSION
         ):
@@ -293,5 +237,8 @@ class FTE(Generic[Covertext]):
         ciphertext = framed[len(self._FRAME_VERSION):]
         try:
             return self._encrypter.decrypt(ciphertext)
-        except DecryptionError as exc:
-            raise InvalidCovertextError("invalid covertext") from exc
+        except DecryptionError:
+            pass
+        # Raised outside the handler: pre-MAC header detail must not chain
+        # into public errors, so neither __cause__ nor __context__ is set.
+        raise InvalidCovertextError("invalid covertext") from None

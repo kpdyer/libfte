@@ -34,8 +34,7 @@ from fte.core import (
     InvalidCovertextError,
     MessageTooLargeError,
 )
-from fte.encrypter import Encrypter
-from fte.formats import RankedFormat, RegexFormat
+from fte.formats import RankedFormat
 
 __version__ = (Path(__file__).parent / '_version.txt').read_text().strip()
 __author__ = 'Kevin P. Dyer'
@@ -50,5 +49,19 @@ __all__ = [
     'FormatContractError',
     'InvalidCovertextError',
     'MessageTooLargeError',
-    'Encrypter',
 ]
+
+
+def __getattr__(name):
+    # Import RegexFormat lazily (PEP 562) so that "import fte" does not pull
+    # in the regex2dfa dependency; providers that bring their own format
+    # never need it.
+    if name == 'RegexFormat':
+        from fte.formats import RegexFormat
+
+        return RegexFormat
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(__all__)

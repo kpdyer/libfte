@@ -113,14 +113,13 @@ class Encrypter:
         header = self._ecb_enc_K1.decrypt(W1)
 
         if header[-8:-4] != b'\x00\x00\x00\x00':
-            raise DecryptionError(f'Invalid padding: {header[-8:-4]!r}')
+            raise DecryptionError('Invalid header padding.')
         plaintext_length = int.from_bytes(header[-8:], 'big')
 
         expected_length = plaintext_length + Encrypter._CTXT_EXPANSION
         if len(ciphertext) != expected_length:
             raise DecryptionError(
-                f'Ciphertext is {len(ciphertext)} bytes, '
-                f'expected {expected_length}.'
+                'Ciphertext length does not match its header.'
             )
 
         W2 = ciphertext[AES.block_size:AES.block_size + plaintext_length]

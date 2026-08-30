@@ -49,7 +49,9 @@ FORMATS = [
 SLICE_SWEEP_REGEX = r"^[a-z]+$"
 SLICE_SWEEP_VALUES = [128, 256, 512, 1024, 2048]
 
-SAMPLE_PAYLOAD = b"The quick brown fox jumps over the lazy dog. " * 2
+# Kept short so it fits every fixed-length format above; per-message cost scales
+# with fixed_slice (the output length), not with the plaintext size.
+SAMPLE_PAYLOAD = b"benchmark payload."
 
 
 # --------------------------------------------------------------------------- #

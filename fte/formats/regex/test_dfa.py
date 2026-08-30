@@ -25,28 +25,23 @@ class Tests(unittest.TestCase):
     def test_counts_and_per_length_roundtrip(self):
         dfa = build(r"^[01]+$", 8)
         for length in range(1, 9):
-            self.assertEqual(dfa.num_words_in_language(length, length), 2 ** length)
-            count = dfa.num_words_in_language(length, length)
+            count = dfa.num_words(length)
+            self.assertEqual(count, 2 ** length)
             for index in (0, count // 2, count - 1):
                 word = dfa.unrank(index, length)
                 self.assertEqual(len(word), length)
                 self.assertEqual(dfa.rank(word), index)
 
-    def test_num_words_over_a_range(self):
+    def test_num_words_counts_one_length(self):
+        # ^[01]+$ has no empty word, so length zero counts zero.
         dfa = build(r"^[01]+$", 6)
-        self.assertEqual(
-            dfa.num_words_in_language(1, 6),
-            sum(2 ** length for length in range(1, 7)),
-        )
-
-    def test_unrank_defaults_to_built_length(self):
-        dfa = build(r"^[01]+$", 5)
-        self.assertEqual(dfa.unrank(0), dfa.unrank(0, 5))
-        self.assertEqual(len(dfa.unrank(0)), 5)
+        self.assertEqual(dfa.num_words(0), 0)
+        for length in range(1, 7):
+            self.assertEqual(dfa.num_words(length), 2 ** length)
 
     def test_unrank_rejects_out_of_range_rank(self):
         dfa = build(r"^[01]+$", 4)
-        count = dfa.num_words_in_language(4, 4)
+        count = dfa.num_words(4)
         with self.assertRaises(InvalidUnrankInput):
             dfa.unrank(-1, 4)
         with self.assertRaises(InvalidUnrankInput):

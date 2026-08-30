@@ -31,9 +31,9 @@ class DFA:
     Parses a minimized AT&T FST and builds the Goldberg-Sipser counting table up
     to a maximum ``length``. :meth:`rank` and :meth:`unrank` then map between a
     word and its lexicographic index among the accepted words of that word's
-    length, and :meth:`num_words_in_language` counts words over a length range.
-    Whether any words exist in the range the caller cares about is the caller's
-    concern.
+    length, and :meth:`num_words` counts the accepted words of one length.
+    Whether any words exist at the lengths the caller cares about is the
+    caller's concern.
 
     Args:
         dfa_str: A minimized AT&T FST formatted DFA string.
@@ -43,10 +43,9 @@ class DFA:
     def __init__(self, dfa_str: str, length: int):
         self._length = length
         self._start_state = 0
-        self._states: List[int] = []
+        self._num_states = 0
         self._symbols: List[int] = []
         self._final_states: Set[int] = set()
-        self._sigma: Dict[int, int] = {}          # index -> symbol byte value
         self._sigma_reverse: Dict[int, int] = {}  # symbol byte value -> index
         self._delta: List[List[int]] = []         # transition table
         self._delta_dense: List[bool] = []        # all-transitions-equal flag
@@ -97,44 +96,35 @@ class DFA:
         if not symbols_set:
             raise InvalidFSTFormat("DFA has no symbols")
 
-        # Sort for consistent ordering
-        self._states = sorted(states_set)
+        # Sort for consistent ordering. The transition table is indexed by raw
+        # state id, so states must be numbered densely from zero.
+        states = sorted(states_set)
+        if states != list(range(len(states))):
+            raise InvalidFSTFormat("DFA states must be numbered 0..N-1")
         self._symbols = sorted(symbols_set)
 
-        # Add dead state
-        dead_state = len(self._states)
-        self._states.append(dead_state)
-
-        num_states = len(self._states)
+        # One extra dead state absorbs missing transitions.
+        dead_state = len(states)
+        self._num_states = len(states) + 1
         num_symbols = len(self._symbols)
 
-        # Build sigma mappings (index <-> byte value)
-        for idx, symbol in enumerate(self._symbols):
-            self._sigma[idx] = symbol
-            self._sigma_reverse[symbol] = idx
+        self._sigma_reverse = {
+            symbol: idx for idx, symbol in enumerate(self._symbols)
+        }
 
         # Initialize delta (transition table) to dead state
-        self._delta = [[dead_state] * num_symbols for _ in range(num_states)]
+        self._delta = [
+            [dead_state] * num_symbols for _ in range(self._num_states)
+        ]
 
         # Fill in transitions
         for src, dst, symbol in transitions:
             symbol_idx = self._sigma_reverse[symbol]
             self._delta[src][symbol_idx] = dst
 
-        # Compute delta_dense optimization
-        # A state is "dense" if all its transitions go to the same state
-        self._delta_dense = []
-        for q in range(num_states):
-            if num_symbols > 0:
-                first_dst = self._delta[q][0]
-                is_dense = all(self._delta[q][a] == first_dst for a in range(num_symbols))
-            else:  # pragma: no cover - a DFA with no symbols is rejected above
-                is_dense = True
-            self._delta_dense.append(is_dense)
-
     def _build_table(self) -> None:
         """Build T[q][i] = number of accepting paths of length i from state q."""
-        num_states = len(self._states)
+        num_states = self._num_states
 
         # Initialize T to zeros
         self._T = [[0] * (self._length + 1) for _ in range(num_states)]
@@ -154,11 +144,15 @@ class DFA:
         # single-destination path free of any per-state branching.
         single = []   # (q, next_state, count)
         multi = []    # (q, [(next_state, count), ...])
+        self._delta_dense = [False] * num_states
         for q in range(num_states):
             counts: Dict[int, int] = {}
             for next_state in self._delta[q]:
                 counts[next_state] = counts.get(next_state, 0) + 1
             if len(counts) == 1:
+                # A "dense" state sends every symbol to one destination; rank
+                # and unrank use the flag to take their optimized branch.
+                self._delta_dense[q] = True
                 (next_state, count), = counts.items()
                 single.append((q, next_state, count))
             else:
@@ -255,11 +249,10 @@ class DFA:
         # the reversed sequence adds smallest-first.
         return sum(reversed(terms))
 
-    def unrank(self, c: int, length: int | None = None) -> bytes:
+    def unrank(self, c: int, length: int) -> bytes:
         """Return the word of the given ``length`` at rank ``c``.
 
-        Inverse of :meth:`rank` for words of exactly ``length`` bytes. ``length``
-        defaults to the built length.
+        Inverse of :meth:`rank` for words of exactly ``length`` bytes.
 
         Args:
             c: The integer rank among accepted words of ``length`` bytes.
@@ -271,8 +264,6 @@ class DFA:
         Raises:
             InvalidUnrankInput: If ``c`` is out of range for that length.
         """
-        if length is None:
-            length = self._length
         if not 0 <= length <= self._length:
             raise InvalidUnrankInput(
                 f"length {length} outside [0, {self._length}]"
@@ -291,7 +282,7 @@ class DFA:
         T = self._T
         delta = self._delta
         dense = self._delta_dense
-        sigma = self._sigma
+        symbols = self._symbols
 
         for i in range(1, length + 1):
             delta_q = delta[q]
@@ -317,7 +308,7 @@ class DFA:
                     state = delta_q[char_idx]
                     threshold = T[state][col]
 
-            result.append(sigma[char_idx])
+            result.append(symbols[char_idx])
             # In both branches ``state`` is delta[q][char_idx], so it is the
             # next state regardless of density.
             q = state
@@ -328,18 +319,14 @@ class DFA:
 
         return bytes(result)
 
-    def num_words_in_language(self, min_len: int, max_len: int) -> int:
-        """Return the number of words with length in ``[min_len, max_len]``.
+    def num_words(self, length: int) -> int:
+        """Return the number of accepted words of exactly ``length`` bytes.
 
         Args:
-            min_len: Minimum word length (inclusive).
-            max_len: Maximum word length (inclusive).
+            length: The word length to count (0 <= length <= built length).
 
         Returns:
-            The count of words in the specified length range.
+            The count of accepted words of that length.
         """
-        assert 0 <= min_len <= max_len <= self._length
-        return sum(
-            self._T[self._start_state][length]
-            for length in range(min_len, max_len + 1)
-        )
+        assert 0 <= length <= self._length
+        return self._T[self._start_state][length]

@@ -133,7 +133,7 @@ class RegexFormat:
         counts = {}
         cumulative = 0
         for word_length in range(lo, hi + 1):
-            count = dfa.num_words_in_language(word_length, word_length)
+            count = dfa.num_words(word_length)
             offsets[word_length] = cumulative
             counts[word_length] = count
             cumulative += count

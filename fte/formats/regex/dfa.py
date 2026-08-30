@@ -10,7 +10,16 @@ The algorithm is based on:
 - "Protocol Misidentification Made Easy with Format-Transforming Encryption"
 """
 
-from typing import Dict, List, Set
+from typing import Dict, FrozenSet, List, NamedTuple, Set, Tuple, Union
+
+__all__ = [
+    "DFA",
+    "ParsedFst",
+    "parse_att_fst",
+    "InvalidFSTFormat",
+    "InvalidRankInput",
+    "InvalidUnrankInput",
+]
 
 
 class InvalidFSTFormat(Exception):
@@ -25,87 +34,140 @@ class InvalidUnrankInput(Exception):
     """Raised when a rank is outside the valid range."""
 
 
-class DFA:
-    """Rank and unrank the words of a regular language by length.
+class ParsedFst(NamedTuple):
+    """A parsed automaton: the DFA structure without any ranking tables.
 
-    Parses a minimized AT&T FST and builds the Goldberg-Sipser counting table up
-    to a maximum ``length``. :meth:`rank` and :meth:`unrank` then map between a
-    word and its lexicographic index among the accepted words of that word's
-    length, and :meth:`num_words` counts the accepted words of one length.
-    Whether any words exist at the lengths the caller cares about is the
-    caller's concern.
+    Attributes:
+        start_state: The automaton's start state.
+        final_states: The accepting states.
+        transitions: (src_state, dst_state, symbol) triples.
+        symbols: The alphabet, in lexicographic (ranking) order.
+    """
+
+    start_state: int
+    final_states: FrozenSet[int]
+    transitions: Tuple[Tuple[int, int, int], ...]
+    symbols: Tuple[int, ...]
+
+
+def parse_att_fst(dfa_str: str) -> ParsedFst:
+    """Parse a minimized AT&T FST formatted DFA string.
 
     Args:
         dfa_str: A minimized AT&T FST formatted DFA string.
+
+    Returns:
+        The parsed automaton as a :class:`ParsedFst`.
+
+    Raises:
+        InvalidFSTFormat: If the input has a line that is neither a transition
+            nor a final state, no states, no symbols, or states not numbered
+            densely from zero.
+    """
+    states_set: Set[int] = set()
+    symbols_set: Set[int] = set()
+    final_states: Set[int] = set()
+    transitions: List[Tuple[int, int, int]] = []
+    start_state = 0
+    start_state_set = False
+
+    for line in dfa_str.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+
+        parts = line.split('\t')
+
+        if len(parts) == 4:
+            # Transition: src_state, dst_state, input_symbol, output_symbol
+            src = int(parts[0])
+            dst = int(parts[1])
+            symbol = int(parts[2])
+
+            states_set.add(src)
+            states_set.add(dst)
+            symbols_set.add(symbol)
+            transitions.append((src, dst, symbol))
+
+            if not start_state_set:
+                start_state = src
+                start_state_set = True
+
+        elif len(parts) == 1:
+            # Final state
+            final = int(parts[0])
+            final_states.add(final)
+            states_set.add(final)
+        elif len(parts) > 1:
+            raise InvalidFSTFormat("Invalid FST format")
+
+    if not states_set:
+        raise InvalidFSTFormat("DFA has no states")
+    if not symbols_set:
+        raise InvalidFSTFormat("DFA has no symbols")
+
+    # Sort for consistent ordering. The transition table is indexed by raw
+    # state id, so states must be numbered densely from zero.
+    states = sorted(states_set)
+    if states != list(range(len(states))):
+        raise InvalidFSTFormat("DFA states must be numbered 0..N-1")
+
+    return ParsedFst(
+        start_state=start_state,
+        final_states=frozenset(final_states),
+        transitions=tuple(transitions),
+        symbols=tuple(sorted(symbols_set)),
+    )
+
+
+class DFA:
+    """Rank and unrank the words of a regular language by length.
+
+    Builds the Goldberg-Sipser counting table up to a maximum ``length`` from a
+    minimized AT&T FST string (parsed via :func:`parse_att_fst`) or from a
+    :class:`ParsedFst` supplied directly. :meth:`rank` and :meth:`unrank` then
+    map between a word and its lexicographic index among the accepted words of
+    that word's length, and :meth:`num_words` counts the accepted words of one
+    length. Whether any words exist at the lengths the caller cares about is
+    the caller's concern.
+
+    Args:
+        dfa_str: A minimized AT&T FST formatted DFA string, or a
+            :class:`ParsedFst`.
         length: The maximum word length the counting table supports.
     """
 
-    def __init__(self, dfa_str: str, length: int):
+    def __init__(self, dfa_str: Union[str, ParsedFst], length: int):
         self._length = length
-        self._start_state = 0
+        if isinstance(dfa_str, ParsedFst):
+            parsed = dfa_str
+        else:
+            parsed = parse_att_fst(dfa_str)
+        self._start_state = parsed.start_state
         self._num_states = 0
-        self._symbols: List[int] = []
-        self._final_states: Set[int] = set()
+        self._symbols: List[int] = list(parsed.symbols)
+        self._final_states: Set[int] = set(parsed.final_states)
         self._sigma_reverse: Dict[int, int] = {}  # symbol byte value -> index
         self._delta: List[List[int]] = []         # transition table
         self._delta_dense: List[bool] = []        # all-transitions-equal flag
         self._T: List[List[int]] = []             # counting table
 
-        self._parse_dfa(dfa_str)
+        self._build_delta(parsed.transitions)
         self._build_table()
 
-    def _parse_dfa(self, dfa_str: str) -> None:
-        """Parse the AT&T FST formatted DFA string."""
-        states_set: Set[int] = set()
-        symbols_set: Set[int] = set()
-        transitions: List[tuple] = []
-        start_state_set = False
-
-        for line in dfa_str.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-
-            parts = line.split('\t')
-
-            if len(parts) == 4:
-                # Transition: src_state, dst_state, input_symbol, output_symbol
-                src = int(parts[0])
-                dst = int(parts[1])
-                symbol = int(parts[2])
-
-                states_set.add(src)
-                states_set.add(dst)
-                symbols_set.add(symbol)
-                transitions.append((src, dst, symbol))
-
-                if not start_state_set:
-                    self._start_state = src
-                    start_state_set = True
-
-            elif len(parts) == 1:
-                # Final state
-                final = int(parts[0])
-                self._final_states.add(final)
-                states_set.add(final)
-            elif len(parts) > 1:
-                raise InvalidFSTFormat("Invalid FST format")
-
-        if not states_set:
-            raise InvalidFSTFormat("DFA has no states")
-        if not symbols_set:
-            raise InvalidFSTFormat("DFA has no symbols")
-
-        # Sort for consistent ordering. The transition table is indexed by raw
-        # state id, so states must be numbered densely from zero.
-        states = sorted(states_set)
-        if states != list(range(len(states))):
-            raise InvalidFSTFormat("DFA states must be numbered 0..N-1")
-        self._symbols = sorted(symbols_set)
-
-        # One extra dead state absorbs missing transitions.
-        dead_state = len(states)
-        self._num_states = len(states) + 1
+    def _build_delta(
+        self, transitions: Tuple[Tuple[int, int, int], ...]
+    ) -> None:
+        """Build the transition table from the parsed transitions."""
+        # One extra dead state absorbs missing transitions. State ids index
+        # the table directly, so the dead state follows the highest real id.
+        max_state = self._start_state
+        for state in self._final_states:
+            max_state = max(max_state, state)
+        for src, dst, _ in transitions:
+            max_state = max(max_state, src, dst)
+        dead_state = max_state + 1
+        self._num_states = dead_state + 1
         num_symbols = len(self._symbols)
 
         self._sigma_reverse = {

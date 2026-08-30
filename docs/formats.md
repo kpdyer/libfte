@@ -94,6 +94,25 @@ why a value was rejected. This is safe under FTE's threat model, where an
 on-path observer sees covertext but has no decode oracle. Do not expose `decode`
 directly as a remote timing oracle to untrusted callers.
 
+## Built-in regex provider
+
+The regex implementation uses exactly the same extension point:
+
+```python
+from fte import FTE, RegexFormat
+
+fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
+encoder = FTE(format=fmt, key=shared_32_byte_key)
+
+covertext: bytes = encoder.encode(b"hello")
+assert encoder.decode(covertext) == b"hello"
+```
+
+`RegexFormat.cardinality` is the exact number of fixed-length values. Encoding
+raises `FormatCapacityError` when that finite rank space cannot contain the
+complete encrypted message. Construction raises `ValueError` if `pattern` is not
+a valid regular expression or has no words of exactly `length` bytes.
+
 ## Provider checklist
 
 - Test both inverse laws at representative and boundary ranks.

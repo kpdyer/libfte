@@ -1,3 +1,8 @@
 include BUILDING.md
+include README_PYPI.md
+include LICENSE
+include SECURITY.md
+include docs/formats.md
+recursive-include fte *.md
 graft tests
 prune tests/__pycache__

@@ -13,9 +13,10 @@ subpackage to copy for a new provider.
 """
 
 from fte.formats.base import RankedFormat
+from fte.formats.bytes import BytesFormat
 
 
-__all__ = ["RankedFormat", "RegexFormat"]
+__all__ = ["BytesFormat", "RankedFormat", "RegexFormat"]
 
 
 def __getattr__(name):

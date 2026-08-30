@@ -226,6 +226,20 @@ class Tests(unittest.TestCase):
         with self.assertRaises(fte.InvalidCovertextError):
             cipher.decrypt(covertext)
 
+    def test_decrypt_errors_carry_no_pre_mac_detail(self):
+        # The encrypter reads the header's length field before verifying the
+        # MAC, so its error must not chain into the public exception.
+        cipher = fte.FTE(format=HexFormat(), key=KEY)
+        ciphertext = cipher._encrypter.encrypt(b"hello")
+
+        for damaged in (ciphertext[:-1], ciphertext + b"x"):
+            covertext = cipher.format.unrank(_bytes_to_rank(b"\x01" + damaged))
+            with self.assertRaises(fte.InvalidCovertextError) as caught:
+                cipher.decrypt(covertext)
+            self.assertEqual(str(caught.exception), "invalid covertext")
+            self.assertIsNone(caught.exception.__cause__)
+            self.assertIsNone(caught.exception.__context__)
+
     def test_decode_rejects_invalid_rank_type(self):
         class BadFormat:
             def rank(self, value):

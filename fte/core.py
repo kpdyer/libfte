@@ -293,5 +293,8 @@ class FTE(Generic[Covertext]):
         ciphertext = framed[len(self._FRAME_VERSION):]
         try:
             return self._encrypter.decrypt(ciphertext)
-        except DecryptionError as exc:
-            raise InvalidCovertextError("invalid covertext") from exc
+        except DecryptionError:
+            pass
+        # Raised outside the handler: pre-MAC header detail must not chain
+        # into public errors, so neither __cause__ nor __context__ is set.
+        raise InvalidCovertextError("invalid covertext") from None

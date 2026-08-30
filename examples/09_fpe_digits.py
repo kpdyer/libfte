@@ -25,13 +25,14 @@ def main():
     print("=== Format-Preserving Encryption (9-digit identifier) ===\n")
 
     # ^[0-9]+$ with a fixed length of 9 has 10**9 words, comfortably above the
-    # format-preserving floor of 1e6, so allow_small_domain stays False.
+    # format-preserving floor of one million (below it, construction refuses).
     id_format = fte.RegexFormat(r"^[0-9]+$", length=9)
     key = os.urandom(16)  # FF1 keys are 16/24/32 bytes; NOT an AES-CTR-HMAC key.
 
     try:
+        # Same format in and out -> FPE. Length is preserved automatically.
         cipher = fte.FTE(input_format=id_format, output_format=id_format,
-                         key=key, preserve_length=True)
+                         key=key)
     except ImportError as exc:
         print(exc)
         print("\nSkipping: install the libffx extra to run this example.")

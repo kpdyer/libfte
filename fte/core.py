@@ -82,9 +82,9 @@ class SmallDomainError(FTEError):
 
 
 # Domain floors for the deterministic (format-preserving) cipher, mirroring
-# FF1's own refusal to permute a domain that is too small to hide anything.
+# FF1's own refusal to permute a domain that is too small to hide anything
+# (Draft SP 800-38G Rev 1). Always enforced; there is no opt-out.
 _FF1_DOMAIN_FLOOR = 1_000_000
-_FF1_SMALL_DOMAIN_FLOOR = 100
 
 # Namespace prefix for the deterministic effective tweak. Bumping it changes the
 # tweak of every deterministic covertext, so it is part of the wire contract.
@@ -118,13 +118,19 @@ class FTE(Generic[Plaintext, Covertext]):
       the AE cipher, ``fmt`` out.
     * **FPE is the equal-formats case**: passing the same format as
       ``input_format`` and ``output_format`` re-encrypts a value in place with
-      the deterministic cipher (optionally per length slice via
-      ``preserve_length=True``).
+      the deterministic cipher. Length is preserved automatically when the
+      format can name its per-length slices (a ``slice_bounds`` method plus
+      integer ``min_length`` / ``max_length``), so a value keeps its length;
+      otherwise the whole language is permuted. See :attr:`preserve_length`.
     * ``cipher`` is ``"aes-ctr-hmac"``, ``"ff1"``, a duck-typed object exposing
       ``encrypt_int(x, *, domain, tweak) -> int`` /
       ``decrypt_int(y, *, domain, tweak) -> int``, or ``None`` to infer it:
       a bytes input picks ``"aes-ctr-hmac"``; otherwise two formats with equal
       fingerprints pick ``"ff1"``; anything else must be spelled out.
+
+    The deterministic cipher refuses a domain below one million (Draft
+    SP 800-38G Rev 1), raising :class:`SmallDomainError`, because FF1 is
+    insecure over a domain small enough to brute-force. There is no opt-out.
 
     ``key`` is 32 bytes for ``"aes-ctr-hmac"`` (16 encryption + 16 MAC) and
     16/24/32
@@ -184,9 +190,7 @@ class FTE(Generic[Plaintext, Covertext]):
         output_format: RankedFormat[Covertext] | None = None,
         key: bytes,
         cipher: str | object | None = None,
-        preserve_length: bool = False,
         max_plaintext_bytes: int | None = None,
-        allow_small_domain: bool = False,
     ) -> None:
         # ---- resolve the format pair -----------------------------------
         if output_format is None:
@@ -266,7 +270,7 @@ class FTE(Generic[Plaintext, Covertext]):
         self._output_format = output_format
         self._input_is_bytes = input_is_bytes
         self._cipher_mode = cipher_mode
-        self._preserve_length = bool(preserve_length)
+        self._preserve_length = False  # set by _init_deterministic if inferred
         self._n_in = n_in
         self._n_out = n_out
         self._cipher = None
@@ -278,15 +282,8 @@ class FTE(Generic[Plaintext, Covertext]):
         self._max_frame_bytes = None
 
         if cipher_mode == "deterministic":
-            self._init_deterministic(
-                cipher, key, fp_in, fp_out, preserve_length, allow_small_domain
-            )
+            self._init_deterministic(cipher, key, fp_in, fp_out)
         else:
-            if preserve_length:
-                raise ValueError(
-                    "preserve_length requires a deterministic cipher "
-                    "('ff1' or a cipher object), not 'aes-ctr-hmac'"
-                )
             if len(key) != 32:
                 raise ValueError(
                     "Key must be exactly 32 bytes "
@@ -326,8 +323,6 @@ class FTE(Generic[Plaintext, Covertext]):
         key: bytes,
         fp_in: object,
         fp_out: object,
-        preserve_length: bool,
-        allow_small_domain: bool,
     ) -> None:
         if self._n_in is None or self._n_out is None:
             raise FormatCapacityError(
@@ -345,30 +340,28 @@ class FTE(Generic[Plaintext, Covertext]):
                 "bytes fingerprint"
             )
 
-        if preserve_length:
-            if fp_in != fp_out:
-                raise ValueError(
-                    "preserve_length requires input and output formats with "
-                    "equal fingerprints"
-                )
-            if not callable(getattr(self._input_format, "slice_bounds", None)):
-                raise ValueError(
-                    "preserve_length requires input_format to provide "
-                    "slice_bounds()"
-                )
-
-        floor = (
-            _FF1_SMALL_DOMAIN_FLOOR
-            if allow_small_domain
-            else _FF1_DOMAIN_FLOOR
+        # Length preservation is inferred, not requested: when the input and
+        # output are the same format and it can name its per-length slices,
+        # permute each length in place so a value keeps its length. Otherwise
+        # (cross-format, or a format with no slice_bounds) permute over the
+        # whole cardinality.
+        preserve_length = (
+            fp_in == fp_out
+            and callable(getattr(self._input_format, "slice_bounds", None))
+            and type(getattr(self._input_format, "min_length", None)) is int
+            and type(getattr(self._input_format, "max_length", None)) is int
         )
+        self._preserve_length = preserve_length
+
+        # The format-preserving floor is always enforced: FF1 is insecure over a
+        # domain small enough to brute-force, so a too-small domain is refused
+        # rather than made opt-outable.
         if preserve_length:
-            self._check_slice_domains(floor)
-        elif self._n_out < floor:
+            self._check_slice_domains(_FF1_DOMAIN_FLOOR)
+        elif self._n_out < _FF1_DOMAIN_FLOOR:
             raise SmallDomainError(
                 f"output domain {self._n_out} is below the format-preserving "
-                f"floor {floor}; enlarge the format or pass "
-                f"allow_small_domain=True"
+                f"floor {_FF1_DOMAIN_FLOOR}; enlarge the format"
             )
 
         # Resolve the concrete cipher object.
@@ -378,7 +371,7 @@ class FTE(Generic[Plaintext, Covertext]):
                 raise ValueError(
                     "cipher='ff1' requires a 16, 24, or 32 byte key"
                 )
-            self._cipher = FF1(key, allow_small_domain=allow_small_domain)
+            self._cipher = FF1(key)
         else:
             self._cipher = cipher
 
@@ -397,13 +390,8 @@ class FTE(Generic[Plaintext, Covertext]):
 
     def _check_slice_domains(self, floor: int) -> None:
         fmt = self._input_format
-        lo = getattr(fmt, "min_length", None)
-        hi = getattr(fmt, "max_length", None)
-        if type(lo) is not int or type(hi) is not int:
-            raise ValueError(
-                "preserve_length requires input_format to expose integer "
-                "min_length and max_length so its slice domains can be checked"
-            )
+        lo = fmt.min_length
+        hi = fmt.max_length
         offending = []
         for length in range(lo, hi + 1):
             _, count = fmt.slice_bounds(length)
@@ -412,8 +400,7 @@ class FTE(Generic[Plaintext, Covertext]):
         if offending:
             raise SmallDomainError(
                 f"length slices {offending} are below the format-preserving "
-                f"floor {floor}; widen the alphabet/lengths or pass "
-                f"allow_small_domain=True"
+                f"floor {floor}; widen the alphabet or raise the minimum length"
             )
 
     def _init_ae_capacity(self, max_plaintext_bytes: int | None) -> None:
@@ -493,7 +480,13 @@ class FTE(Generic[Plaintext, Covertext]):
 
     @property
     def preserve_length(self) -> bool:
-        """Whether the deterministic transform permutes each length in place."""
+        """Whether the deterministic transform permutes each length in place.
+
+        Inferred, not configured: true when the input and output are the same
+        format and it can name its per-length slices, so a value keeps its
+        length; false otherwise (a cross-format map, or a format without
+        ``slice_bounds``). Always false for the ``aes-ctr-hmac`` cipher.
+        """
 
         return self._preserve_length
 

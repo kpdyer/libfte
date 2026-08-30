@@ -50,8 +50,9 @@ class RankedFormat(Protocol[Covertext]):
       fingerprints must mean identical ranking.
     * ``slice_bounds(length) -> (offset, count)``: the first rank of the
       slice holding all values of that length, and the number of values in
-      it. ``preserve_length=True`` permutes each slice in place and requires
-      this method (plus integer ``min_length`` / ``max_length`` attributes).
+      it. When an equal-format (FPE) pair provides this method (plus integer
+      ``min_length`` / ``max_length`` attributes), the deterministic cipher
+      permutes each slice in place so a value keeps its length.
 
     :class:`~fte.formats.bytes.BytesFormat` and
     :class:`~fte.formats.regex.RegexFormat` provide fingerprints;

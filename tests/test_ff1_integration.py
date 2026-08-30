@@ -32,18 +32,12 @@ class Tests(unittest.TestCase):
         # Deterministic: same plaintext + tweak -> same covertext.
         self.assertEqual(eng.encrypt(pt), ct)
 
-    def test_fpe_digits_preserve_length_roundtrip(self):
-        fmt = fte.RegexFormat(r"^[0-9]+$", length=16)
-        eng = FTE(input_format=fmt, output_format=fmt, cipher="ff1", key=KEY,
-                  preserve_length=True)
-        pt = b"9999888877776666"
-        ct = eng.encrypt(pt)
-        self.assertEqual(len(ct), len(pt))
-        self.assertEqual(eng.decrypt(ct), pt)
-
     def test_fpe_preserve_length_over_a_length_range(self):
+        # Equal formats over a length range: length preservation is inferred,
+        # and every length slice (6..9 digits) clears the one-million floor.
         fmt = fte.RegexFormat(r"^[0-9]+$", min_length=6, max_length=9)
-        eng = fte.FTE(input_format=fmt, output_format=fmt, key=KEY, preserve_length=True)
+        eng = fte.FTE(input_format=fmt, output_format=fmt, key=KEY)
+        self.assertTrue(eng.preserve_length)
         for pt in (b"123456", b"1234567", b"12345678", b"123456789"):
             ct = eng.encrypt(pt)
             self.assertEqual(len(ct), len(pt))  # length preserved
@@ -83,12 +77,16 @@ class Tests(unittest.TestCase):
         # FPE with a distinct tweak separates the covertext.
         self.assertNotEqual(eng.encrypt(pt, tweak=b"x"), ct)
 
-    def test_fpe_is_a_permutation_of_the_domain(self):
-        # Small enough to enumerate: allow_small_domain lowers FF1's own floor.
-        fmt = fte.RegexFormat(r"^[0-9]+$", length=3)  # 1000 words
-        eng = fte.FTE(input_format=fmt, output_format=fmt, key=KEY, allow_small_domain=True)
-        covertexts = {eng.encrypt(fmt.unrank(i)) for i in range(fmt.cardinality)}
-        self.assertEqual(len(covertexts), fmt.cardinality)  # bijection
+    def test_fpe_is_injective_on_a_sample(self):
+        # The domain floor forbids tiny enumerable domains, so sample a
+        # 10**6-word format and confirm distinct, in-format covertexts.
+        fmt = fte.RegexFormat(r"^[0-9]+$", length=6)  # exactly 1e6 words
+        eng = fte.FTE(input_format=fmt, output_format=fmt, key=KEY)
+        sample = [(i * 3607) % fmt.cardinality for i in range(256)]
+        covertexts = {eng.encrypt(fmt.unrank(i)) for i in sample}
+        self.assertEqual(len(covertexts), len(set(sample)))  # injective
+        for ct in covertexts:
+            self.assertEqual(len(ct), 6)  # in-format, length preserved
 
 
 if __name__ == "__main__":

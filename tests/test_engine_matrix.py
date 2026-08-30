@@ -1,4 +1,4 @@
-"""The 2x2 engine matrix: {ff1/object, ae} x {input==output, input!=output}.
+"""The 2x2 engine matrix: {ff1/object, aes-ctr-hmac} x {input==output, input!=output}.
 
 These tests exercise :class:`fte.FTE` end to end without the real ``ffx``
 package. The deterministic cells use a duck-typed *toy* cipher object -- any
@@ -8,15 +8,13 @@ object exposing ``encrypt_int(x, *, domain, tweak) -> int`` and
 extension point. The AE cells use the real, wire-frozen authenticated path over
 :class:`~fte.formats.regex.RegexFormat`.
 
-Formats here are tiny, hand-built list formats so every domain can be brute
-forced. Their cardinalities sit below the format-preserving floor on purpose, so
-the deterministic cells pass ``allow_small_domain=True`` (floor 100); the
-``SmallDomainError`` behavior is checked directly.
+The deterministic domain floor (one million) is always enforced, so the formats
+here are *computed* decimal-string languages large enough to clear it, and the
+deterministic assertions sample rather than enumerate.
 """
 
 import hashlib
-import itertools
-import random
+import math
 import unittest
 
 import fte
@@ -32,11 +30,12 @@ from fte.core import (
 class ToyCipher:
     """A deterministic, tweakable permutation of ``range(domain)`` for tests.
 
-    For each ``(domain, tweak)`` it derives a fixed shuffle of ``range(domain)``
-    from a seeded PRNG and looks values up in that permutation (and its inverse).
-    It is a genuine bijection, deterministic in its inputs, and separated by
-    tweak -- everything the engine asks of a cipher object and nothing more. The
-    ``key`` argument the engine passes to ``FTE`` is ignored: an object cipher
+    For each ``(domain, tweak)`` it derives an affine map ``x -> (a*x + b) mod
+    domain`` with ``a`` coprime to ``domain`` (so it is a genuine bijection),
+    seeded from the key, the tweak, and the domain. It is deterministic in its
+    inputs and separated by tweak -- everything the engine asks of a cipher
+    object and nothing more, in O(1) per call so million-element domains stay
+    cheap. The ``key`` the engine passes to ``FTE`` is ignored: an object cipher
     carries its own key.
     """
 
@@ -44,115 +43,157 @@ class ToyCipher:
         self._key = key
         self._cache = {}
 
-    def _perm(self, domain, tweak):
+    def _params(self, domain, tweak):
         cache_key = (domain, tweak)
-        perm = self._cache.get(cache_key)
-        if perm is None:
-            seed = hashlib.sha256(
-                self._key + b"|" + tweak + b"|" + str(domain).encode()
-            ).digest()
-            rng = random.Random(seed)
-            forward = list(range(domain))
-            rng.shuffle(forward)
-            inverse = [0] * domain
-            for i, v in enumerate(forward):
-                inverse[v] = i
-            perm = (forward, inverse)
-            self._cache[cache_key] = perm
-        return perm
+        params = self._cache.get(cache_key)
+        if params is None:
+            seed = int.from_bytes(
+                hashlib.sha256(
+                    self._key + b"|" + tweak + b"|" + str(domain).encode()
+                ).digest(),
+                "big",
+            )
+            a = (seed % domain) or 1
+            while math.gcd(a, domain) != 1:
+                a += 1
+                if a >= domain:
+                    a = 1
+            b = (seed // domain) % domain
+            a_inv = pow(a, -1, domain)
+            params = (a, b, a_inv)
+            self._cache[cache_key] = params
+        return params
 
     def encrypt_int(self, x, *, domain, tweak):
-        forward, _ = self._perm(domain, tweak)
-        return forward[x]
+        a, b, _ = self._params(domain, tweak)
+        return (a * x + b) % domain
 
     def decrypt_int(self, y, *, domain, tweak):
-        _, inverse = self._perm(domain, tweak)
-        return inverse[y]
+        a, b, a_inv = self._params(domain, tweak)
+        return (a_inv * (y - b)) % domain
 
 
-class ListFormat:
-    """A finite ``RankedFormat`` over an explicit list of distinct values."""
+class DigitsFormat:
+    """Fixed-length decimal strings: a computed ``SlicedRankedFormat``.
 
-    def __init__(self, values, *, fingerprint):
-        self._values = list(values)
-        self._index = {v: i for i, v in enumerate(self._values)}
-        if len(self._index) != len(self._values):
-            raise ValueError("values must be distinct")
-        self.cardinality = len(self._values)
+    Cardinality is ``10 ** length`` (one length slice), so length 6 sits exactly
+    on the one-million floor and longer lengths clear it comfortably.
+    """
+
+    def __init__(self, length, *, fingerprint):
+        self.min_length = length
+        self.max_length = length
+        self._length = length
+        self.cardinality = 10 ** length
         self.fingerprint = fingerprint
 
+    def slice_bounds(self, length, /):
+        if length != self._length:
+            raise ValueError(f"length {length} outside [{self._length}]")
+        return 0, self.cardinality
+
     def rank(self, value, /):
-        try:
-            return self._index[value]
-        except (KeyError, TypeError):
+        if (
+            type(value) is not str
+            or len(value) != self._length
+            or not value.isascii()
+            or not value.isdigit()
+        ):
             raise ValueError(f"{value!r} is not a member of this format")
+        return int(value)
 
     def unrank(self, index, /):
         if type(index) is not int or not 0 <= index < self.cardinality:
             raise ValueError(f"index {index!r} out of range")
-        return self._values[index]
+        return str(index).zfill(self._length)
 
 
-class SlicedListFormat:
-    """A finite ``SlicedRankedFormat``: values grouped into length slices.
+class RangeDigitsFormat:
+    """Variable-length decimal strings over ``[lo, hi]``, computed.
 
-    ``per_length`` maps each length to the (distinct, that-length) values in it.
-    Values are laid out length-first, so a value's global rank falls inside its
-    length slice, which is exactly what ``preserve_length`` needs.
+    Length ``L`` holds ``10 ** L`` words; the rank space is laid out length-first
+    so a value's global rank falls inside its own length slice.
     """
 
-    def __init__(self, per_length, *, fingerprint):
-        self.min_length = min(per_length)
-        self.max_length = max(per_length)
+    def __init__(self, lo, hi, *, fingerprint):
+        self.min_length = lo
+        self.max_length = hi
         self.fingerprint = fingerprint
-        self._values = []
+        offset = 0
         self._offsets = {}
         self._counts = {}
-        cumulative = 0
-        for length in range(self.min_length, self.max_length + 1):
-            values = list(per_length.get(length, []))
-            for v in values:
-                if len(v) != length:
-                    raise ValueError("value length must match its slice")
-            self._offsets[length] = cumulative
-            self._counts[length] = len(values)
-            self._values.extend(values)
-            cumulative += len(values)
-        self.cardinality = cumulative
-        self._index = {v: i for i, v in enumerate(self._values)}
+        for length in range(lo, hi + 1):
+            count = 10 ** length
+            self._offsets[length] = offset
+            self._counts[length] = count
+            offset += count
+        self.cardinality = offset
 
     def slice_bounds(self, length, /):
         if length < self.min_length or length > self.max_length:
             raise ValueError(
-                f"length {length} outside "
-                f"[{self.min_length}, {self.max_length}]"
+                f"length {length} outside [{self.min_length}, {self.max_length}]"
             )
         return self._offsets[length], self._counts[length]
 
     def rank(self, value, /):
-        try:
-            return self._index[value]
-        except (KeyError, TypeError):
+        if type(value) is not str or not value.isascii() or not value.isdigit():
             raise ValueError(f"{value!r} is not a member of this format")
+        length = len(value)
+        if length < self.min_length or length > self.max_length:
+            raise ValueError(f"{value!r} has an unsupported length")
+        return self._offsets[length] + int(value)
 
     def unrank(self, index, /):
         if type(index) is not int or not 0 <= index < self.cardinality:
             raise ValueError(f"index {index!r} out of range")
-        return self._values[index]
+        for length in range(self.min_length, self.max_length + 1):
+            count = self._counts[length]
+            if index < count:
+                return str(index).zfill(length)
+            index -= count
+        raise AssertionError("unreachable")
 
 
-def _list_format(prefix, n, fingerprint):
-    return ListFormat(
-        [f"{prefix}{i:04d}" for i in range(n)], fingerprint=fingerprint
-    )
+class NoSliceDigitsFormat:
+    """Fixed-length decimal strings with **no** ``slice_bounds`` (no length API).
+
+    An equal-fingerprint pair of these exercises the global fallback: the engine
+    cannot preserve length, so it permutes the whole cardinality instead.
+    """
+
+    def __init__(self, length, *, fingerprint):
+        self._length = length
+        self.cardinality = 10 ** length
+        self.fingerprint = fingerprint
+
+    def rank(self, value, /):
+        if (
+            type(value) is not str
+            or len(value) != self._length
+            or not value.isascii()
+            or not value.isdigit()
+        ):
+            raise ValueError(f"{value!r} is not a member of this format")
+        return int(value)
+
+    def unrank(self, index, /):
+        if type(index) is not int or not 0 <= index < self.cardinality:
+            raise ValueError(f"index {index!r} out of range")
+        return str(index).zfill(self._length)
 
 
-def _sliced_format(alphabet, lengths, fingerprint):
-    per_length = {
-        length: ["".join(p) for p in itertools.product(alphabet, repeat=length)]
-        for length in lengths
-    }
-    return SlicedListFormat(per_length, fingerprint=fingerprint)
+# A deterministic spread of distinct ranks to sample from a large domain.
+def _sample_ranks(n, count=64):
+    if n <= count:
+        return list(range(n))
+    step = max(1, n // count)
+    seen = {}
+    for i in range(count):
+        seen[(i * step) % n] = None
+    seen[0] = None
+    seen[n - 1] = None
+    return list(seen)
 
 
 KEY_AE = bytes(range(32))
@@ -164,167 +205,140 @@ BIG_HEX = fte.RegexFormat(r"^[0-9a-f]+$", length=256)
 class Tests(unittest.TestCase):
     # ---- deterministic, input == output (FPE cell) --------------------- #
     def test_deterministic_fpe_roundtrip_and_membership(self):
-        fmt = _list_format("v", 200, b"fp:v200")
-        eng = FTE(
-            input_format=fmt,
-            output_format=fmt,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            allow_small_domain=True,
-        )
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
         self.assertEqual(eng.cipher, "deterministic")
-        for i in range(fmt.cardinality):
+        self.assertTrue(eng.preserve_length)  # equal format + slice_bounds
+        for i in _sample_ranks(fmt.cardinality):
             pt = fmt.unrank(i)
             ct = eng.encrypt(pt)
-            self.assertIn(ct, fmt._values)  # covertext stays in the format
+            self.assertEqual(len(ct), len(pt))
+            self.assertEqual(fmt.rank(ct), fmt.rank(ct))  # ct is in the format
             self.assertEqual(eng.decrypt(ct), pt)
 
-    def test_deterministic_is_deterministic_and_a_permutation(self):
-        fmt = _list_format("v", 200, b"fp:v200")
-        eng = FTE(
-            input_format=fmt,
-            output_format=fmt,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            allow_small_domain=True,
-        )
-        first = [eng.encrypt(fmt.unrank(i)) for i in range(fmt.cardinality)]
-        second = [eng.encrypt(fmt.unrank(i)) for i in range(fmt.cardinality)]
-        self.assertEqual(first, second)  # deterministic
-        self.assertEqual(set(first), set(fmt._values))  # a permutation
+    def test_deterministic_is_deterministic_and_injective(self):
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        sample = _sample_ranks(fmt.cardinality)
+        first = [eng.encrypt(fmt.unrank(i)) for i in sample]
+        second = [eng.encrypt(fmt.unrank(i)) for i in sample]
+        self.assertEqual(first, second)              # deterministic
+        self.assertEqual(len(set(first)), len(first))  # injective on the sample
 
     def test_deterministic_tweak_separation(self):
-        fmt = _list_format("v", 200, b"fp:v200")
-        eng = FTE(
-            input_format=fmt,
-            output_format=fmt,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            allow_small_domain=True,
-        )
-        by_tweak_a = [
-            eng.encrypt(fmt.unrank(i), tweak=b"record-A")
-            for i in range(fmt.cardinality)
-        ]
-        by_tweak_b = [
-            eng.encrypt(fmt.unrank(i), tweak=b"record-B")
-            for i in range(fmt.cardinality)
-        ]
-        self.assertNotEqual(by_tweak_a, by_tweak_b)
-        # Each tweak still round-trips under its own tweak.
-        for i in range(fmt.cardinality):
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        a = [eng.encrypt(fmt.unrank(i), tweak=b"record-A")
+             for i in _sample_ranks(fmt.cardinality)]
+        b = [eng.encrypt(fmt.unrank(i), tweak=b"record-B")
+             for i in _sample_ranks(fmt.cardinality)]
+        self.assertNotEqual(a, b)
+        for i, rank in enumerate(_sample_ranks(fmt.cardinality)):
             self.assertEqual(
-                eng.decrypt(by_tweak_a[i], tweak=b"record-A"), fmt.unrank(i)
+                eng.decrypt(a[i], tweak=b"record-A"), fmt.unrank(rank)
             )
+
+    def test_equal_format_without_slice_bounds_uses_global(self):
+        # Equal fingerprints but no slice_bounds -> global permutation, and
+        # preserve_length is inferred False. Still a clean round-trip.
+        fmt = NoSliceDigitsFormat(6, fingerprint=b"fp:noslice6")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        self.assertFalse(eng.preserve_length)
+        for i in _sample_ranks(fmt.cardinality):
+            pt = fmt.unrank(i)
+            self.assertEqual(eng.decrypt(eng.encrypt(pt)), pt)
 
     # ---- deterministic, input != output (rank-map FTE cell) ------------ #
     def test_deterministic_cross_format_roundtrip(self):
-        fin = _list_format("i", 120, b"fp:in120")
-        fout = _list_format("o", 200, b"fp:out200")
-        eng = FTE(
-            input_format=fin,
-            output_format=fout,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            allow_small_domain=True,
-        )
-        for i in range(fin.cardinality):
+        fin = DigitsFormat(6, fingerprint=b"fp:in6")
+        fout = DigitsFormat(7, fingerprint=b"fp:out7")
+        eng = FTE(input_format=fin, output_format=fout,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        self.assertFalse(eng.preserve_length)  # cross-format never preserves
+        for i in _sample_ranks(fin.cardinality):
             pt = fin.unrank(i)
             ct = eng.encrypt(pt)
-            self.assertIn(ct, fout._values)
+            self.assertEqual(len(ct), 7)          # in the output format
             self.assertEqual(eng.decrypt(ct), pt)
 
     def test_deterministic_cross_format_injectivity_rejection(self):
         # Covertexts whose deciphered rank is >= N_in were never valid inputs.
-        fin = _list_format("i", 120, b"fp:in120")
-        fout = _list_format("o", 200, b"fp:out200")
-        eng = FTE(
-            input_format=fin,
-            output_format=fout,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            allow_small_domain=True,
-        )
-        valid = {eng.encrypt(fin.unrank(i)) for i in range(fin.cardinality)}
-        rejected = 0
-        for value in fout._values:
-            if value in valid:
-                continue
-            with self.assertRaises(InvalidCovertextError):
-                eng.decrypt(value)
-            rejected += 1
-        # Exactly the surplus covertexts are unreachable.
-        self.assertEqual(rejected, fout.cardinality - fin.cardinality)
+        fin = DigitsFormat(6, fingerprint=b"fp:in6")     # 1e6
+        fout = DigitsFormat(7, fingerprint=b"fp:out7")   # 1e7
+        eng = FTE(input_format=fin, output_format=fout,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        accepted = rejected = 0
+        for y in _sample_ranks(fout.cardinality, count=200):
+            covertext = fout.unrank(y)
+            try:
+                pt = eng.decrypt(covertext)
+            except InvalidCovertextError:
+                rejected += 1
+            else:
+                accepted += 1
+                self.assertEqual(eng.encrypt(pt), covertext)  # round-trips
+        # With N_out = 10 * N_in, most sampled covertexts are unreachable, and
+        # both paths must be exercised.
+        self.assertGreater(rejected, 0)
+        self.assertGreater(accepted, 0)
 
     def test_deterministic_equal_cardinality_cross_format(self):
-        # Different fingerprints but equal size: still a clean bijection.
-        fin = _list_format("i", 200, b"fp:eqA")
-        fout = _list_format("o", 200, b"fp:eqB")
-        eng = FTE(
-            input_format=fin,
-            output_format=fout,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            allow_small_domain=True,
-        )
-        covertexts = {eng.encrypt(fin.unrank(i)) for i in range(200)}
-        self.assertEqual(covertexts, set(fout._values))
+        # Different fingerprints, equal size: global bijection, no length rule.
+        fin = DigitsFormat(6, fingerprint=b"fp:eqA")
+        fout = DigitsFormat(6, fingerprint=b"fp:eqB")
+        eng = FTE(input_format=fin, output_format=fout,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        self.assertFalse(eng.preserve_length)
+        for i in _sample_ranks(fin.cardinality):
+            pt = fin.unrank(i)
+            self.assertEqual(eng.decrypt(eng.encrypt(pt)), pt)
 
-    # ---- deterministic, preserve_length -------------------------------- #
+    # ---- deterministic, inferred length preservation ------------------- #
     def test_preserve_length_across_multiple_lengths(self):
-        fmt = _sliced_format("abcde", (3, 4), b"fp:sliced-abcde-3-4")
-        eng = FTE(
-            input_format=fmt,
-            output_format=fmt,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            preserve_length=True,
-            allow_small_domain=True,
-        )
+        fmt = RangeDigitsFormat(6, 7, fingerprint=b"fp:range6-7")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
         self.assertTrue(eng.preserve_length)
-        for pt in fmt._values:
-            ct = eng.encrypt(pt)
-            self.assertEqual(len(ct), len(pt))  # length preserved in place
-            self.assertIn(ct, fmt._values)
-            self.assertEqual(eng.decrypt(ct), pt)
+        for length in (6, 7):
+            offset, count = fmt.slice_bounds(length)
+            for r in _sample_ranks(count, count=16):
+                pt = fmt.unrank(offset + r)
+                ct = eng.encrypt(pt)
+                self.assertEqual(len(ct), length)  # length preserved in place
+                self.assertEqual(eng.decrypt(ct), pt)
 
     def test_preserve_length_permutes_each_slice_independently(self):
-        fmt = _sliced_format("abcde", (3, 4), b"fp:sliced-abcde-3-4")
-        eng = FTE(
-            input_format=fmt,
-            output_format=fmt,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            preserve_length=True,
-            allow_small_domain=True,
-        )
-        for length in (3, 4):
-            slice_values = [v for v in fmt._values if len(v) == length]
-            covertexts = {eng.encrypt(v) for v in slice_values}
-            # A permutation of exactly that length's slice.
-            self.assertEqual(covertexts, set(slice_values))
+        fmt = RangeDigitsFormat(6, 7, fingerprint=b"fp:range6-7")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        for length in (6, 7):
+            offset, count = fmt.slice_bounds(length)
+            outs = {eng.encrypt(fmt.unrank(offset + r))
+                    for r in _sample_ranks(count, count=32)}
+            # Every covertext keeps the slice's length; injective on the sample.
+            self.assertTrue(all(len(o) == length for o in outs))
+            self.assertEqual(len(outs), len(_sample_ranks(count, count=32)))
 
     def test_preserve_length_tweak_carries_length(self):
-        # Distinct tweaks separate outputs even within one length slice.
-        fmt = _sliced_format("abcde", (3, 4), b"fp:sliced-abcde-3-4")
-        eng = FTE(
-            input_format=fmt,
-            output_format=fmt,
-            cipher=ToyCipher(),
-            key=KEY_UNUSED,
-            preserve_length=True,
-            allow_small_domain=True,
-        )
-        a = eng.encrypt("abc", tweak=b"one")
-        b = eng.encrypt("abc", tweak=b"two")
+        fmt = RangeDigitsFormat(6, 7, fingerprint=b"fp:range6-7")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        a = eng.encrypt("000123", tweak=b"one")
+        b = eng.encrypt("000123", tweak=b"two")
         self.assertNotEqual(a, b)
-        self.assertEqual(eng.decrypt(a, tweak=b"one"), "abc")
-        self.assertEqual(eng.decrypt(b, tweak=b"two"), "abc")
+        self.assertEqual(len(a), 6)
+        self.assertEqual(eng.decrypt(a, tweak=b"one"), "000123")
+        self.assertEqual(eng.decrypt(b, tweak=b"two"), "000123")
 
     # ---- AE cell, bytes input (classic FTE) ---------------------------- #
     def test_ae_bytes_roundtrip_is_randomized_and_authenticated(self):
         eng = FTE(output_format=BIG_HEX, key=KEY_AE)
         self.assertEqual(eng.cipher, "aes-ctr-hmac")
+        self.assertFalse(eng.preserve_length)
         ct1 = eng.encrypt(b"attack at dawn")
         ct2 = eng.encrypt(b"attack at dawn")
         self.assertNotEqual(ct1, ct2)  # re-drawn per call
@@ -345,8 +359,8 @@ class Tests(unittest.TestCase):
     # ---- AE cell, non-bytes input -------------------------------------- #
     def test_ae_non_bytes_roundtrip_via_rank_serialization(self):
         digits = fte.RegexFormat(r"^[0-9]+$", length=6)
-        eng = FTE(input_format=digits, output_format=BIG_HEX, cipher="aes-ctr-hmac",
-                  key=KEY_AE)
+        eng = FTE(input_format=digits, output_format=BIG_HEX,
+                  cipher="aes-ctr-hmac", key=KEY_AE)
         ct1 = eng.encrypt(b"012345")
         ct2 = eng.encrypt(b"012345")
         self.assertNotEqual(ct1, ct2)  # randomized for non-bytes too
@@ -358,8 +372,8 @@ class Tests(unittest.TestCase):
         digits = fte.RegexFormat(r"^[0-9]+$", length=6)
         tiny = fte.RegexFormat(r"^[0-9a-f]+$", length=8)  # only 4 payload bytes
         with self.assertRaises(FormatCapacityError):
-            FTE(input_format=digits, output_format=tiny, cipher="aes-ctr-hmac",
-                key=KEY_AE)
+            FTE(input_format=digits, output_format=tiny,
+                cipher="aes-ctr-hmac", key=KEY_AE)
 
     # ---- ValueError / error matrix for bad configs --------------------- #
     def test_tweak_with_ae_is_rejected(self):
@@ -369,29 +383,11 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             eng.decrypt(eng.encrypt(b"x"), tweak=b"nope")
 
-    def test_preserve_length_cross_format_is_rejected(self):
-        fin = _list_format("i", 200, b"fp:pA")
-        fout = _list_format("o", 200, b"fp:pB")
-        with self.assertRaises(ValueError):
-            FTE(input_format=fin, output_format=fout, cipher=ToyCipher(),
-                key=KEY_UNUSED, preserve_length=True, allow_small_domain=True)
-
-    def test_preserve_length_requires_slice_bounds(self):
-        fmt = _list_format("v", 200, b"fp:noslice")  # no slice_bounds()
-        with self.assertRaises(ValueError):
-            FTE(input_format=fmt, output_format=fmt, cipher=ToyCipher(),
-                key=KEY_UNUSED, preserve_length=True, allow_small_domain=True)
-
-    def test_preserve_length_with_ae_is_rejected(self):
-        with self.assertRaises(ValueError):
-            FTE(output_format=BIG_HEX, key=KEY_AE, preserve_length=True)
-
     def test_missing_cipher_for_cross_format_is_rejected(self):
-        fin = _list_format("i", 200, b"fp:mA")
-        fout = _list_format("o", 200, b"fp:mB")
+        fin = DigitsFormat(6, fingerprint=b"fp:mA")
+        fout = DigitsFormat(7, fingerprint=b"fp:mB")
         with self.assertRaises(ValueError):
-            FTE(input_format=fin, output_format=fout, key=KEY_UNUSED,
-                allow_small_domain=True)
+            FTE(input_format=fin, output_format=fout, key=KEY_UNUSED)
 
     def test_ae_key_must_be_32_bytes(self):
         with self.assertRaises(ValueError):
@@ -402,64 +398,68 @@ class Tests(unittest.TestCase):
     def test_max_plaintext_bytes_rejected_for_non_bytes_input(self):
         digits = fte.RegexFormat(r"^[0-9]+$", length=6)
         with self.assertRaises(ValueError):
-            FTE(input_format=digits, output_format=BIG_HEX, cipher="aes-ctr-hmac",
-                key=KEY_AE, max_plaintext_bytes=8)
+            FTE(input_format=digits, output_format=BIG_HEX,
+                cipher="aes-ctr-hmac", key=KEY_AE, max_plaintext_bytes=8)
 
     def test_legacy_format_alias_removed(self):
         with self.assertRaises(TypeError):
             FTE(format=BIG_HEX, key=KEY_AE)
 
+    def test_removed_flags_are_rejected(self):
+        # preserve_length and allow_small_domain are no longer parameters.
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
+        with self.assertRaises(TypeError):
+            FTE(input_format=fmt, output_format=fmt, cipher=ToyCipher(),
+                key=KEY_UNUSED, preserve_length=True)
+        with self.assertRaises(TypeError):
+            FTE(input_format=fmt, output_format=fmt, cipher=ToyCipher(),
+                key=KEY_UNUSED, allow_small_domain=True)
+
     def test_exactly_one_output_format_required(self):
         with self.assertRaises(ValueError):
             FTE(key=KEY_AE)
 
-    # ---- SmallDomainError and allow_small_domain ----------------------- #
-    def test_small_domain_without_flag_raises(self):
-        fmt = _list_format("v", 200, b"fp:small")
+    # ---- SmallDomainError (always enforced, no opt-out) ---------------- #
+    def test_small_domain_raises(self):
+        fmt = DigitsFormat(5, fingerprint=b"fp:d5")  # 1e5 < 1e6
         with self.assertRaises(SmallDomainError):
-            FTE(input_format=fmt, output_format=fmt, cipher=ToyCipher(),
-                key=KEY_UNUSED)
+            FTE(input_format=fmt, output_format=fmt,
+                cipher=ToyCipher(), key=KEY_UNUSED)
 
-    def test_small_domain_flag_lowers_floor_to_100(self):
-        ok = _list_format("v", 100, b"fp:exactly100")
-        # 100 meets the lowered floor; construction succeeds and round-trips.
-        eng = FTE(input_format=ok, output_format=ok, cipher=ToyCipher(),
-                  key=KEY_UNUSED, allow_small_domain=True)
-        self.assertEqual(eng.decrypt(eng.encrypt("v0005")), "v0005")
+    def test_small_domain_at_exactly_one_million_is_allowed(self):
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")  # 1e6, on the floor
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
+        self.assertEqual(eng.decrypt(eng.encrypt("000042")), "000042")
 
-        too_small = _list_format("v", 99, b"fp:below100")
-        with self.assertRaises(SmallDomainError):
-            FTE(input_format=too_small, output_format=too_small,
-                cipher=ToyCipher(), key=KEY_UNUSED, allow_small_domain=True)
-
-    def test_small_domain_preserve_length_names_offending_lengths(self):
-        # Length-2 slice (25 words) is below the floor of 100; length-3 (125) is
-        # above it. The error should name only the offending length.
-        fmt = _sliced_format("abcde", (2, 3), b"fp:mixed-slices")
+    def test_small_domain_slice_names_offending_lengths(self):
+        # Length-5 slice (1e5) is below the floor; length-6 (1e6) meets it. The
+        # error should name only the offending length.
+        fmt = RangeDigitsFormat(5, 6, fingerprint=b"fp:range5-6")
         with self.assertRaises(SmallDomainError) as caught:
-            FTE(input_format=fmt, output_format=fmt, cipher=ToyCipher(),
-                key=KEY_UNUSED, preserve_length=True, allow_small_domain=True)
-        self.assertIn("2", str(caught.exception))
+            FTE(input_format=fmt, output_format=fmt,
+                cipher=ToyCipher(), key=KEY_UNUSED)
+        self.assertIn("5", str(caught.exception))
 
     # ---- capacity and injectivity at init ------------------------------ #
     def test_input_larger_than_output_rejected_at_init(self):
-        fin = _list_format("i", 300, b"fp:big")
-        fout = _list_format("o", 200, b"fp:small")
+        fin = DigitsFormat(7, fingerprint=b"fp:big7")    # 1e7
+        fout = DigitsFormat(6, fingerprint=b"fp:small6")  # 1e6
         with self.assertRaises(FormatCapacityError):
-            FTE(input_format=fin, output_format=fout, cipher=ToyCipher(),
-                key=KEY_UNUSED, allow_small_domain=True)
+            FTE(input_format=fin, output_format=fout,
+                cipher=ToyCipher(), key=KEY_UNUSED)
 
     def test_deterministic_requires_finite_formats(self):
         # BytesFormat is unbounded (no cardinality): invalid for deterministic.
-        fmt = _list_format("v", 200, b"fp:v200")
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
         with self.assertRaises(FormatCapacityError):
             FTE(input_format=fte.BytesFormat(), output_format=fmt,
-                cipher=ToyCipher(), key=KEY_UNUSED, allow_small_domain=True)
+                cipher=ToyCipher(), key=KEY_UNUSED)
 
     def test_invalid_plaintext_rejected(self):
-        fmt = _list_format("v", 200, b"fp:v200")
-        eng = FTE(input_format=fmt, output_format=fmt, cipher=ToyCipher(),
-                  key=KEY_UNUSED, allow_small_domain=True)
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
+        eng = FTE(input_format=fmt, output_format=fmt,
+                  cipher=ToyCipher(), key=KEY_UNUSED)
         with self.assertRaises(InvalidPlaintextError):
             eng.encrypt("not-a-member")
 

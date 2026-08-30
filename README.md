@@ -78,15 +78,15 @@ plaintext = cipher.decrypt(ciphertext)
 The ciphertext looks like random text but contains your encrypted message.
 
 For **format-preserving encryption**, use the same format on both sides. Equal
-formats infer the deterministic `ff1` cipher (needs `pip install fte[fpe]`):
+formats infer the deterministic `ff1` cipher, and length is preserved
+automatically (needs `pip install fte[fpe]`):
 
 ```python
 digits = fte.RegexFormat(r'^[0-9]+$', length=9)   # a 9-digit language
-fpe = fte.FTE(input_format=digits, output_format=digits,
-              key=os.urandom(16), preserve_length=True)
+fpe = fte.FTE(input_format=digits, output_format=digits, key=os.urandom(16))
 
-token = fpe.encrypt(b'078051120', tweak=b'ssn')   # another 9-digit string
-assert fpe.decrypt(token, tweak=b'ssn') == b'078051120'
+token = fpe.encrypt(b'100000042', tweak=b'accounts')  # another 9-digit string
+assert fpe.decrypt(token, tweak=b'accounts') == b'100000042'
 ```
 
 ## More Examples
@@ -184,9 +184,7 @@ fte.FTE(
     output_format: RankedFormat,
     key: bytes,
     cipher: str | object | None = None,   # "aes-ctr-hmac" | "ff1" | object | inferred
-    preserve_length: bool = False,        # ff1, equal formats only
     max_plaintext_bytes: int | None = None,   # aes-ctr-hmac, bytes input only
-    allow_small_domain: bool = False,     # ff1 domain floor 1e6 -> 100
 )
 ```
 
@@ -196,11 +194,17 @@ fte.FTE(
 | `decrypt(covertext, *, tweak=b"") -> P` | Rank the covertext, invert the transform, unrank the plaintext |
 | `input_format` / `output_format` | The two formats |
 | `cipher` | Resolved mode: `"aes-ctr-hmac"` or `"deterministic"` |
-| `preserve_length` | Whether ff1 permutes each length slice in place |
+| `preserve_length` | Read-only: whether ff1 preserves length in place (inferred) |
 | `max_plaintext_bytes` | Largest plaintext accepted, aes-ctr-hmac only (see below) |
 
 Key sizes: `"aes-ctr-hmac"` needs exactly 32 bytes (16 encryption + 16 MAC); `"ff1"`
 needs 16/24/32. The `ff1` cipher requires the extra: `pip install fte[fpe]`.
+
+The deterministic cipher infers **length preservation** from the formats: when
+input and output are the same format and it can name its per-length slices, a
+value keeps its length; otherwise the whole language is permuted. It also
+enforces a **one-million domain floor** (Draft SP 800-38G Rev 1), raising
+`SmallDomainError` on a smaller domain, with no opt-out.
 
 `max_plaintext_bytes` is chosen for you when left unset: a finite format (one
 with a `cardinality`, like `RegexFormat`) uses the exact size its capacity

@@ -24,6 +24,8 @@ is exactly what makes a new provider easy to add.
 
 from __future__ import annotations
 
+import hashlib
+
 import regex2dfa
 
 from fte.formats.regex.dfa import DFA
@@ -87,6 +89,7 @@ class RegexFormat:
         "_dfa",
         "_offsets",
         "_counts",
+        "_fingerprint",
     )
 
     def __init__(
@@ -150,6 +153,41 @@ class RegexFormat:
         self._dfa = dfa
         self._offsets = offsets
         self._counts = counts
+        self._fingerprint = hashlib.sha256(
+            b"fte:regex:1|"
+            + pattern.encode("utf-8")
+            + b"|"
+            + str(lo).encode("utf-8")
+            + b"|"
+            + str(hi).encode("utf-8")
+        ).digest()
+
+    @property
+    def fingerprint(self) -> bytes:
+        """Stable identifier for this pattern and length range.
+
+        ``sha256(b"fte:regex:1|" + pattern + b"|" + min_length + b"|" +
+        max_length)``, with the lengths in decimal UTF-8. Two ``RegexFormat``
+        instances share a fingerprint exactly when they rank identically,
+        which is what the deterministic engine relies on.
+        """
+
+        return self._fingerprint
+
+    def slice_bounds(self, length: int, /) -> tuple[int, int]:
+        """Return ``(offset, count)`` for the length-``length`` slice.
+
+        ``offset`` is the first rank assigned to words of ``length`` bytes and
+        ``count`` is how many there are (possibly zero). ``length`` must lie
+        in ``[min_length, max_length]``.
+        """
+
+        if length < self.min_length or length > self.max_length:
+            raise ValueError(
+                f"length {length} outside "
+                f"[{self.min_length}, {self.max_length}]"
+            )
+        return self._offsets[length], self._counts[length]
 
     def rank(self, value: bytes, /) -> int:
         """Return the rank of a canonical covertext ``value``."""

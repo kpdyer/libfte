@@ -5,7 +5,6 @@
 import random
 import unittest
 
-import fte.bit_ops
 import fte.encrypter
 
 TRIALS = 2 ** 8
@@ -45,7 +44,7 @@ class Tests(unittest.TestCase):
         """Test single block encryption/decryption."""
         for _ in range(TRIALS):
             M1 = random.randint(0, (1 << 128) - 1)
-            M1 = fte.bit_ops.long_to_bytes(M1, 16)
+            M1 = M1.to_bytes(16, 'big')
             retval = self.encrypter.encryptOneBlock(M1)
             H_out = self.encrypter.decryptOneBlock(retval)
             self.assertEqual(M1, H_out)

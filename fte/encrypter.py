@@ -10,9 +10,9 @@ See https://kpdyer.com/publications/ccs2013-fte.pdf for scheme details.
 
 from Crypto.Cipher import AES
 from Crypto.Hash import HMAC, SHA512
+from Crypto.Random import get_random_bytes
 from Crypto.Util import Counter
 
-import fte.bit_ops
 import fte.conf
 
 
@@ -99,17 +99,17 @@ class Encrypter:
             raise PlaintextTypeError("Input plaintext must be of type bytes")
 
         if iv_bytes is None:
-            iv_bytes = fte.bit_ops.random_bytes(Encrypter._IV_LENGTH)
+            iv_bytes = get_random_bytes(Encrypter._IV_LENGTH)
 
         iv1_bytes = b'\x01' + iv_bytes
         iv2_bytes = b'\x02' + iv_bytes
 
         W1 = iv1_bytes
-        W1 += fte.bit_ops.long_to_bytes(len(plaintext), Encrypter._MSG_COUNTER_LENGTH)
+        W1 += len(plaintext).to_bytes(Encrypter._MSG_COUNTER_LENGTH, 'big')
         W1 = self._ecb_enc_K1.encrypt(W1)
 
         counter_length_in_bits = AES.block_size * 8
-        counter_val = fte.bit_ops.bytes_to_long(iv2_bytes)
+        counter_val = int.from_bytes(iv2_bytes, 'big')
         counter = Counter.new(counter_length_in_bits, initial_value=counter_val)
         ctr_enc = AES.new(
             key=self.K1,
@@ -172,7 +172,7 @@ class Encrypter:
 
         decrypted_header = self._ecb_enc_K1.decrypt(W1)
         iv2_bytes = b'\x02' + decrypted_header[1:8]
-        counter_val = fte.bit_ops.bytes_to_long(iv2_bytes)
+        counter_val = int.from_bytes(iv2_bytes, 'big')
         counter_length_in_bits = AES.block_size * 8
         counter = Counter.new(counter_length_in_bits, initial_value=counter_val)
         ctr_enc = AES.new(
@@ -224,7 +224,7 @@ class Encrypter:
                 f'Invalid padding: {padding_actual!r}'
             )
 
-        message_length = fte.bit_ops.bytes_to_long(L[-8:])
+        message_length = int.from_bytes(L[-8:], 'big')
 
         if message_length < 0:
             raise UnrecoverableDecryptionError('Negative message length.')

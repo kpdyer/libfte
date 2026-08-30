@@ -30,11 +30,6 @@ class Tests(unittest.TestCase):
     def test_structural_format_conformance(self):
         self.assertIsInstance(HexFormat(), fte.RankedFormat)
 
-        class FiniteHex(HexFormat):
-            cardinality = 256
-
-        self.assertIsInstance(FiniteHex(), fte.FiniteRankedFormat)
-
     def test_roundtrip(self):
         cipher = fte.FTE(format=HexFormat(), key=KEY)
 
@@ -320,7 +315,6 @@ class Tests(unittest.TestCase):
 
     def test_public_exports(self):
         self.assertIn("FTE", fte.__all__)
-        self.assertIn("FiniteRankedFormat", fte.__all__)
         self.assertIn("RankedFormat", fte.__all__)
         self.assertIn("FormatCapacityError", fte.__all__)
         self.assertIn("FormatContractError", fte.__all__)
@@ -329,8 +323,10 @@ class Tests(unittest.TestCase):
         self.assertIn("RegexFormat", fte.__all__)
         self.assertIs(fte.FTE, fte.core.FTE)
         self.assertIs(fte.RankedFormat, fte.formats.RankedFormat)
-        # The removed Encoder wrapper and convenience functions stay gone.
+        # The removed Encoder wrapper, convenience functions, and
+        # FiniteRankedFormat protocol stay gone.
         self.assertFalse(hasattr(fte, "Encoder"))
+        self.assertFalse(hasattr(fte, "FiniteRankedFormat"))
         self.assertNotIn("encrypt", fte.__all__)
         self.assertNotIn("decrypt", fte.__all__)
 

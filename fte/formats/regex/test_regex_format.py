@@ -88,10 +88,10 @@ class Tests(unittest.TestCase):
     # rank / unrank as a RankedFormat                                    #
     # ------------------------------------------------------------------ #
 
-    def test_conforms_to_rankedformat_protocols(self):
+    def test_conforms_to_rankedformat_protocol(self):
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=8)
         self.assertIsInstance(fmt, fte.RankedFormat)
-        self.assertIsInstance(fmt, fte.FiniteRankedFormat)
+        self.assertIs(type(fmt.cardinality), int)
 
     def test_fixed_length_inverse_laws(self):
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=8)

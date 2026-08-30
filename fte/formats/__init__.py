@@ -12,8 +12,8 @@ subpackage to copy for a new format.
     ...                  key=bytes(range(32)))
 """
 
-from fte.formats.base import FiniteRankedFormat, RankedFormat
+from fte.formats.base import RankedFormat
 from fte.formats.regex import RegexFormat
 
 
-__all__ = ["RankedFormat", "FiniteRankedFormat", "RegexFormat"]
+__all__ = ["RankedFormat", "RegexFormat"]

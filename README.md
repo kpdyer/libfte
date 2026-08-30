@@ -201,8 +201,8 @@ class RankedFormat(Protocol[T]):
 
 Formats must use contiguous non-negative ranks and satisfy
 `rank(unrank(i)) == i` and `unrank(rank(value)) == value`. A finite provider may
-additionally implement `FiniteRankedFormat` by exposing an exact positive
-`cardinality`; libfte then performs capacity checks before encryption.
+additionally expose an exact positive `cardinality` attribute; libfte then
+performs capacity checks before encryption.
 
 ## How It Works
 

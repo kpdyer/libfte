@@ -15,10 +15,6 @@ T = TypeVar("T")
 class RankedFormat(Protocol[T]):
     def rank(self, value: T, /) -> int: ...
     def unrank(self, index: int, /) -> T: ...
-
-class FiniteRankedFormat(RankedFormat[T], Protocol[T]):
-    @property
-    def cardinality(self) -> int: ...
 ```
 
 This is a structural protocol. Providers do not inherit from libfte, register

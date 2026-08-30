@@ -15,7 +15,9 @@ class Tests(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.encrypter = fte.encrypter.Encrypter()
+        self.encrypter = fte.encrypter.Encrypter(
+            K1=b'\xFF' * 16, K2=b'\x00' * 16
+        )
 
     def test_encrypt_empty(self):
         """Test encryption of empty plaintext."""

@@ -13,8 +13,6 @@ from Crypto.Hash import HMAC, SHA512
 from Crypto.Random import get_random_bytes
 from Crypto.Util import Counter
 
-import fte.conf
-
 
 class InvalidKeyLengthError(Exception):
     """Raised when the input key length is not the correct size."""
@@ -46,11 +44,11 @@ class UnrecoverableDecryptionError(Exception):
 
 class Encrypter:
     """Authenticated encryption scheme using AES-CTR + HMAC-SHA512.
-    
+
     Args:
-        K1: Optional 16-byte encryption key. Defaults to 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.
-        K2: Optional 16-byte MAC key. Defaults to 0x00000000000000000000000000000000.
-        
+        K1: 16-byte encryption key.
+        K2: 16-byte MAC key.
+
     Raises:
         InvalidKeyLengthError: If either key is not exactly 16 bytes.
     """
@@ -60,20 +58,9 @@ class Encrypter:
     _MSG_COUNTER_LENGTH = 8
     _CTXT_EXPANSION = 1 + _IV_LENGTH + _MSG_COUNTER_LENGTH + _MAC_LENGTH
 
-    def __init__(self, K1: bytes = None, K2: bytes = None):
-        if K1 is None or K2 is None:
-            key = fte.conf.getValue('runtime.fte.encrypter.key')
-            if K1 is None:
-                self.K1 = key[0:len(key) // 2]
-            else:
-                self.K1 = K1
-            if K2 is None:
-                self.K2 = key[len(key) // 2:]
-            else:
-                self.K2 = K2
-        else:
-            self.K1 = K1
-            self.K2 = K2
+    def __init__(self, K1: bytes, K2: bytes):
+        self.K1 = K1
+        self.K2 = K2
 
         if len(self.K1) != AES.block_size or len(self.K2) != AES.block_size:
             raise InvalidKeyLengthError('Each key must be 16 bytes long.')

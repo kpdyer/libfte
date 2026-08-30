@@ -91,13 +91,5 @@ class Tests(unittest.TestCase):
             self.encrypter.decrypt(tampered)
 
 
-def suite():
-    """Return the test suite."""
-    loader = unittest.TestLoader()
-    test_suite = unittest.TestSuite()
-    test_suite.addTest(loader.loadTestsFromTestCase(Tests))
-    return test_suite
-
-
 if __name__ == '__main__':
     unittest.main()

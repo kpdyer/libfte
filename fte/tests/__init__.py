@@ -1,18 +1,1 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Test suite for the FTE library."""
-
-import unittest
-
-from fte.tests import test_encrypter
-
-
-def suite():
-    """Return the complete test suite."""
-    test_suite = unittest.TestSuite()
-    test_suite.addTests(test_encrypter.suite())
-    return test_suite
-
-
-if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run(suite())
+"""Shared tests for the FTE library; run with pytest."""

@@ -21,6 +21,8 @@ pip install fte
 | `07_multiple_messages.py` | Parsing a stream of fixed-length covertexts |
 | `08_custom_format.py` | Writing your own `RankedFormat` provider |
 | `09_authenticated_fte.py` | Authenticated FTE (`aes-ctr-hmac`) over a non-bytes input format |
+| `10_fpe_digits.py` | FPE: equal formats re-encrypt a value in place (needs `fte[fpe]`) |
+| `11_deterministic_fte.py` | Deterministic cross-format FTE: digits to hex tokens (needs `fte[fpe]`) |
 
 ## Running Examples
 

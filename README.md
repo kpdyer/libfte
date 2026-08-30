@@ -33,14 +33,17 @@ That gives a 2x2 of behaviors:
 
 | cipher \ formats | `input == output` | `input != output` |
 |---|---|---|
-| **deterministic** (a cipher object, zero-expansion) | **FPE**: re-encrypt a value in place | **deterministic FTE**: a reversible rank map between two formats |
+| **`ff1`** (deterministic, zero-expansion) | **FPE**: re-encrypt a value in place | **deterministic FTE**: a reversible rank map between two formats |
 | **`aes-ctr-hmac`** (randomized, authenticated, expanding) | authenticated encryption over bytes | **classic FTE**: bytes hidden as a chosen covertext format |
 
-The deterministic column takes any object with `encrypt_int(x, *, domain,
-tweak)` / `decrypt_int(y, *, domain, tweak)` forming a permutation of
-`range(domain)`. A built-in `cipher="ff1"` format-preserving cipher (NIST
-SP 800-38G FF1, via the optional [libffx](https://github.com/kpdyer/libffx)
-integration) is added separately.
+`cipher="ff1"` is the built-in format-preserving cipher (NIST SP 800-38G FF1,
+via the optional [libffx](https://github.com/kpdyer/libffx) extra:
+`pip install fte[fpe]`). The deterministic column also takes any object with
+`encrypt_int(x, *, domain, tweak)` / `decrypt_int(y, *, domain, tweak)` forming
+a permutation of `range(domain)`, so you can supply your own cipher.
+
+**FPE is the equal-formats case**: pass the same format as `input_format` and
+`output_format` and the deterministic cipher is inferred.
 
 > The wire format changed in 0.4.0 and is **not** compatible with libfte 0.3.x
 > and earlier. A deterministic cipher is unauthenticated and leaks plaintext
@@ -76,6 +79,18 @@ plaintext = cipher.decrypt(ciphertext)
 ```
 
 The ciphertext looks like random text but contains your encrypted message.
+
+For **format-preserving encryption**, use the same format on both sides. Equal
+formats infer the deterministic `ff1` cipher, and length is preserved
+automatically (needs `pip install fte[fpe]`):
+
+```python
+digits = fte.RegexFormat(r'^[0-9]+$', length=9)   # a 9-digit language
+fpe = fte.FTE(input_format=digits, output_format=digits, key=os.urandom(16))
+
+token = fpe.encrypt(b'100000042', tweak=b'accounts')  # another 9-digit string
+assert fpe.decrypt(token, tweak=b'accounts') == b'100000042'
+```
 
 ## More Examples
 
@@ -171,7 +186,7 @@ fte.FTE(
     input_format: RankedFormat = BytesFormat(),
     output_format: RankedFormat,
     key: bytes,
-    cipher: str | object | None = None,   # "aes-ctr-hmac" | object | inferred
+    cipher: str | object | None = None,   # "aes-ctr-hmac" | "ff1" | object | inferred
     max_plaintext_bytes: int | None = None,   # aes-ctr-hmac, bytes input only
 )
 ```
@@ -185,10 +200,12 @@ fte.FTE(
 | `preserve_length` | Read-only: whether a deterministic cipher preserves length in place (inferred) |
 | `max_plaintext_bytes` | Largest plaintext accepted, aes-ctr-hmac only (see below) |
 
-The `cipher` is `"aes-ctr-hmac"`, a deterministic cipher **object** (any object
-with `encrypt_int` / `decrypt_int`), or `None` to infer it: a bytes input picks
-`"aes-ctr-hmac"`; any other pair must name the cipher. `"aes-ctr-hmac"` needs a
-32-byte key (16 encryption + 16 MAC); a cipher object carries its own key.
+The `cipher` is `"aes-ctr-hmac"`, `"ff1"`, a deterministic cipher **object**
+(any object with `encrypt_int` / `decrypt_int`), or `None` to infer it: a bytes
+input picks `"aes-ctr-hmac"`; two formats with equal fingerprints pick `"ff1"`;
+any other pair must name the cipher. `"aes-ctr-hmac"` needs a 32-byte key (16
+encryption + 16 MAC); `"ff1"` needs 16/24/32 and requires the extra
+(`pip install fte[fpe]`); a cipher object carries its own key.
 
 A deterministic cipher infers **length preservation** from the formats: when
 input and output are the same format and it can name its per-length slices, a

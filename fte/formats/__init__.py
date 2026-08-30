@@ -13,7 +13,21 @@ subpackage to copy for a new format.
 """
 
 from fte.formats.base import RankedFormat
-from fte.formats.regex import RegexFormat
 
 
 __all__ = ["RankedFormat", "RegexFormat"]
+
+
+def __getattr__(name):
+    # Import RegexFormat lazily (PEP 562) so that "import fte" does not pull
+    # in the regex2dfa dependency; providers that bring their own format
+    # never need it.
+    if name == "RegexFormat":
+        from fte.formats.regex import RegexFormat
+
+        return RegexFormat
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(__all__)

@@ -8,6 +8,8 @@ both endpoints, so any change breaks compatibility with existing peers.
 
 from __future__ import annotations
 
+import functools
+
 
 __all__ = [
     "FRAME_VERSION",
@@ -25,10 +27,19 @@ __all__ = [
 FRAME_VERSION = b"\x01"
 
 
+@functools.lru_cache(maxsize=16)
 def rank_offset(length: int) -> int:
-    """Return the first rank assigned to byte strings of ``length``."""
+    """Return the first rank assigned to byte strings of ``length``.
 
-    return (256 ** length - 1) // 255
+    ``(256 ** length - 1) // 255`` equals ``0x0101...01`` (``length`` bytes of
+    ``0x01``): the sum of ``256**i`` for ``i`` in ``range(length)``. Building it
+    with ``int.from_bytes`` is O(length); the old ``256 ** length`` raised 256 to
+    the frame's byte length on every call, which dominated encrypt/decrypt for
+    large frames. The cache is keyed on ``length`` (a handful of frame sizes are
+    in flight at once), so repeated same-size records skip the rebuild entirely.
+    """
+
+    return int.from_bytes(b"\x01" * length, "big")
 
 
 def bytes_to_rank(value: bytes) -> int:
@@ -55,7 +66,10 @@ def rank_byte_length(index: int) -> int:
 def frame_rank_limit(frame_length: int) -> int:
     """Return the exclusive upper rank bound for version-one frames."""
 
-    return rank_offset(frame_length) + 2 * 256 ** (frame_length - 1)
+    # 2 * 256 ** (frame_length - 1) == 0x02 followed by frame_length-1 zero
+    # bytes; build it in O(frame_length) rather than exponentiating 256.
+    high = int.from_bytes(b"\x02" + b"\x00" * (frame_length - 1), "big")
+    return rank_offset(frame_length) + high
 
 
 def capacity_plaintext_limit(cardinality: int, expansion: int) -> int:

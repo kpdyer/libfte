@@ -50,6 +50,25 @@ class Tests(unittest.TestCase):
         one_byte = sorted(bytes_to_rank(bytes([b])) for b in range(256))
         self.assertEqual(one_byte, list(range(rank_offset(1), rank_offset(2))))
 
+    def test_rank_offset_matches_closed_form(self):
+        # rank_offset(n) is 0x0101..01 (n bytes of 0x01): the sum of 256**i for
+        # i in range(n), i.e. (256**n - 1) // 255. Guards the O(n) rewrite
+        # against regressing to (or diverging from) the closed form.
+        for length in (0, 1, 2, 5, 17, 64, 255, 256, 1000):
+            self.assertEqual(rank_offset(length), (256 ** length - 1) // 255)
+            self.assertEqual(
+                rank_offset(length), int.from_bytes(b"\x01" * length, "big")
+            )
+
+    def test_frame_rank_limit_matches_closed_form(self):
+        from fte.frame import frame_rank_limit
+
+        for frame_length in (1, 2, 5, 33, 128, 300):
+            self.assertEqual(
+                frame_rank_limit(frame_length),
+                rank_offset(frame_length) + 2 * 256 ** (frame_length - 1),
+            )
+
     def test_rank_rejects_non_bytes(self):
         with self.assertRaises(TypeError):
             self.fmt.rank("not bytes")

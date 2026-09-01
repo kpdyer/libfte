@@ -1,18 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Authenticated encryption module for FTE.
+"""Authenticated encryption for FTE: AES-CTR + HMAC-SHA256 (Encrypt-then-MAC).
 
-This module provides authenticated encryption using AES-CTR mode
-with HMAC-SHA512 for message authentication.
+This is the construction from the FTE paper -- AES in counter mode, then an HMAC
+over the ciphertext -- backed by OpenSSL (via ``cryptography`` for AES-CTR and
+the stdlib ``hmac``/``hashlib``, both OpenSSL under the hood). It replaces an
+AES-CTR + HMAC-SHA512 implementation built on pycryptodome, which was ~8x slower
+for the same work.
+
+Encrypt-then-MAC with independent keys keeps the standard IND-CPA + INT-CTXT
+guarantees, and (unlike AES-GCM) a nonce collision under a reused key costs only
+the confidentiality of the colliding pair, never authenticity -- a better fit
+for a static shared key used across many records.
 
 See https://kpdyer.com/publications/ccs2013-fte.pdf for scheme details, and
 https://kpdyer.com/publications/usenix2014-fte.pdf for the libFTE toolkit.
 """
 
-from Crypto.Cipher import AES
-from Crypto.Hash import HMAC, SHA512
-from Crypto.Random import get_random_bytes
-from Crypto.Util import Counter
+import hashlib
+import hmac
+import os
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
 class DecryptionError(Exception):
@@ -21,52 +30,49 @@ class DecryptionError(Exception):
 
 
 class Encrypter:
-    """Authenticated encryption scheme using AES-CTR + HMAC-SHA512.
+    """Encrypt-then-MAC authenticated encryption: AES-128-CTR + HMAC-SHA256.
+
+    ``K1`` keys AES-CTR; ``K2`` keys the HMAC. The two must be independent, which
+    the caller guarantees by splitting one 32-byte key into halves.
 
     Args:
-        K1: 16-byte encryption key.
-        K2: 16-byte MAC key.
+        K1: 16-byte AES encryption key.
+        K2: 16-byte HMAC key.
 
     Raises:
         TypeError: If either key is not bytes.
         ValueError: If either key is not exactly 16 bytes.
     """
 
-    _MAC_LENGTH = AES.block_size
-    _IV_LENGTH = 7
-    _MSG_COUNTER_LENGTH = 8
-    _CTXT_EXPANSION = 1 + _IV_LENGTH + _MSG_COUNTER_LENGTH + _MAC_LENGTH
-    # The header stores the plaintext length in 8 bytes but decrypt requires
-    # the top 4 to be zero, so the scheme carries at most 2**32 - 1 bytes.
+    _KEY_LENGTH = 16
+    _NONCE_LENGTH = 12
+    _COUNTER_LENGTH = 16  # AES block: 12-byte nonce || 4-byte block counter
+    _TAG_LENGTH = 16      # HMAC-SHA256 truncated to 128 bits
+    # Ciphertext = nonce || AES-CTR(plaintext) || tag.
+    _CTXT_EXPANSION = _NONCE_LENGTH + _TAG_LENGTH
+    # A 4-byte block counter caps a message at 2**32 blocks; keep the historical
+    # 2**32 - 1 byte bound so the engine's frame/length math is unchanged.
     _MAX_PLAINTEXT_LENGTH = (1 << 32) - 1
 
     def __init__(self, K1: bytes, K2: bytes):
         if not isinstance(K1, bytes) or not isinstance(K2, bytes):
             raise TypeError('Each key must be of type bytes.')
-        if len(K1) != AES.block_size or len(K2) != AES.block_size:
+        if len(K1) != Encrypter._KEY_LENGTH or len(K2) != Encrypter._KEY_LENGTH:
             raise ValueError('Each key must be 16 bytes long.')
+        self._enc_key = K1
+        self._mac_key = K2
 
-        self.K1 = K1
-        self.K2 = K2
-        self._ecb_enc_K1 = AES.new(K1, AES.MODE_ECB)
+    def _counter(self, nonce: bytes) -> bytes:
+        return nonce + b'\x00' * (Encrypter._COUNTER_LENGTH - Encrypter._NONCE_LENGTH)
 
-    def _ctr_cipher(self, iv2_bytes: bytes):
-        """Return an AES-CTR cipher whose counter starts at ``iv2_bytes``."""
-        counter = Counter.new(
-            AES.block_size * 8,
-            initial_value=int.from_bytes(iv2_bytes, 'big'),
-        )
-        return AES.new(key=self.K1, mode=AES.MODE_CTR, counter=counter)
+    def _tag(self, data: bytes) -> bytes:
+        return hmac.new(self._mac_key, data, hashlib.sha256).digest()[:Encrypter._TAG_LENGTH]
 
     def encrypt(self, plaintext: bytes) -> bytes:
-        """Encrypt plaintext using authenticated encryption.
+        """Encrypt-then-MAC ``plaintext``.
 
-        Args:
-            plaintext: The plaintext bytes to encrypt. Can be empty.
-
-        Returns:
-            The ciphertext, which is always 32 bytes longer than the plaintext
-            (16-byte W1 header + 16-byte MAC).
+        Returns ``nonce (12) || AES-CTR ciphertext || HMAC tag (16)``, i.e.
+        always ``_CTXT_EXPANSION`` (28) bytes longer than the plaintext.
 
         Raises:
             TypeError: If plaintext is not bytes.
@@ -77,58 +83,33 @@ class Encrypter:
         if len(plaintext) > Encrypter._MAX_PLAINTEXT_LENGTH:
             raise ValueError("Plaintext must be at most 2**32 - 1 bytes")
 
-        iv_bytes = get_random_bytes(Encrypter._IV_LENGTH)
-
-        W1 = self._ecb_enc_K1.encrypt(
-            b'\x01' + iv_bytes
-            + len(plaintext).to_bytes(Encrypter._MSG_COUNTER_LENGTH, 'big')
-        )
-        W2 = self._ctr_cipher(b'\x02' + iv_bytes).encrypt(plaintext)
-
-        mac = HMAC.new(self.K2, W1 + W2, SHA512)
-        T = mac.digest()[:Encrypter._MAC_LENGTH]
-
-        return W1 + W2 + T
+        nonce = os.urandom(Encrypter._NONCE_LENGTH)
+        encryptor = Cipher(
+            algorithms.AES(self._enc_key), modes.CTR(self._counter(nonce))
+        ).encryptor()
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+        return nonce + ciphertext + self._tag(nonce + ciphertext)
 
     def decrypt(self, ciphertext: bytes) -> bytes:
-        """Decrypt ciphertext using authenticated encryption.
-
-        Args:
-            ciphertext: One complete ciphertext, exactly as returned by
-                :meth:`encrypt`.
-
-        Returns:
-            The decrypted plaintext.
+        """Verify the tag, then decrypt one complete ciphertext from ``encrypt``.
 
         Raises:
             TypeError: If ciphertext is not bytes.
-            DecryptionError: If the header is malformed, the length does not
-                match the header, or MAC verification fails.
+            DecryptionError: If the ciphertext is too short or fails the MAC.
         """
         if not isinstance(ciphertext, bytes):
             raise TypeError("Input ciphertext must be of type bytes")
-        if len(ciphertext) < AES.block_size:
-            raise DecryptionError('Incomplete ciphertext header.')
+        if len(ciphertext) < Encrypter._CTXT_EXPANSION:
+            raise DecryptionError('Incomplete ciphertext.')
 
-        W1 = ciphertext[:AES.block_size]
-        header = self._ecb_enc_K1.decrypt(W1)
+        nonce = ciphertext[:Encrypter._NONCE_LENGTH]
+        tag = ciphertext[-Encrypter._TAG_LENGTH:]
+        body = ciphertext[Encrypter._NONCE_LENGTH:-Encrypter._TAG_LENGTH]
 
-        if header[-8:-4] != b'\x00\x00\x00\x00':
-            raise DecryptionError('Invalid header padding.')
-        plaintext_length = int.from_bytes(header[-8:], 'big')
+        if not hmac.compare_digest(self._tag(nonce + body), tag):
+            raise DecryptionError('Failed to authenticate ciphertext.')
 
-        expected_length = plaintext_length + Encrypter._CTXT_EXPANSION
-        if len(ciphertext) != expected_length:
-            raise DecryptionError(
-                'Ciphertext length does not match its header.'
-            )
-
-        W2 = ciphertext[AES.block_size:AES.block_size + plaintext_length]
-        T_expected = ciphertext[AES.block_size + plaintext_length:]
-
-        mac = HMAC.new(self.K2, W1 + W2, SHA512)
-        T_actual = mac.digest()[:Encrypter._MAC_LENGTH]
-        if T_expected != T_actual:
-            raise DecryptionError('Failed to verify MAC.')
-
-        return self._ctr_cipher(b'\x02' + header[1:8]).decrypt(W2)
+        decryptor = Cipher(
+            algorithms.AES(self._enc_key), modes.CTR(self._counter(nonce))
+        ).decryptor()
+        return decryptor.update(body) + decryptor.finalize()

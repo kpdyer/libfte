@@ -164,8 +164,8 @@ class Tests(unittest.TestCase):
             fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
 
     def test_finite_format_capacity_zero_allows_only_empty(self):
-        # length=65 hex holds exactly enough for the empty-message frame.
-        cipher = fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=65), key=KEY)
+        # length=58 hex holds exactly enough for the empty-message frame.
+        cipher = fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=58), key=KEY)
         self.assertEqual(cipher.max_plaintext_bytes, 0)
         self.assertEqual(cipher.decrypt(cipher.encrypt(b"")), b"")
         with self.assertRaises(fte.FormatCapacityError):

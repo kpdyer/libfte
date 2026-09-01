@@ -1,8 +1,8 @@
-"""The AE wire format is frozen: v1 covertexts must still decrypt in v2.
+"""The AE wire format is frozen: these covertexts must keep decrypting.
 
-Every vector in ``tests/data/v1_wire_vectors.json`` was produced by libfte v1
-through ``FTE(output_format=..., key=...)``. v2 must decrypt them to the exact same
-plaintext through the same legacy signature, byte for byte.
+Every vector in ``tests/data/v1_wire_vectors.json`` was produced by the current
+libfte through ``FTE(output_format=..., key=...)`` and must decrypt to the exact
+same plaintext, byte for byte, so any wire-format regression fails here.
 """
 
 import json

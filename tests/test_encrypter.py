@@ -42,15 +42,15 @@ class Tests(unittest.TestCase):
             self.assertEqual(P, self.encrypter.decrypt(C))
 
     def test_ciphertext_expansion(self):
-        """Test that ciphertext is exactly 32 bytes longer than plaintext.
-        
-        Expansion = W1 (16 bytes) + MAC (16 bytes) = 32 bytes.
+        """Ciphertext is exactly 28 bytes longer than plaintext.
+
+        Expansion = nonce (12 bytes) + HMAC-SHA256 tag (16 bytes) = 28 bytes.
         """
         for length in [0, 1, 10, 100, 1000]:
             P = b'A' * length
             C = self.encrypter.encrypt(P)
-            # W1=16 bytes header + plaintext + T=16 bytes MAC = plaintext + 32
-            self.assertEqual(len(C), len(P) + 32)
+            self.assertEqual(len(C), len(P) + fte._encrypter.Encrypter._CTXT_EXPANSION)
+            self.assertEqual(len(C), len(P) + 28)
 
     def test_keys_are_required(self):
         """Test that constructing without both keys fails."""

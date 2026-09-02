@@ -57,13 +57,15 @@ class Tests(unittest.TestCase):
     def test_wrong_tweak_rejected_when_output_dwarfs_input(self):
         # N_out / N_in > 2**60, so a wrong-tweak decryption almost surely
         # deciphers to a rank >= N_in and is rejected as never-a-covertext.
-        digits = fte.RegexFormat(r"^[0-9]+$", length=4)      # 10**4
-        hex_fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=20)  # 16**20 = 2**80
+        # The input domain must clear the one-million floor, so 10**6
+        # digits map into 16**24 = 2**96 hex words.
+        digits = fte.RegexFormat(r"^[0-9]+$", length=6)      # 10**6
+        hex_fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=24)  # 16**24 = 2**96
         self.assertGreater(hex_fmt.cardinality / digits.cardinality, 2 ** 60)
         eng = FTE(input_format=digits, output_format=hex_fmt, cipher="ff1",
                   key=KEY)
-        ct = eng.encrypt(b"1234", tweak=b"per-record-A")
-        self.assertEqual(eng.decrypt(ct, tweak=b"per-record-A"), b"1234")
+        ct = eng.encrypt(b"123456", tweak=b"per-record-A")
+        self.assertEqual(eng.decrypt(ct, tweak=b"per-record-A"), b"123456")
         with self.assertRaises(InvalidCovertextError):
             eng.decrypt(ct, tweak=b"per-record-B")
 

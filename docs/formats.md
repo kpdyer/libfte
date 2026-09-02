@@ -125,12 +125,14 @@ default. That same limit is the guard that lets decryption reject an oversized
 rank before converting it back into a potentially large byte string, so set it
 explicitly only to tighten that bound or to cap an unbounded provider. It is a
 bytes-input knob: with a non-bytes `input_format` the argument is rejected
-(`ValueError`), and the property reports the serialization size of the
-input's largest rank (or `None` for the deterministic cipher).
+(`ValueError`), and the property reports the fixed serialization width
+described below (or `None` for the deterministic cipher).
 
 The version-one frame is variable length for a bytes input. Anyone who can rank
 a covertext can therefore infer its exact plaintext byte length without knowing
-the key. The mapping guarantees
+the key. (With a non-bytes `input_format` the input rank is serialized at a
+fixed width, so every frame has the same length and the covertext reveals
+nothing about the plaintext value; see below.) The mapping guarantees
 membership in the format's language, but it is not uniform over unused rank
 capacity when a finite provider is much larger than the message requires.
 Applications needing length hiding or a target distribution must add an
@@ -148,23 +150,25 @@ expose `decrypt` directly as a remote timing oracle to untrusted callers.
 
 Any provider can also be the `input_format`. With the `aes-ctr-hmac` cipher
 (which must be spelled out for a non-bytes input; the engine only infers it for
-raw bytes) the plaintext is ranked, the rank is serialized as a byte string
-(shortlex, so its length grows with the rank), and that byte string goes
-through the same randomized, authenticated frame as a bytes plaintext.
-`max_plaintext_bytes` reports the serialized size of the largest input rank,
-and a finite output must have room for that plus the 29-byte frame or
-construction raises `FormatCapacityError`.
+raw bytes) the plaintext is ranked, the rank is serialized at a fixed width
+`W`, the smallest `W` with `256**W >= cardinality`, and that byte string goes
+through the same randomized, authenticated frame as a bytes plaintext. Because
+the width is fixed by the input's `cardinality`, the frame length never depends
+on the plaintext value. `max_plaintext_bytes` reports `W`, and a finite output
+must have room for a `W + 29` byte frame or construction raises
+`FormatCapacityError`. Decryption rejects an authentic frame whose payload is
+not exactly `W` bytes.
 
 ```python
 from fte import FTE, RegexFormat
 
-digits = RegexFormat(r"^[0-9]+$", length=12)      # 10**12 values: 5 bytes
+digits = RegexFormat(r"^[0-9]+$", length=12)      # 10**12 values: W = 5
 hex128 = RegexFormat(r"^[0-9a-f]+$", length=128)
 shared_32_byte_key = bytes(range(32))             # demo only; use a real secret
 
 cipher = FTE(input_format=digits, output_format=hex128,
              key=shared_32_byte_key, cipher="aes-ctr-hmac")
-assert cipher.max_plaintext_bytes == 5            # the largest rank needs 5
+assert cipher.max_plaintext_bytes == 5            # 256**4 < 10**12 <= 256**5
 covertext = cipher.encrypt(b"123456789012")       # 128 hex bytes; random nonce
 assert cipher.decrypt(covertext) == b"123456789012"
 ```
@@ -174,10 +178,11 @@ The deterministic cipher (`cipher="ff1"`, or any object with
 an input rank straight to an output rank with no framing and no expansion. It
 needs both formats to be finite and fingerprinted, the input cardinality must
 not exceed the output cardinality (a permutation cannot be injective
-otherwise), and the output domain must clear the one-million format-preserving
+otherwise), and the input domain must clear the one-million format-preserving
 floor or construction raises `SmallDomainError`; with inferred length
-preservation every non-empty length slice must clear it. Passing the same
-fingerprinted format on both
+preservation every non-empty length slice must clear it. The floor applies to
+the input domain because the strength of a deterministic map is bounded by the
+input space, not by the key. Passing the same fingerprinted format on both
 sides infers `cipher="ff1"`. The cardinality check runs before libffx is
 imported, so a bare provider such as `LowerHex` is refused even without the
 `fpe` extra:

@@ -15,12 +15,12 @@ choices shape it:
 
 That gives a 2x2 of behaviors:
 
-===============  =========================  ============================
-cipher \\ format  input == output            input != output
-===============  =========================  ============================
-``ff1`` / obj    FPE (in place)             deterministic FTE (rank map)
-``aes-ctr-hmac``           authenticated, expanding   classic bytes -> AE -> format
-===============  =========================  ============================
+================  =========================  ============================
+cipher \\ format   input == output            input != output
+================  =========================  ============================
+``ff1`` / obj     FPE (in place)             deterministic FTE (rank map)
+``aes-ctr-hmac``  authenticated, expanding   classic bytes -> AE -> format
+================  =========================  ============================
 
 The engine owns the cryptography; a format owns nothing but its ordering. See
 :mod:`fte.formats` for the provider contract.
@@ -150,13 +150,16 @@ class FTE(Generic[Plaintext, Covertext]):
     With the ``aes-ctr-hmac`` cipher the covertext is randomized and authenticated, so
     encrypting the same plaintext twice yields two different covertexts: they
     are re-drawn per call. This holds for a non-bytes input too, whose rank is
-    serialized and then run through the same randomized AE frame.
+    serialized at a fixed width (set by the input format's cardinality, so the
+    frame length never depends on the plaintext) and then run through the same
+    randomized AE frame.
 
     The deterministic (``ff1`` / object) cipher is, by contrast,
     *deterministic* and *unauthenticated*: equal plaintexts map to equal
     covertexts, so it leaks plaintext equality, and its effective strength is
-    bounded by the size of the input space rather than by the key. Pass a
-    distinct per-record ``tweak`` to separate encryptions.
+    bounded by the size of the input space rather than by the key, so the
+    one-million floor is enforced on the input domain. Pass a distinct
+    per-record ``tweak`` to separate encryptions.
     """
 
     _FRAME_VERSION = frame.FRAME_VERSION
@@ -356,12 +359,14 @@ class FTE(Generic[Plaintext, Covertext]):
         # The format-preserving floor is always enforced: FF1 is insecure over a
         # domain small enough to brute-force, so a too-small domain is refused
         # rather than made opt-outable.
+        # The strength of a deterministic map is bounded by the input space,
+        # so the floor applies to n_in (n_in <= n_out, so n_out clears it too).
         if preserve_length:
             self._check_slice_domains(_FF1_DOMAIN_FLOOR)
-        elif self._n_out < _FF1_DOMAIN_FLOOR:
+        elif self._n_in < _FF1_DOMAIN_FLOOR:
             raise SmallDomainError(
-                f"output domain {self._n_out} is below the format-preserving "
-                f"floor {_FF1_DOMAIN_FLOOR}; enlarge the format"
+                f"input domain {self._n_in} is below the format-preserving "
+                f"floor {_FF1_DOMAIN_FLOOR}; enlarge the input format"
             )
 
         # Resolve the concrete cipher object.
@@ -436,11 +441,19 @@ class FTE(Generic[Plaintext, Covertext]):
             self._max_frame_bytes = effective + 1 + self._CIPHERTEXT_EXPANSION
             return
 
-        # AE over a finite non-bytes input: the plaintext is the shortlex
-        # serialization of an input rank in [0, n_in), so the largest frame is
-        # fixed by the serialization of n_in - 1. There is no separate resource
-        # knob (max_plaintext_bytes was rejected earlier).
-        max_pt_bytes = frame.rank_byte_length(self._n_in - 1)
+        # AE over a finite non-bytes input: the plaintext is the fixed-width
+        # big-endian serialization of an input rank in [0, n_in), padded to the
+        # smallest W with 256**W >= n_in, so every frame has the same length
+        # and the covertext reveals nothing about the rank. (The shortlex
+        # length of n_in - 1 would be one byte short for e.g. n_in = 257.)
+        # There is no separate resource knob (max_plaintext_bytes was rejected
+        # earlier).
+        if self._n_in is None:
+            raise FormatCapacityError(
+                "a non-bytes input_format must expose a finite cardinality "
+                "for the 'aes-ctr-hmac' cipher"
+            )
+        max_pt_bytes = ((self._n_in - 1).bit_length() + 7) // 8
         self._resource_max = max_pt_bytes
         self._capacity_limit = max_pt_bytes
         self._max_plaintext_bytes = max_pt_bytes
@@ -499,8 +512,9 @@ class FTE(Generic[Plaintext, Covertext]):
         back to a 1 MiB default, and an explicit ``max_plaintext_bytes``
         lowers it further. It is also the guard that lets ``decrypt`` reject
         an oversized covertext before materializing a huge integer. For a
-        finite non-bytes input it is the fixed serialization size of the
-        input's largest rank; for the deterministic cipher it is ``None``.
+        finite non-bytes input it is the fixed serialization width of every
+        input rank, set by the input's cardinality (so the frame length never
+        depends on the plaintext); for the deterministic cipher it is ``None``.
         """
 
         return self._max_plaintext_bytes
@@ -654,7 +668,7 @@ class FTE(Generic[Plaintext, Covertext]):
                 raise InvalidPlaintextError(
                     "plaintext rank is outside the input format's rank space"
                 )
-            pt_bytes = frame.rank_to_bytes(r)
+            pt_bytes = r.to_bytes(self._max_plaintext_bytes, "big")
 
         ciphertext = self._encrypter.encrypt(pt_bytes)
         framed = self._FRAME_VERSION + ciphertext
@@ -667,6 +681,14 @@ class FTE(Generic[Plaintext, Covertext]):
             ) from exc
 
     def _decrypt_ae(self, covertext: Covertext) -> Plaintext:
+        # A bytes covertext longer than the largest frame can never decrypt;
+        # reject it before rank() materializes a huge integer from junk.
+        if (
+            isinstance(self._output_format, BytesFormat)
+            and isinstance(covertext, (bytes, bytearray))
+            and len(covertext) > self._max_frame_bytes
+        ):
+            raise InvalidCovertextError("invalid covertext")
         try:
             index = self._output_format.rank(covertext)
         except Exception as exc:
@@ -704,7 +726,9 @@ class FTE(Generic[Plaintext, Covertext]):
 
         if self._input_is_bytes:
             return pt_bytes
-        r = frame.bytes_to_rank(pt_bytes)
+        if len(pt_bytes) != self._max_plaintext_bytes:
+            raise InvalidCovertextError("invalid covertext")
+        r = int.from_bytes(pt_bytes, "big")
         if r >= self._n_in:
             raise InvalidCovertextError("invalid covertext")
         return self._input_format.unrank(r)

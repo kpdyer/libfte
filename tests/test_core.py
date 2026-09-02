@@ -320,6 +320,21 @@ class Tests(unittest.TestCase):
         for plaintext in (b"", b"x", b"hello", os.urandom(64)):
             self.assertEqual(receiver.decrypt(sender.encrypt(plaintext)), plaintext)
 
+    def test_bytes_output_rejects_oversized_covertext_cheaply(self):
+        cipher = fte.FTE(output_format=fte.BytesFormat(), key=bytes(32))
+
+        junk = b"\x00" * (cipher.max_plaintext_bytes + 1000)
+        with self.assertRaises(fte.InvalidCovertextError):
+            cipher.decrypt(junk)
+        # The size guard accepts a bytearray covertext as well.
+        with self.assertRaises(fte.InvalidCovertextError):
+            cipher.decrypt(bytearray(junk))
+        # Non-bytes covertexts still fail through the format's rank().
+        with self.assertRaises(fte.InvalidCovertextError):
+            cipher.decrypt("not bytes")
+        for plaintext in (b"", b"hello", os.urandom(64)):
+            self.assertEqual(cipher.decrypt(cipher.encrypt(plaintext)), plaintext)
+
     def test_max_plaintext_bytes_zero_allows_only_empty(self):
         cipher = fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=0)
 

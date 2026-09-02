@@ -7,18 +7,25 @@ import unittest
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# tests/ sits directly under the checkout, so the project root is one level
+# up. It goes on the child's PYTHONPATH so the child imports *this* fte
+# rather than whichever one happens to be installed.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # Runs in a child interpreter with regex2dfa blocked: sys.modules[name] = None
 # makes any "import regex2dfa" raise ImportError, simulating an environment
 # where regex2dfa is not installed.
 CHILD_SCRIPT = """
+import os
 import sys
 
 sys.modules['regex2dfa'] = None
 
 import fte
 
+# sys.argv[1] is PROJECT_ROOT: the checkout's own package must be the one
+# imported, not an installed copy (and not a sibling of the checkout).
+assert fte.__file__.startswith(os.path.join(sys.argv[1], 'fte', '')), fte.__file__
 assert issubclass(fte.FTE, object)
 assert isinstance(fte.RankedFormat, type)
 
@@ -46,7 +53,7 @@ else:
 class Tests(unittest.TestCase):
     def test_import_fte_without_regex2dfa(self):
         result = subprocess.run(
-            [sys.executable, "-c", CHILD_SCRIPT],
+            [sys.executable, "-c", CHILD_SCRIPT, str(PROJECT_ROOT)],
             env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT)},
             capture_output=True,
             text=True,

@@ -49,11 +49,5 @@ class BytesFormat:
             raise ValueError("index must be a non-negative integer")
         return frame.rank_to_bytes(index)
 
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, BytesFormat)
-
-    def __hash__(self) -> int:
-        return hash(BytesFormat)
-
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return "BytesFormat()"

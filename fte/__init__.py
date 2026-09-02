@@ -11,7 +11,7 @@ format. Two independent choices shape it:
   the classic AES-CTR + HMAC path) or ``"ff1"`` (deterministic, zero-expansion,
   format-preserving, via the libffx package).
 
-FPE is simply the case ``input_format == output_format``: equal formats infer
+FPE is simply the same format on both sides (equal fingerprints): equal formats infer
 the deterministic cipher and re-encrypt a value in place. Classic FTE (bytes
 hidden as covertext) is the case where the input is raw bytes::
 

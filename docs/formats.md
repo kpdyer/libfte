@@ -228,6 +228,15 @@ length arguments are missing, mixed, or not positive integers with
 `min_length <= max_length`; if `pattern` is not a valid regular expression; or if
 the language has no words in the requested length range.
 
+Construction also raises `ValueError`, before `regex2dfa` runs, for syntax that
+`regex2dfa` would silently misread rather than reject: brace quantifiers such
+as `{3}` or `{2,4}` (write `\{` or `[{]` for a literal brace), escapes it does
+not implement (`\D`, `\S`, `\W`, `\b`, backreferences, octal escapes, `\x`
+without exactly two hex digits), a backslash anywhere inside `[...]`, an empty
+or POSIX class, empty alternatives and empty groups, and `^` or `$` away from
+the start or end of the pattern or of an alternative. [`fte/formats/regex/README.md`](../fte/formats/regex/README.md)
+lists the supported dialect in full.
+
 `regex2dfa` compiles the pattern to a minimized DFA, so two patterns that denote
 the same language produce byte-identical ranking: `^[ab]+$` and `^(a|b)+$`
 interoperate. The wire contract is the format (the language, the length bounds,

@@ -59,6 +59,69 @@ above holds up to 7 plaintext bytes at `length=72` and 35 at `length=128`
 (`cipher.max_plaintext_bytes`). Construction also raises `ValueError` if the
 language has no words in the requested length range.
 
+## Supported syntax
+
+`RegexFormat` hands the pattern to `regex2dfa`, whose dialect is smaller than
+Python's `re`. The pattern always describes the whole covertext (there is no
+unanchored search), and the alphabet is bytes: `.` means any of the 256 byte
+values, newline included. Everything below was verified against the DFAs
+regex2dfa emits.
+
+Supported:
+
+- Literal characters. A character in U+0080..U+00FF stands for the byte of the
+  same value; anything above raises `ValueError` (patterns denote byte
+  languages).
+- The quantifiers `*`, `+`, `?`; alternation `|`; groups `(...)`, nested and
+  quantified (`(ab)+`).
+- Character classes `[abc]`, ranges `[a-z]`, several ranges `[a-cx-z]`, negated
+  classes `[^a]`, and a literal `-` at either end (`[-a]`, `[a-]`). Punctuation
+  is literal inside a class, `[{}$.*|(]` included.
+- The escapes `\n`, `\t`, `\r`, `\0` (NUL), `\xHH` (exactly two hex digits),
+  `\d` (`[0-9]`), `\w` (`[0-9A-Za-z_]`), and `\s` (tab, newline, carriage
+  return, space; not `\v` or `\f`), plus a backslash before any punctuation
+  character for that literal character (`\.`, `\\`, `\{`, `\$`, ...).
+- `^` at the start and `$` at the end of the pattern or of an alternative
+  (`^a$|^b$`). They are optional: `a`, `^a`, `a$`, and `^a$` denote the same
+  language.
+
+Rejected by `RegexFormat` with `ValueError` before compilation, because
+regex2dfa would silently misread them (as literal text, or by dropping or
+rebinding them):
+
+- Brace quantifiers `{n}`, `{n,m}`, `{n,}`, `{,m}`: any unescaped `{` outside a
+  class. Write `\{` or `[{]` for a literal brace; `}` on its own is fine.
+- Every other backslash-letter or backslash-digit escape: `\D`, `\S`, `\W`,
+  `\b`, `\B`, `\A`, `\Z`, `\f`, `\v`, `\a`, `\e`, `\u...`, `\p{...}`,
+  `\Q...\E`, backreferences `\1`..`\9`, and so on. regex2dfa does not support
+  them (it compiles most to the bare letter or digit, and `\C` to any byte).
+  Spell the class out instead (`[^0-9]` for `\D`).
+- Octal escapes (`\012`) and `\x` with fewer than two hex digits.
+- A backslash inside a character class (`[\d]`, `[\n]`, `[\]]`, `[\\]`):
+  regex2dfa has no escapes inside `[...]`, so the backslash is a literal
+  backslash and the first `]` still closes the class. Write the escape outside
+  the class, or put the actual character in the string (`'[\t ]'` in a non-raw
+  Python string).
+- An empty class `[]` or `[^]` (the first `]` always closes the class), and
+  POSIX classes like `[[:alpha:]]`.
+- `^` or `$` anywhere but the start or end of the pattern or of an alternative
+  (`^a$b$`): regex2dfa drops them. Write `\^` or `[$]` for the literal
+  character. A `\$` at the very end of the pattern is rejected too: regex2dfa
+  strips the final `$` before parsing, and the dangling backslash would become
+  a NUL byte. Write `\$$` or `[$]` instead. A pattern ending in a bare
+  backslash is rejected for the same reason.
+- Empty alternatives (`a|`, `|a`, `a||b`, `(|a)`, `(a|)`): regex2dfa rejects
+  most of them, but one right before `)` silently folds the atom before the
+  group into the alternation (`x(b|)y` becomes `(x|b)y`). Write `?` after a
+  group for an optional group (`x(b)?y`).
+- An empty group `()`: regex2dfa applies a quantifier after it to the
+  preceding atom instead (`a()*` becomes `a*`).
+
+regex2dfa rejects the rest itself, and `RegexFormat` reports that as
+`ValueError` too: lazy and possessive quantifiers (`a+?`, `a*+`), every `(?...)`
+form (non-capturing groups, flags, lookaround, named groups), unclosed classes,
+reversed ranges, and patterns denoting the empty language (`^$`).
+
 ## What's in here
 
 - [`format.py`](format.py): `RegexFormat`, the provider. Its whole job is the two

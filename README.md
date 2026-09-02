@@ -258,7 +258,23 @@ fte.RegexFormat(pattern: str, *, min_length: int, max_length: int)  # range
 
 `length=N` is shorthand for `min_length=max_length=N`; pass either `length` or
 the `min_length`/`max_length` pair, not both. Construction raises `ValueError`
-if the language has no words in the requested length range.
+if the language has no words in the requested length range, if the pattern is
+not a valid regular expression, or if it uses syntax that regex2dfa would
+silently misread. The pattern always matches the whole covertext, and the
+dialect is smaller than Python's `re` (literals, `*` `+` `?`, `|`, `(...)`,
+classes with ranges and `^` negation, `.` for any of the 256 bytes, the escapes
+`\n` `\t` `\r` `\0` `\xHH` `\d` `\s` `\w`, and a backslash before any
+punctuation character). Rejected up front: brace quantifiers (`{3}`, `{2,4}`:
+any unescaped `{` outside a class; write `\{` or `[{]` for a literal brace);
+every other backslash-letter or backslash-digit escape (`\D` `\S` `\W` `\b`
+`\B` `\A` `\Z` `\z` `\f` `\v` `\a` `\e` `\u...` `\p{...}` `\Q...\E`,
+backreferences `\1`..`\9`, and so on); octal escapes (`\012`) and `\x` without
+exactly two hex digits; a backslash anywhere inside `[...]` (`[\d]`, `[\n]`,
+`[\]]`, `[\\]`); an empty class `[]` or `[^]`; POSIX classes (`[[:alpha:]]`);
+`^` or `$` anywhere but the start or end of the pattern or of an alternative;
+empty alternatives (`(a|)`; write `(a)?`) and empty groups `()`; and a pattern
+ending in a bare backslash or in `\$` (write `\$$` or `[$]`). See
+[`fte/formats/regex/README.md`](fte/formats/regex/README.md) for the full list.
 
 ### `fte.BytesFormat`
 

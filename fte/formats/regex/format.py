@@ -40,8 +40,181 @@ def _positive_int(name: str, value: object) -> int:
     return value
 
 
+# The backslash-letter escapes regex2dfa implements (checked against the DFAs
+# it emits). ``\x`` is handled separately because it takes two hex digits.
+# Every other backslash-letter or backslash-digit pair is compiled to the bare
+# letter or digit, so the scanner below rejects it instead.
+_ESCAPES = frozenset("ntr0dsw")
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+
+def _check_pattern_syntax(pattern: str) -> None:
+    """Reject syntax that regex2dfa would silently misread.
+
+    regex2dfa raises its own error for lazy quantifiers, ``(?...)`` groups and
+    malformed patterns, but it reads several other constructs as plain text
+    (or drops them) rather than reporting them. This single left-to-right pass
+    catches those before compilation; see the ``RegexFormat`` docstring and
+    ``fte/formats/regex/README.md`` for the dialect it enforces.
+    """
+
+    for i, c in enumerate(pattern):
+        if ord(c) > 0xFF:
+            raise ValueError(
+                f"character {c!r} (U+{ord(c):04X}) at position {i} in "
+                f"{pattern!r} is not a byte: patterns denote byte languages, "
+                "so every character must be in U+0000..U+00FF"
+            )
+
+    n = len(pattern)
+    i = 0
+    prev = ""  # the previous significant character, "" after escapes/classes
+    # Whether the current alternative (since the pattern start, the last '('
+    # or the last '|') has no atom yet, and which of those opened it.
+    empty_alt = True
+    alt_start = ""
+    while i < n:
+        c = pattern[i]
+        if c == "\\":
+            # An escape pair: the backslash and the character it protects.
+            esc = pattern[i + 1 : i + 2]
+            if esc == "" or (esc == "$" and i + 2 == n):
+                # regex2dfa strips a final '$' before parsing, so a pattern
+                # ending in '\' or '\$' leaves a dangling backslash that it
+                # compiles to a NUL byte.
+                raise ValueError(
+                    f"pattern {pattern!r} ends in a dangling backslash: "
+                    "regex2dfa strips the final '$' first and compiles what "
+                    "is left to a NUL byte; write '\\$$' or '[$]' for a "
+                    "literal '$'"
+                )
+            if esc == "x":
+                digits = pattern[i + 2 : i + 4]
+                if len(digits) != 2 or not set(digits) <= _HEX_DIGITS:
+                    raise ValueError(
+                        f"'\\x' at position {i} in {pattern!r} needs exactly "
+                        "two hex digits: regex2dfa reads a shorter one at "
+                        "the end of the pattern as a different byte"
+                    )
+                i += 4
+                prev = ""
+                empty_alt = False
+                continue
+            if esc == "0" and pattern[i + 2 : i + 3] in tuple("0123456789"):
+                raise ValueError(
+                    f"regex2dfa has no octal escapes: {pattern[i:i + 3]!r} "
+                    f"in {pattern!r} is a NUL byte followed by the literal "
+                    f"digit {pattern[i + 2]!r}; write '\\xHH' instead"
+                )
+            if esc.isascii() and esc.isalnum() and esc not in _ESCAPES:
+                raise ValueError(
+                    f"regex2dfa does not implement the escape "
+                    f"{pattern[i:i + 2]!r} at position {i} in {pattern!r}: "
+                    "it is unsupported and would not mean what it means in "
+                    "Python's re (the supported escapes are \\n \\t \\r \\0 "
+                    "\\xHH \\d \\s \\w and a backslash before punctuation)"
+                )
+            i += 2
+            prev = ""
+            empty_alt = False
+            continue
+        if c == "[":
+            # A character class. regex2dfa has no escapes inside one (a
+            # backslash is a literal backslash) and the first ']' always
+            # closes it, so '[]' is empty and '[\]]' is not what it looks like.
+            start = i + 2 if pattern.startswith("[^", i) else i + 1
+            end = pattern.find("]", start)
+            if end == -1:
+                break  # unclosed: regex2dfa reports it
+            body = pattern[start:end]
+            if not body:
+                raise ValueError(
+                    f"regex2dfa closes a character class at the first ']', "
+                    f"so {pattern[i:end + 1]!r} at position {i} in "
+                    f"{pattern!r} is an empty class; write '\\]' outside a "
+                    "class for a literal ']'"
+                )
+            if "\\" in body:
+                raise ValueError(
+                    f"regex2dfa has no escapes inside a character class: the "
+                    f"backslash in {pattern[i:end + 1]!r} at position {i} in "
+                    f"{pattern!r} is a literal backslash and ']' still closes "
+                    "the class; write the escape outside the class or list "
+                    "the characters directly"
+                )
+            if "[:" in body:
+                raise ValueError(
+                    f"regex2dfa has no POSIX classes: '[:' in "
+                    f"{pattern[i:end + 1]!r} at position {i} in {pattern!r} "
+                    "would be matched literally; write the range out instead "
+                    "(e.g. '[A-Za-z]')"
+                )
+            i = end + 1
+            prev = "]"
+            empty_alt = False
+            continue
+        if c == "{":
+            raise ValueError(
+                f"regex2dfa has no brace quantifiers: '{{' at position {i} "
+                f"in {pattern!r} would be matched literally; write '\\{{' "
+                "or '[{]' for a literal brace"
+            )
+        # Anchors are meaningful only at the start or end of the pattern or
+        # of an alternative; regex2dfa silently ignores them anywhere else.
+        if c == "^" and i > 0 and prev not in ("(", "|", "^"):
+            raise ValueError(
+                f"regex2dfa ignores '^' in the middle of a pattern (position "
+                f"{i} in {pattern!r}; every pattern is matched in full); "
+                "write '\\^' for a literal caret"
+            )
+        if c == "$" and i + 1 < n and pattern[i + 1] not in ")|$":
+            raise ValueError(
+                f"regex2dfa ignores '$' in the middle of a pattern (position "
+                f"{i} in {pattern!r}; every pattern is matched in full); "
+                "write '[$]' for a literal dollar sign"
+            )
+        # Empty alternatives and empty groups. regex2dfa rejects most empty
+        # alternatives itself, but one right before ')' silently folds the
+        # atom before the group into the alternation ('x(b|)y' becomes
+        # '(x|b)y'), and a quantifier after '()' silently binds to the
+        # preceding atom ('a()*' becomes 'a*').
+        if c == "(":
+            empty_alt = True
+            alt_start = "("
+        elif c == "|":
+            if empty_alt:
+                raise ValueError(_empty_alternative(pattern, i))
+            empty_alt = True
+            alt_start = "|"
+        elif c == ")":
+            if empty_alt and alt_start == "|":
+                raise ValueError(_empty_alternative(pattern, i))
+            if empty_alt:
+                raise ValueError(
+                    f"empty group '()' at position {i - 1} in {pattern!r}: "
+                    "regex2dfa applies a quantifier after it to the "
+                    "preceding atom instead ('a()*' becomes 'a*')"
+                )
+            empty_alt = False
+        elif c not in "^$":
+            empty_alt = False
+        i += 1
+        prev = c
+    if empty_alt and alt_start == "|":
+        raise ValueError(_empty_alternative(pattern, n))
+
+
+def _empty_alternative(pattern: str, i: int) -> str:
+    return (
+        f"empty alternative at position {i} in {pattern!r}: regex2dfa "
+        "rejects most of these and silently rewrites the language for one "
+        "before ')' ('x(b|)y' becomes '(x|b)y'); write '?' after a group "
+        "for an optional group"
+    )
+
+
 class RegexFormat:
-    """A ranked byte format compiled from a regular expression.
+    r"""A ranked byte format compiled from a regular expression.
 
     Every covertext matches ``pattern`` and has a length in
     ``[min_length, max_length]``. The rank space is ``range(cardinality)``, where
@@ -69,9 +242,30 @@ class RegexFormat:
     Raises:
         TypeError: If ``pattern`` is not a string.
         ValueError: If the length arguments are missing, mixed, or not positive
-            integers with ``min_length <= max_length``; if ``pattern`` is not a
-            valid regular expression; or if the language has no words in the
-            requested length range.
+            integers with ``min_length <= max_length``; if ``pattern`` has a
+            character above U+00FF (patterns denote byte languages); if it
+            uses syntax regex2dfa would silently misread (a brace quantifier
+            such as ``{3}``, an escape it does not implement such as ``\D``,
+            a backslash inside ``[...]``, a mid-pattern ``^`` or ``$``, an
+            empty alternative or an empty group ``()``; see the note below);
+            if ``pattern`` is otherwise not a valid regular expression
+            (including one denoting the empty language, such as ``^$``); or
+            if the language has no words in the requested length range.
+
+    Note:
+        **Supported syntax.** The pattern goes to ``regex2dfa``, whose dialect
+        is smaller than Python's ``re`` and always matches the whole
+        covertext. Supported: literal characters, the quantifiers ``*`` ``+``
+        ``?``, alternation ``|``, groups ``(...)``, character classes with
+        ranges and ``^`` negation, ``.`` for any of the 256 bytes, the escapes
+        ``\n`` ``\t`` ``\r`` ``\0`` ``\xHH`` ``\d`` ``\s`` ``\w``, and a
+        backslash before any punctuation character for that literal character
+        (so ``\{`` or ``[{]`` is a literal brace). Brace quantifiers, other
+        letter or digit escapes, escapes inside ``[...]``, ``^``/``$`` away
+        from the edges of the pattern or of an alternative, empty
+        alternatives (``a|``, ``(a|)``) and empty groups (``()``) are
+        rejected up front because regex2dfa would misread them. See
+        ``fte/formats/regex/README.md`` for the full list.
 
     Example:
         >>> fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
@@ -79,6 +273,12 @@ class RegexFormat:
         True
         >>> fmt.unrank(fmt.rank(fmt.unrank(0))) == fmt.unrank(0)
         True
+        >>> RegexFormat(r"^\{[0-9]+\}$", length=4).unrank(0)
+        b'{00}'
+        >>> RegexFormat(r"^[0-9]{3}$", length=3)  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+            ...
+        ValueError: regex2dfa has no brace quantifiers: ...
     """
 
     __slots__ = (
@@ -122,13 +322,16 @@ class RegexFormat:
         else:
             raise ValueError("provide length, or min_length and max_length")
 
+        _check_pattern_syntax(pattern)
         try:
-            dfa_str = regex2dfa.regex2dfa(pattern)
-        except Exception as exc:  # regex2dfa raises its own parser errors
+            # regex2dfa raises its own parser errors; the DFA rejects an
+            # automaton with no symbols, which is what an empty-language
+            # pattern such as '^$' compiles to.
+            dfa = DFA(regex2dfa.regex2dfa(pattern), hi)
+        except Exception as exc:
             raise ValueError(
                 f"invalid regular expression: {pattern!r}"
             ) from exc
-        dfa = DFA(dfa_str, hi)
 
         # Order the language's slice by length first, then lexicographically
         # within a length. Record where each length starts in the combined rank
@@ -194,6 +397,8 @@ class RegexFormat:
     def rank(self, value: bytes, /) -> int:
         """Return the rank of a canonical covertext ``value``."""
 
+        if not isinstance(value, (bytes, bytearray)):
+            raise TypeError("value must be bytes")
         n = len(value)
         if n < self.min_length or n > self.max_length:
             raise ValueError(

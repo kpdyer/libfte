@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from fte import FTE
+from fte import FTE, frame
 from fte.core import FormatCapacityError
 from regex_corpus_data import CORPUS
 from fte.formats.regex.format import RegexFormat
@@ -120,12 +120,19 @@ def test_out_of_range_ranks_rejected(label):
 
 
 @pytest.mark.parametrize("label", _IDS)
-def test_fte_end_to_end_where_capacity_allows(label):
+def test_fte_end_to_end_or_capacity_rejection(label):
+    # Every corpus format either carries an authenticated frame end to end or
+    # is refused at construction. The frame math decides which, so both
+    # branches are checked against it rather than skipping the small ones.
     fmt = _format_for(label)
-    try:
-        cipher = FTE(output_format=fmt, key=_KEY)
-    except FormatCapacityError:
-        pytest.skip("format too small to hold an encrypted frame")
+    fits = frame.capacity_plaintext_limit(
+        fmt.cardinality, FTE._CIPHERTEXT_EXPANSION
+    ) >= 0
+    if not fits:
+        with pytest.raises(FormatCapacityError):
+            FTE(output_format=fmt, key=_KEY)
+        return
+    cipher = FTE(output_format=fmt, key=_KEY)
     limit = cipher.max_plaintext_bytes
     payloads = {b""}
     if limit >= 1:

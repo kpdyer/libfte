@@ -5,6 +5,7 @@ contract (per-length rank/unrank, counting, and input validation) worth testing
 directly.
 """
 
+import random
 import unittest
 
 import regex2dfa
@@ -65,6 +66,35 @@ class Tests(unittest.TestCase):
         dfa = build(r"^[01]+$", 4)
         with self.assertRaises(InvalidRankInput):
             dfa.rank(b"01\xff1")  # 0xff is not in the {0, 1} alphabet
+
+    def test_rank_rejects_non_bytes(self):
+        dfa = build(r"^[01]+$", 4)
+        for bad in ("0101", [0x30, 0x31], 0x30, None):
+            with self.subTest(bad=bad):
+                with self.assertRaises(InvalidRankInput):
+                    dfa.rank(bad)
+        # A bytearray is bytes-like and ranks the same as its bytes.
+        self.assertEqual(dfa.rank(bytearray(b"0101")), dfa.rank(b"0101"))
+
+    def test_symbol_outside_byte_range_is_rejected(self):
+        # The alphabet indexes a fixed 256-entry table: a symbol above 255
+        # cannot be stored and a negative one would alias another entry.
+        for symbol in (256, 300, -1):
+            with self.subTest(symbol=symbol):
+                with self.assertRaisesRegex(InvalidFSTFormat, "0..255"):
+                    DFA(f"0\t1\t{symbol}\t{symbol}\n1\n", 2)
+                parsed = ParsedFst(
+                    start_state=0,
+                    final_states=frozenset({1}),
+                    transitions=((0, 1, symbol),),
+                    symbols=(symbol,),
+                )
+                with self.assertRaisesRegex(InvalidFSTFormat, "0..255"):
+                    DFA(parsed, 2)
+        # The byte-range edges are fine.
+        dfa = DFA("0\t1\t0\t0\n0\t1\t255\t255\n1\n", 1)
+        self.assertEqual(dfa.unrank(0, 1), b"\x00")
+        self.assertEqual(dfa.unrank(1, 1), b"\xff")
 
     def test_rank_rejects_non_accepting_word(self):
         # ``^(0|1)[a-z]+$``: a leading digit must be followed by letters. A
@@ -139,6 +169,68 @@ class Tests(unittest.TestCase):
                 self.assertEqual(dfa.rank(word), index)
         self.assertEqual(dfa.unrank(0, 3), b"000")
         self.assertEqual(dfa.rank(b"111"), 7)
+
+    def test_run_grouped_states_match_per_symbol_reference(self):
+        # ``^.*abc$`` over the 256-byte alphabet: every state sends most bytes
+        # to a fallback state and one or two literal bytes elsewhere, so its
+        # transitions group into a handful of runs (one state has five: a
+        # long run, three single bytes, another long run) and rank/unrank
+        # take the run-grouped walk. The expected ranks were computed with
+        # the per-symbol reference implementation.
+        dfa = build(r"^.*abc$", 16)
+        self.assertTrue(any(runs is not None for runs in dfa._runs))
+        self.assertEqual(
+            dfa.num_words(16), 20282409603651670423947251286016
+        )
+        expected = {
+            b"\x00" * 13 + b"abc": 0,
+            b"aaaaaaaaaaaaaabc": 7715269535506713847540719116641,
+            b"abcabcabcabcxabc": 7715581438386765282237680345976,
+            b"hello, worldaabc": 8271117963530313756381553648737,
+            b"~~~~~~~~~~~~~abc": 10021896510039648915362171223678,
+        }
+        for word, index in expected.items():
+            self.assertEqual(dfa.rank(word), index)
+            self.assertEqual(dfa.unrank(index, 16), word)
+        rng = random.Random(16)
+        count = dfa.num_words(16)
+        for index in [0, 1, count - 2, count - 1] + [
+            rng.randrange(count) for _ in range(100)
+        ]:
+            self.assertEqual(dfa.rank(dfa.unrank(index, 16)), index)
+        with self.assertRaises(InvalidRankInput):
+            dfa.rank(b"a" * 16)         # walks run states, never accepts
+        with self.assertRaises(InvalidUnrankInput):
+            dfa.unrank(count, 16)
+
+    def test_mixed_run_and_per_symbol_states_roundtrip(self):
+        # ``^([ac]x|[bd]y)+$`` over the alphabet {a, b, c, d, x, y}: the start
+        # state alternates destinations (five runs, walked per symbol) while
+        # the state after b/d has only two runs (walked by run), so one word
+        # crosses both code paths. Expected ranks come from the per-symbol
+        # reference implementation.
+        dfa = build(r"^([ac]x|[bd]y)+$", 8)
+        self.assertTrue(any(runs is not None for runs in dfa._runs))
+        self.assertEqual(dfa.num_words(8), 256)
+        expected = {
+            b"axaxaxax": 0,
+            b"byaxcxdy": 75,
+            b"cxbydyax": 156,
+            b"dydydydy": 255,
+        }
+        for word, index in expected.items():
+            self.assertEqual(dfa.rank(word), index)
+            self.assertEqual(dfa.unrank(index, 8), word)
+        for index in range(256):
+            word = dfa.unrank(index, 8)
+            self.assertEqual(len(word), 8)
+            self.assertEqual(dfa.rank(word), index)
+        with self.assertRaises(InvalidRankInput):
+            dfa.rank(b"axaxaxaa")       # ends in a non-accepting state
+        with self.assertRaises(InvalidRankInput):
+            dfa.rank(b"axaxaxaz")       # 'z' is outside the alphabet
+        with self.assertRaises(InvalidUnrankInput):
+            dfa.unrank(256, 8)
 
 
 if __name__ == "__main__":

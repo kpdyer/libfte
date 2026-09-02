@@ -16,7 +16,7 @@ This is useful for:
 
 Based on the papers [Protocol Misidentification Made Easy with Format-Transforming Encryption](https://kpdyer.com/publications/ccs2013-fte.pdf) (CCS 2013), which introduced the FTE scheme, and [LibFTE: A Toolkit for Constructing Practical, Format-Abiding Encryption Schemes](https://kpdyer.com/publications/usenix2014-fte.pdf) (USENIX Security 2014), which described the FPE/FTE toolkit this library is named for. See [References](#references).
 
-### One engine, two axes
+### Ciphers and Formats
 
 There is a single engine, `fte.FTE`, that maps `rank_in -> transform ->
 unrank_out`: it ranks a value of the input format to an integer, transforms

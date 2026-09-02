@@ -25,7 +25,11 @@ Unlike standard encryption that produces random-looking output, FTE produces cip
 pip install fte
 ```
 
-Works out of the box with pure Python, no compilation required.
+libfte itself is pure Python. It depends on `cryptography` (AES-CTR on
+OpenSSL; it ships prebuilt wheels with OpenSSL bundled) and `regex2dfa` (pure
+Python), so no compiler or system library is needed on the platforms
+`cryptography` publishes wheels for. Format-preserving encryption needs the
+optional extra: `pip install 'fte[fpe]'`.
 
 ## Quick Example
 
@@ -38,19 +42,35 @@ import fte
 key = os.urandom(32)  # 32 bytes, shared by both endpoints
 
 # Pick a covertext format, then build a cipher over it and the key.
-word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=80)
+# 73 characters of words hold up to 15 plaintext bytes (cipher.max_plaintext_bytes).
+word_format = fte.RegexFormat(r'^([a-z]+ )+[a-z]+$', length=73)
 cipher = fte.FTE(output_format=word_format, key=key)
 
 ciphertext = cipher.encrypt(b'Attack at dawn')
 print(ciphertext.decode())
-# → "a kgxbpxy vpgdigzczzkwlgmapocgjzspnqzilpyhezdbtxalonocvhlpc bbtflzgxhjjjpvmmnvvu"
+# One real run; the exact text varies per call, because the cipher is randomized:
+# aa migbcjfbkvhczkjjwogvkpr m hnczwlthnujcutvnxqtrfhfnvnjhowaax mg nazfkrf
 
 plaintext = cipher.decrypt(ciphertext)
 # → b'Attack at dawn'
 ```
 
+The covertext is a string of the chosen format that carries your encrypted
+message. Because the format holds one byte more than the message needs, the
+covertext can begin with a short run of the format's lowest-ranked symbols
+(`a` and space); a much larger `length` would make that run long.
+
 `RegexFormat` also takes a `min_length`/`max_length` range for variable-length
 covertext; a fixed `length` is the special case where they are equal.
+
+**Format-preserving and deterministic FTE.** `cipher="ff1"` (NIST SP 800-38G
+FF1 via [libffx](https://github.com/kpdyer/libffx); `pip install 'fte[fpe]'`)
+is deterministic and zero-expansion: pass the same format as `input_format`
+and `output_format` to re-encrypt a value in place (FPE, length preserved), or
+two different formats for a deterministic rank map between them. It refuses an
+input domain below one million values, is unauthenticated, and leaks plaintext
+equality, so pass per-record `tweak` values and never reuse a key across the
+two ciphers.
 
 ### Ranked-Format Providers
 
@@ -86,7 +106,8 @@ assert cipher.decrypt(covertext) == b"secret"
 The key and exact ranked-format ordering must match at both endpoints. Generic
 FTE framing exposes plaintext length through the rank and guarantees membership
 in the format's language, not a uniform distribution over unused format
-capacity.
+capacity: a fixed-length covertext much larger than the message begins with a
+run of the format's lowest-ranked symbols.
 
 ## Use Cases
 

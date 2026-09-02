@@ -1,10 +1,11 @@
-"""Regression suite over the 100-regex edge-case corpus.
+"""Regression suite over the 149-regex edge-case corpus.
 
-The corpus (``corpus.py``) plus its frozen goldens (``corpus_golden.json``) pin
-the exact ranking bijection of every edge-case regex. Any change that alters a
-cardinality, an ``unrank`` output, or the ``rank`` inverse fails here, so a
-performance optimization cannot silently change the wire format. Regenerate the
-goldens with ``gen_corpus_golden.py`` only when such a change is intentional.
+The corpus (``regex_corpus_data.py``) plus its frozen goldens
+(``regex_corpus_golden.json``) pin the exact ranking bijection of every
+edge-case regex. Any change that alters a cardinality, an ``unrank`` output, or
+the ``rank`` inverse fails here, so a performance optimization cannot silently
+change the wire format. Regenerate the goldens with
+``gen_regex_corpus_golden.py`` only when such a change is intentional.
 
 Coverage per regex: cardinality, sampled ``unrank`` outputs and their ``rank``
 inverses (all frozen), out-of-range boundaries, length bounds, an independent
@@ -56,7 +57,7 @@ def _format_for(label: str) -> RegexFormat:
 
 
 def test_corpus_size_and_unique_ids():
-    assert len(CORPUS) == 150
+    assert len(CORPUS) == 149
     assert len(_IDS) == len(set(_IDS))
 
 

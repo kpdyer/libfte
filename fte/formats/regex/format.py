@@ -167,9 +167,11 @@ class RegexFormat:
         """Stable identifier for this pattern and length range.
 
         ``sha256(b"fte:regex:1|" + pattern + b"|" + min_length + b"|" +
-        max_length)``, with the lengths in decimal UTF-8. Two ``RegexFormat``
-        instances share a fingerprint exactly when they rank identically,
-        which is what the deterministic engine relies on.
+        max_length)``, with the lengths in decimal UTF-8. It hashes the
+        pattern *text*, so equal fingerprints guarantee identical ranking
+        (which is what the deterministic engine relies on), but two spellings
+        of one language get different fingerprints; use the same pattern
+        string at both endpoints of a deterministic cipher.
         """
 
         return self._fingerprint

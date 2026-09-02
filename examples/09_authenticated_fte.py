@@ -5,8 +5,8 @@
 This is the authenticated row of the 2x2: the wire-frozen AES-CTR + HMAC path.
 ``aes-ctr-hmac`` is randomized and authenticated -- encrypting the same
 plaintext twice yields two different covertexts, and any tampering is detected
-on decrypt. That safety costs a fixed 33-byte frame (a version byte, IV,
-message counter, and MAC).
+on decrypt. That safety costs a fixed 29-byte frame: a version byte, a 12-byte
+random nonce, and a 16-byte HMAC-SHA256 tag (Encrypt-then-MAC over AES-128-CTR).
 
 Here the input is a structured (non-bytes) format -- a 12-digit decimal string --
 re-encrypted as hex. This uses only the built-in engine, no extra dependency.
@@ -20,7 +20,7 @@ as the ``ff1`` format-preserving cipher from the optional libffx integration).
 import os
 
 import fte
-from fte.core import FormatCapacityError, InvalidCovertextError
+from fte import FormatCapacityError, InvalidCovertextError
 
 
 def main():
@@ -68,7 +68,7 @@ def main():
     except FormatCapacityError:
         print(
             "In-place aes-ctr-hmac (same format both sides) is refused at construction: "
-            "the 33-byte frame does not fit -- use ff1 for that."
+            "the 29-byte frame does not fit in 12 digits -- use ff1 for that."
         )
 
     print("\nSuccess! Authenticated FTE round-trips and rejects tampering.")

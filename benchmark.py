@@ -2,15 +2,19 @@
 # -*- coding: utf-8 -*-
 """Benchmark suite for libfte (Format-Transforming Encryption).
 
-libfte is pure Python, and this script measures the two costs that matter
+libfte's ranking engine is pure Python, and this script measures the two costs that matter
 when you use it:
 
   1. Cipher construction:  the one-time cost of compiling a regex into a
      DFA and pre-computing the ranking tables. Paid once per (regex, length).
   2. encrypt() / decrypt(): the steady-state cost paid per message. This is
      dominated by the DFA rank/unrank on large integers, so it grows with the
-     covertext ``length``, not with the plaintext size.
+     covertext ``length`` (the DFA walk) and with the plaintext size (the
+     magnitude of the integer being ranked): a payload that fills the format's
+     capacity can cost several times (up to ~10x) more than a short one.
 
+To show both ends of that range, every format is timed with a short 18-byte
+payload and with a full-capacity payload (``cipher.max_plaintext_bytes``).
 It runs across a range of output formats (binary, hex, words, URLs, ...) and
 also sweeps the covertext ``length`` for one format to show how per-message
 cost scales. Every timed round-trip is verified, so a clean run also doubles as
@@ -48,8 +52,9 @@ FORMATS = [
 LENGTH_SWEEP_REGEX = r"^[a-z]+$"
 LENGTH_SWEEP_VALUES = [128, 256, 512, 1024, 2048]
 
-# Kept short so it fits every fixed-length format above; per-message cost scales
-# with the covertext length, not with the plaintext size.
+# Kept short so it fits every fixed-length format above. Per-message cost also
+# depends on the payload size, so each format is timed with this payload and
+# with one that fills its capacity (see _full_payload).
 SAMPLE_PAYLOAD = b"benchmark payload."
 
 # Fixed key; its value does not affect timing.
@@ -80,7 +85,7 @@ def _cpu_model():
 
 def _print_machine_header():
     print("=" * 76)
-    print("libfte benchmark (pure Python)")
+    print("libfte benchmark (pure-Python ranking, OpenSSL AES/HMAC)")
     print("=" * 76)
     print(f"CPU     : {_cpu_model()}")
     print(f"Arch    : {platform.machine()}")
@@ -108,18 +113,18 @@ def _median_ms(fn, iterations):
 def _bench_build(regex, length, iterations):
     """Median time to construct a cipher (regex -> DFA -> counting table)."""
     def build():
-        fte.FTE(format=fte.RegexFormat(regex, length=length), key=BENCH_KEY)
+        fte.FTE(output_format=fte.RegexFormat(regex, length=length), key=BENCH_KEY)
     return _median_ms(build, iterations)
 
 
-def _bench_format(label, regex, length, payload, iterations, warmup):
-    """Benchmark one cipher: build, encrypt, decrypt, and verify the round-trip."""
-    build_ms = _bench_build(regex, length, max(3, iterations // 5))
+def _full_payload(cipher):
+    """A deterministic payload of exactly ``cipher.max_plaintext_bytes`` bytes."""
+    n = cipher.max_plaintext_bytes
+    return (bytes(range(256)) * (n // 256 + 1))[:n]
 
-    fmt = fte.RegexFormat(regex, length=length)
-    cipher = fte.FTE(format=fmt, key=BENCH_KEY)
-    capacity = fmt.cardinality.bit_length() - 1  # floor(log2(cardinality))
 
+def _bench_round_trip(cipher, payload, iterations, warmup):
+    """Median encrypt / decrypt time for one payload, plus a round-trip check."""
     # Correctness: the whole benchmark is meaningless if the round-trip is wrong.
     ok = cipher.decrypt(cipher.encrypt(payload)) == payload
 
@@ -130,6 +135,25 @@ def _bench_format(label, regex, length, payload, iterations, warmup):
     encrypt_ms = _median_ms(lambda: cipher.encrypt(payload), iterations)
     ct = cipher.encrypt(payload)
     decrypt_ms = _median_ms(lambda: cipher.decrypt(ct), iterations)
+    return ok, encrypt_ms, decrypt_ms
+
+
+def _bench_format(label, regex, length, payload, iterations, warmup):
+    """Benchmark one cipher: build, then encrypt / decrypt a small payload and
+    a full-capacity payload, verifying both round-trips."""
+    build_ms = _bench_build(regex, length, max(3, iterations // 5))
+
+    fmt = fte.RegexFormat(regex, length=length)
+    cipher = fte.FTE(output_format=fmt, key=BENCH_KEY)
+    capacity = fmt.cardinality.bit_length() - 1  # floor(log2(cardinality))
+
+    full = _full_payload(cipher)
+    small_ok, encrypt_ms, decrypt_ms = _bench_round_trip(
+        cipher, payload, iterations, warmup
+    )
+    full_ok, full_encrypt_ms, full_decrypt_ms = _bench_round_trip(
+        cipher, full, iterations, warmup
+    )
 
     return {
         "label": label,
@@ -139,7 +163,10 @@ def _bench_format(label, regex, length, payload, iterations, warmup):
         "build_ms": build_ms,
         "encrypt_ms": encrypt_ms,
         "decrypt_ms": decrypt_ms,
-        "ok": ok,
+        "full_bytes": len(full),
+        "full_encrypt_ms": full_encrypt_ms,
+        "full_decrypt_ms": full_decrypt_ms,
+        "ok": small_ok and full_ok,
     }
 
 
@@ -147,10 +174,26 @@ def _bench_format(label, regex, length, payload, iterations, warmup):
 # Rendering                                                                    #
 # --------------------------------------------------------------------------- #
 
+# Per-message columns: the small payload (SAMPLE_PAYLOAD) and the
+# full-capacity payload (``max(B)`` bytes, the cipher's max_plaintext_bytes).
+_MESSAGE_HEADER = (
+    f"{'enc/small':>11}{'dec/small':>11}"
+    f"{'max(B)':>8}{'enc/max':>10}{'dec/max':>10}"
+)
+
+
+def _format_message_cells(r):
+    return (
+        f"{r['encrypt_ms']:>11.3f}{r['decrypt_ms']:>11.3f}"
+        f"{r['full_bytes']:>8}{r['full_encrypt_ms']:>10.3f}"
+        f"{r['full_decrypt_ms']:>10.3f}"
+    )
+
+
 def _print_format_table(rows):
     header = (
         f"{'Format':<14}{'length':>8}{'cap(bits)':>11}{'bits/char':>11}"
-        f"{'build(ms)':>12}{'encrypt(ms)':>13}{'decrypt(ms)':>13}"
+        f"{'build(ms)':>12}" + _MESSAGE_HEADER
     )
     print(header)
     print("-" * len(header))
@@ -158,18 +201,16 @@ def _print_format_table(rows):
         print(
             f"{r['label']:<14}{r['length']:>8}{r['capacity']:>11}"
             f"{r['bits_per_char']:>11.2f}{r['build_ms']:>12.3f}"
-            f"{r['encrypt_ms']:>13.3f}{r['decrypt_ms']:>13.3f}"
+            + _format_message_cells(r)
         )
 
 
 def _print_sweep_table(rows):
-    header = (f"{'length':<8}{'cap(bits)':>11}"
-              f"{'encrypt(ms)':>13}{'decrypt(ms)':>13}")
+    header = f"{'length':<8}{'cap(bits)':>11}" + _MESSAGE_HEADER
     print(header)
     print("-" * len(header))
     for r in rows:
-        print(f"{r['length']:<8}{r['capacity']:>11}"
-              f"{r['encrypt_ms']:>13.3f}{r['decrypt_ms']:>13.3f}")
+        print(f"{r['length']:<8}{r['capacity']:>11}" + _format_message_cells(r))
 
 
 # --------------------------------------------------------------------------- #
@@ -200,11 +241,13 @@ def main(argv=None):
 
     _print_machine_header()
     print()
-    print(f"Payload : {len(payload)} bytes")
-    print(f"Timing  : median of {iterations} iterations ({warmup} warmup)")
+    print(f"Payloads: small = {len(payload)} bytes; max = the format's full "
+          f"capacity (max_plaintext_bytes)")
+    print(f"Timing  : median of {iterations} iterations ({warmup} warmup); "
+          f"times in ms")
     print()
 
-    print("Per-format performance")
+    print("Per-format performance (per-message times in ms)")
     rows = [
         _bench_format(label, regex, length, payload, iterations, warmup)
         for label, regex, length in FORMATS

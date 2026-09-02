@@ -11,15 +11,22 @@ paths, lowercase words, and so on.
 ```python
 import fte
 
-# Every covertext is exactly 128 bytes of lowercase hex.
+# Every covertext is exactly 72 bytes of lowercase hex.
 cipher = fte.FTE(
-    format=fte.RegexFormat(r'^[0-9a-f]+$', length=128),
+    output_format=fte.RegexFormat(r'^[0-9a-f]+$', length=72),
     key=bytes(range(32)),               # demo key; share a real secret
 )
 
-covertext = cipher.encrypt(b'secret')   # e.g. '9f3c...'  (128 hex chars)
+covertext = cipher.encrypt(b'secret')
+# 72 hex chars, different on every run (the frame carries a random nonce), e.g.
+# b'00029c3526a6938e1c4d94eaa379c2f5380e9aa1ec1a82e114df39e9bbe953862b57b18b'
 assert cipher.decrypt(covertext) == b'secret'
 ```
+
+The leading zeros are the format's spare capacity: the frame for a 6-byte
+message is a little smaller than the largest 72-digit hex number, so the top
+digits come out zero. A message closer to `cipher.max_plaintext_bytes` fills
+them.
 
 ## Fixed vs variable length
 
@@ -43,11 +50,12 @@ Pass either `length`, or the `min_length`/`max_length` pair, not both.
 
 ## Choosing a length
 
-The covertext has to be big enough to hold FTE's authenticated frame (a fixed
-33-byte overhead plus the message). If the format is too small for even an
-empty message, `fte.FTE(...)` raises `FormatCapacityError` at construction. As a
-rule of thumb, capacity grows with the alphabet size and the length: for the hex
-format above, `length=128` holds up to 31 plaintext bytes
+The covertext has to be big enough to hold FTE's authenticated frame: a fixed
+29-byte overhead (1 version byte, a 12-byte random nonce, and a 16-byte
+HMAC-SHA256 tag) plus the message. If the format is too small for even an empty
+message, `fte.FTE(...)` raises `FormatCapacityError` at construction. As a rule
+of thumb, capacity grows with the alphabet size and the length: the hex format
+above holds up to 7 plaintext bytes at `length=72` and 35 at `length=128`
 (`cipher.max_plaintext_bytes`). Construction also raises `ValueError` if the
 language has no words in the requested length range.
 

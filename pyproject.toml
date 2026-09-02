@@ -1,6 +1,7 @@
 [build-system]
-# >=64 for PEP 660 editable installs without a setup.py shim.
-requires = ["setuptools>=64"]
+# >=77 for PEP 639 license metadata (license = "MIT" + license-files); that
+# also covers PEP 660 editable installs without a setup.py shim (>=64).
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,17 +9,20 @@ name = "fte"
 dynamic = ["version"]
 description = "Format-Transforming Encryption"
 readme = "README_PYPI.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [
     {name = "Kevin P. Dyer", email = "kpdyer@gmail.com"}
 ]
-keywords = ["cryptography", "encryption", "regex", "DFA", "FTE"]
+keywords = [
+    "cryptography", "encryption", "regex", "DFA", "FTE", "FPE",
+    "format-preserving",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",

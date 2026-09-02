@@ -92,17 +92,10 @@ _DETERMINISTIC_TWEAK_PREFIX = b"fte:v2:ff1:1|"
 
 
 def _load_ff1():
-    """Import ``ffx.FF1`` lazily, with a directive error when it is missing."""
+    """Import ``ffx.FF1`` lazily so ``import fte`` does not pay for libffx."""
 
-    try:
-        from ffx import FF1
-    except ImportError as exc:  # pragma: no cover - depends on optional dep
-        raise ImportError(
-            "cipher='ff1' requires the libffx package providing ffx.FF1, "
-            "which is not importable. Install it with `pip install "
-            "libffx>=2.0.0`, or install this package with its extra: "
-            "`pip install fte[fpe]`."
-        ) from exc
+    from ffx import FF1
+
     return FF1
 
 

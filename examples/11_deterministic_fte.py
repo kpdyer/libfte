@@ -12,10 +12,6 @@ Because the output space (16**16) is far larger than the input space (10**12),
 most hex strings are not the image of any 12-digit input; decrypting one raises
 InvalidCovertextError. And because it is deterministic, use a per-record
 ``tweak`` to separate encryptions of the same value.
-
-Requires the optional libffx extra::
-
-    pip install fte[fpe]
 """
 
 import os
@@ -31,17 +27,12 @@ def main():
     hex_out = fte.RegexFormat(r"^[0-9a-f]+$", length=16)  # 16**16 words
     key = os.urandom(16)  # FF1 key (16/24/32 bytes), never reused for AE.
 
-    try:
-        cipher = fte.FTE(
-            input_format=digits,
-            output_format=hex_out,
-            cipher="ff1",
-            key=key,
-        )
-    except ImportError as exc:
-        print(exc)
-        print("\nSkipping: install the libffx extra to run this example.")
-        return
+    cipher = fte.FTE(
+        input_format=digits,
+        output_format=hex_out,
+        cipher="ff1",
+        key=key,
+    )
 
     for plaintext in (b"000000000001", b"123456789012"):
         covertext = cipher.encrypt(plaintext, tweak=b"batch-2026")

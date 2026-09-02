@@ -37,10 +37,10 @@ That gives a 2x2 of behaviors:
 | **`aes-ctr-hmac`** (randomized, authenticated, expanding) | authenticated encryption over bytes | **classic FTE**: bytes hidden as a chosen covertext format |
 
 `cipher="ff1"` is the built-in format-preserving cipher (NIST SP 800-38G FF1,
-via the optional [libffx](https://github.com/kpdyer/libffx) extra:
-`pip install 'fte[fpe]'`). The deterministic column also takes any object with
-`encrypt_int(x, *, domain, tweak)` / `decrypt_int(y, *, domain, tweak)` forming
-a permutation of `range(domain)`, so you can supply your own cipher.
+via [libffx](https://github.com/kpdyer/libffx)). The deterministic column also
+takes any object with `encrypt_int(x, *, domain, tweak)` /
+`decrypt_int(y, *, domain, tweak)` forming a permutation of `range(domain)`, so
+you can supply your own cipher.
 
 **FPE is the equal-formats case**: pass the same format as `input_format` and
 `output_format` and the deterministic cipher is inferred.
@@ -88,7 +88,7 @@ covertext can begin with a short run of the format's lowest-ranked symbols
 
 For **format-preserving encryption**, use the same format on both sides. Equal
 formats infer the deterministic `ff1` cipher, and length is preserved
-automatically (needs `pip install 'fte[fpe]'`):
+automatically:
 
 ```python
 digits = fte.RegexFormat(r'^[0-9]+$', length=9)   # a 9-digit language
@@ -213,8 +213,8 @@ The `cipher` is `"aes-ctr-hmac"`, `"ff1"`, a deterministic cipher **object**
 (any object with `encrypt_int` / `decrypt_int`), or `None` to infer it: a bytes
 input picks `"aes-ctr-hmac"`; two formats with equal fingerprints pick `"ff1"`;
 any other pair must name the cipher. `"aes-ctr-hmac"` needs a 32-byte key (16
-encryption + 16 MAC); `"ff1"` needs 16/24/32 and requires the extra
-(`pip install 'fte[fpe]'`); a cipher object carries its own key.
+encryption + 16 MAC); `"ff1"` needs 16/24/32; a cipher object carries its own
+key.
 
 A deterministic cipher infers **length preservation** from the formats: when
 input and output are the same format and it can name its per-length slices, a

@@ -11,14 +11,10 @@ The algorithm is based on:
 """
 
 from itertools import groupby
-from typing import (
-    Dict, FrozenSet, List, NamedTuple, Optional, Set, Tuple, Union,
-)
+from typing import Dict, FrozenSet, List, NamedTuple, Optional, Set, Tuple
 
 __all__ = [
     "DFA",
-    "ParsedFst",
-    "parse_att_fst",
     "InvalidFSTFormat",
     "InvalidRankInput",
     "InvalidUnrankInput",
@@ -47,8 +43,11 @@ class InvalidUnrankInput(Exception):
     """Raised when a rank is outside the valid range."""
 
 
-class ParsedFst(NamedTuple):
+class _ParsedFst(NamedTuple):
     """A parsed automaton: the DFA structure without any ranking tables.
+
+    Internal to this module: :func:`_parse_att_fst` produces one and
+    :class:`DFA` consumes it.
 
     Attributes:
         start_state: The automaton's start state.
@@ -63,14 +62,14 @@ class ParsedFst(NamedTuple):
     symbols: Tuple[int, ...]
 
 
-def parse_att_fst(dfa_str: str) -> ParsedFst:
+def _parse_att_fst(dfa_str: str) -> _ParsedFst:
     """Parse a minimized AT&T FST formatted DFA string.
 
     Args:
         dfa_str: A minimized AT&T FST formatted DFA string.
 
     Returns:
-        The parsed automaton as a :class:`ParsedFst`.
+        The parsed automaton as a :class:`_ParsedFst`.
 
     Raises:
         InvalidFSTFormat: If the input has a line that is neither a transition
@@ -125,7 +124,7 @@ def parse_att_fst(dfa_str: str) -> ParsedFst:
     if states != list(range(len(states))):
         raise InvalidFSTFormat("DFA states must be numbered 0..N-1")
 
-    return ParsedFst(
+    return _ParsedFst(
         start_state=start_state,
         final_states=frozenset(final_states),
         transitions=tuple(transitions),
@@ -137,30 +136,26 @@ class DFA:
     """Rank and unrank the words of a regular language by length.
 
     Builds the Goldberg-Sipser counting table up to a maximum ``length`` from a
-    minimized AT&T FST string (parsed via :func:`parse_att_fst`) or from a
-    :class:`ParsedFst` supplied directly. :meth:`rank` and :meth:`unrank` then
-    map between a word and its lexicographic index among the accepted words of
+    minimized AT&T FST string. :meth:`rank` and :meth:`unrank` then map
+    between a word and its lexicographic index among the accepted words of
     that word's length, and :meth:`num_words` counts the accepted words of one
     length. Whether any words exist at the lengths the caller cares about is
     the caller's concern.
 
     Args:
-        dfa_str: A minimized AT&T FST formatted DFA string, or a
-            :class:`ParsedFst`.
+        dfa_str: A minimized AT&T FST formatted DFA string.
         length: The maximum word length the counting table supports.
 
     Raises:
-        InvalidFSTFormat: If the string does not parse (see
-            :func:`parse_att_fst`) or the alphabet has a symbol outside the
-            byte range 0..255.
+        InvalidFSTFormat: If the string does not parse (a line that is
+            neither a transition nor a final state, no states, no symbols,
+            or states not numbered densely from zero) or the alphabet has a
+            symbol outside the byte range 0..255.
     """
 
-    def __init__(self, dfa_str: Union[str, ParsedFst], length: int):
+    def __init__(self, dfa_str: str, length: int):
         self._length = length
-        if isinstance(dfa_str, ParsedFst):
-            parsed = dfa_str
-        else:
-            parsed = parse_att_fst(dfa_str)
+        parsed = _parse_att_fst(dfa_str)
         self._start_state = parsed.start_state
         self._num_states = 0
         self._symbols: List[int] = list(parsed.symbols)

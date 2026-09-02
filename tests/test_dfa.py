@@ -15,8 +15,6 @@ from fte.formats.regex.dfa import (
     InvalidFSTFormat,
     InvalidRankInput,
     InvalidUnrankInput,
-    ParsedFst,
-    parse_att_fst,
 )
 
 
@@ -78,19 +76,13 @@ class Tests(unittest.TestCase):
 
     def test_symbol_outside_byte_range_is_rejected(self):
         # The alphabet indexes a fixed 256-entry table: a symbol above 255
-        # cannot be stored and a negative one would alias another entry.
+        # cannot be stored and a negative one would alias another entry. The
+        # AT&T text itself parses (any integer is a symbol there); the DFA
+        # rejects it when it builds the table.
         for symbol in (256, 300, -1):
             with self.subTest(symbol=symbol):
                 with self.assertRaisesRegex(InvalidFSTFormat, "0..255"):
                     DFA(f"0\t1\t{symbol}\t{symbol}\n1\n", 2)
-                parsed = ParsedFst(
-                    start_state=0,
-                    final_states=frozenset({1}),
-                    transitions=((0, 1, symbol),),
-                    symbols=(symbol,),
-                )
-                with self.assertRaisesRegex(InvalidFSTFormat, "0..255"):
-                    DFA(parsed, 2)
         # The byte-range edges are fine.
         dfa = DFA("0\t1\t0\t0\n0\t1\t255\t255\n1\n", 1)
         self.assertEqual(dfa.unrank(0, 1), b"\x00")
@@ -110,55 +102,44 @@ class Tests(unittest.TestCase):
             DFA("0", 4)                # a final state but no transitions/symbols
         with self.assertRaises(InvalidFSTFormat):
             DFA("0\t1\t2", 4)          # a 3-field line is neither transition nor final
+        with self.assertRaises(InvalidFSTFormat):
+            DFA("0\t1", 4)             # nor is a 2-field line
+        with self.assertRaises(InvalidFSTFormat):
+            DFA("0\t2\t97\t97\n2", 4)  # states {0, 2} skip 1: not dense 0..N-1
 
-    def test_parse_att_fst_returns_structure(self):
-        # ``a[ab]*``: state 0 reads an 'a' to reach accepting state 1, which
-        # loops on 'a' and 'b'.
-        parsed = parse_att_fst(
+    def test_alphabet_is_sorted_and_deduplicated(self):
+        # ``[ab]+`` written with each 'b' transition listed before its 'a'
+        # transition and one 'a' transition repeated. The alphabet is the
+        # sorted set of symbols seen, so 'a' still ranks below 'b' and the
+        # duplicate line adds no symbol.
+        dfa = DFA(
+            "0\t1\t98\t98\n"
+            "0\t1\t97\t97\n"
             "0\t1\t97\t97\n"
             "1\t1\t98\t98\n"
             "1\t1\t97\t97\n"
-            "1\n"
+            "1\n",
+            2,
         )
-        self.assertIsInstance(parsed, ParsedFst)
-        self.assertEqual(parsed.start_state, 0)
-        self.assertEqual(parsed.final_states, frozenset({1}))
+        self.assertEqual(dfa.num_words(0), 0)   # start state 0 is not accepting
+        self.assertEqual(dfa.num_words(1), 2)
+        self.assertEqual(dfa.num_words(2), 4)
         self.assertEqual(
-            parsed.transitions, ((0, 1, 97), (1, 1, 98), (1, 1, 97))
+            [dfa.unrank(i, 2) for i in range(4)], [b"aa", b"ab", b"ba", b"bb"]
         )
-        self.assertEqual(parsed.symbols, (97, 98))  # sorted, deduplicated
+        self.assertEqual(dfa.rank(b"ba"), 2)
 
-    def test_parse_att_fst_rejects_no_states(self):
-        with self.assertRaises(InvalidFSTFormat):
-            parse_att_fst("")
-
-    def test_parse_att_fst_rejects_no_symbols(self):
-        # A lone final state gives a state set but no transitions/symbols.
-        with self.assertRaises(InvalidFSTFormat):
-            parse_att_fst("0")
-
-    def test_parse_att_fst_rejects_sparse_state_numbering(self):
-        # States {0, 2} skip 1, so the dense 0..N-1 check fails.
-        with self.assertRaises(InvalidFSTFormat):
-            parse_att_fst("0\t2\t97\t97\n2")
-
-    def test_parse_att_fst_rejects_malformed_line(self):
-        with self.assertRaises(InvalidFSTFormat):
-            parse_att_fst("0\t1\t2")   # 3 fields: neither transition nor final
-
-    def test_dfa_from_hand_built_parsed_fst(self):
+    def test_dfa_from_hand_built_fst(self):
         # Hand-built ``[01]+``: state 0 reads either bit to reach accepting
         # state 1, which loops on both. No regex2dfa involved.
-        parsed = ParsedFst(
-            start_state=0,
-            final_states=frozenset({1}),
-            transitions=(
-                (0, 1, 0x30), (0, 1, 0x31),
-                (1, 1, 0x30), (1, 1, 0x31),
-            ),
-            symbols=(0x30, 0x31),
+        dfa = DFA(
+            "0\t1\t48\t48\n"
+            "0\t1\t49\t49\n"
+            "1\t1\t48\t48\n"
+            "1\t1\t49\t49\n"
+            "1\n",
+            6,
         )
-        dfa = DFA(parsed, 6)
         self.assertEqual(dfa.num_words(0), 0)
         for length in range(1, 7):
             count = dfa.num_words(length)

@@ -219,14 +219,20 @@ encryption + 16 MAC); `"ff1"` needs 16/24/32 and requires the extra
 A deterministic cipher infers **length preservation** from the formats: when
 input and output are the same format and it can name its per-length slices, a
 value keeps its length; otherwise the whole language is permuted. It also
-enforces a **one-million domain floor** (Draft SP 800-38G Rev 1), raising
-`SmallDomainError` on a smaller domain, with no opt-out.
+enforces a **one-million domain floor** (Draft SP 800-38G Rev 1) on the
+*input* domain, raising `SmallDomainError` with no opt-out: every non-empty
+length slice must clear it when length is preserved, and the input format's whole
+cardinality must clear it for a cross-format map (the output is at least as
+large, so it clears it too).
 
 `max_plaintext_bytes` (the `aes-ctr-hmac` cipher, bytes input) is chosen for
 you when left unset: a finite output format uses the exact size its capacity
 allows, and an unbounded one falls back to a 1 MiB default. It also lets
-`decrypt` reject an oversized covertext cheaply. It is rejected for a non-bytes
-input, whose size the format's cardinality already fixes.
+`decrypt` reject an oversized covertext cheaply. Passing it is rejected for a
+non-bytes input: there the property reports the fixed width at which every
+input rank is serialized before encryption (the smallest `W` with
+`256**W >= cardinality`), so the covertext length never depends on the
+plaintext value.
 
 ### `fte.RegexFormat`
 
@@ -317,7 +323,7 @@ size, an unknown `cipher`, an invalid pattern) raise `TypeError` or
 | `InvalidCovertextError` | `decrypt` cannot recover a plaintext: the covertext is not in the output language, is oversized, has the wrong frame version, fails authentication, or (deterministic cipher) deciphers outside the input format's rank space |
 | `InvalidPlaintextError` | `encrypt` is given a value that is not a member of a non-bytes `input_format` (its `rank()` fails or falls outside the rank space); a non-bytes plaintext for the bytes input is a `TypeError` |
 | `MessageTooLargeError` | A bytes plaintext exceeds the configured ceiling (the `max_plaintext_bytes` argument, or the 1 MiB default); exceeding a finite format's capacity is `FormatCapacityError` instead |
-| `SmallDomainError` | A deterministic cipher's domain is below the one-million floor: a non-empty length slice with fewer than a million words when length is preserved, or an output domain with fewer than a million values for a cross-format map |
+| `SmallDomainError` | A deterministic cipher's domain is below the one-million floor: a non-empty length slice with fewer than a million words when length is preserved, or an input format with fewer than a million values for a cross-format map |
 
 ## How It Works
 
@@ -334,6 +340,10 @@ size, an unknown `cipher`, an invalid pattern) raise `TypeError` or
 3. **Formatting**: A built-in or custom ranked format maps that integer to a
    covertext with `unrank()`; `decrypt()` runs the steps in reverse and
    rejects a covertext whose tag does not verify with `InvalidCovertextError`.
+
+With a non-bytes `input_format`, step 1 encrypts the input's rank serialized at
+a fixed width set by the input's cardinality, so the covertext length never
+depends on the plaintext value.
 
 The framing is variable-length. Anyone who can rank a covertext can infer its
 exact plaintext byte length, even without the key. FTE guarantees membership in

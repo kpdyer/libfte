@@ -1,5 +1,5 @@
 {
-  "comment": "Frozen wire vectors for the current AE format (AES-CTR + HMAC-SHA256). Each covertext was produced by fte.FTE(output_format=..., key=...) and must keep decrypting to the same plaintext, byte for byte.",
+  "comment": "Frozen wire vectors for the current AE format (AES-CTR + HMAC-SHA256). Each covertext was produced by fte.FTE(output_format=..., key=...) and must keep decrypting to the same plaintext, byte for byte. A vector carrying input_pattern/input_length_kw uses a non-bytes input_format with cipher='aes-ctr-hmac' (the input rank is serialized at a fixed width set by the input cardinality); the non-bytes-input vector was frozen at 0.4.0.",
   "vectors": [
     {
       "pattern": "^[0-9a-f]+$",
@@ -29,6 +29,19 @@
       "key_hex": "2f5052c9fd15b19a18c584d01363568198613f0c34e84409ef7938709a159ec2",
       "plaintext_hex": "68656c6c6f20776f726c64",
       "covertext_hex": "474554202f2f77726e633936706974626176676f6430707a30376f6d6a6b3977677a7079676565663862642f6167623632352f6435776e3073756e386a7a37326b7520485454502f312e31"
+    },
+    {
+      "input_pattern": "^[0-9]+$",
+      "input_length_kw": {
+        "length": 12
+      },
+      "pattern": "^[0-9a-f]+$",
+      "length_kw": {
+        "length": 256
+      },
+      "key_hex": "3b8f2d6c0a4e9d17f5c2a8e6b1d4790c5e3a1f8d2b6c4e0a7f9d1c3b5a8e6d2f",
+      "plaintext_hex": "333134313539323635333538",
+      "covertext_hex": "30303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303032376264653233666433616135393333386633363565383636393064653361343364336433663662303238343835336434393765313334643864666163393964613462"
     }
   ]
 }

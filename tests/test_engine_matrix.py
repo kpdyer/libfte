@@ -18,6 +18,7 @@ import math
 import unittest
 
 import fte
+from fte import frame
 from fte.core import (
     FTE,
     FormatCapacityError,
@@ -181,6 +182,23 @@ class NoSliceDigitsFormat:
         if type(index) is not int or not 0 <= index < self.cardinality:
             raise ValueError(f"index {index!r} out of range")
         return str(index).zfill(self._length)
+
+
+class CountFormat:
+    """The integers ``range(n)`` as their own ranks: a minimal finite format."""
+
+    def __init__(self, n):
+        self.cardinality = n
+
+    def rank(self, value, /):
+        if type(value) is not int or not 0 <= value < self.cardinality:
+            raise ValueError(f"{value!r} is not a member of this format")
+        return value
+
+    def unrank(self, index, /):
+        if type(index) is not int or not 0 <= index < self.cardinality:
+            raise ValueError(f"index {index!r} out of range")
+        return index
 
 
 # A deterministic spread of distinct ranks to sample from a large domain.
@@ -375,6 +393,99 @@ class Tests(unittest.TestCase):
             FTE(input_format=digits, output_format=tiny,
                 cipher="aes-ctr-hmac", key=KEY_AE)
 
+    def test_ae_non_bytes_requires_finite_input(self):
+        # A non-bytes input with no cardinality has no fixed rank width, so
+        # the AE path refuses it up front instead of failing mid-arithmetic.
+        class UnboundedDigits:
+            def rank(self, value, /):
+                return int(value)
+
+            def unrank(self, index, /):
+                return str(index)
+
+        with self.assertRaises(FormatCapacityError) as caught:
+            FTE(input_format=UnboundedDigits(), output_format=BIG_HEX,
+                cipher="aes-ctr-hmac", key=KEY_AE)
+        self.assertIn("finite cardinality", str(caught.exception))
+
+    def test_ae_non_bytes_covertext_length_is_plaintext_independent(self):
+        # The rank is serialized at a fixed width, so a variable-length output
+        # gets the same frame length for the smallest, a middle, and the
+        # largest input value: the covertext length reveals nothing about it.
+        digits = fte.RegexFormat(r"^[0-9]+$", length=12)
+        var_hex = fte.RegexFormat(r"^[0-9a-f]+$", min_length=1, max_length=400)
+        eng = FTE(input_format=digits, output_format=var_hex,
+                  cipher="aes-ctr-hmac", key=KEY_AE)
+        lengths = set()
+        for pt in (b"000000000000", b"000000065536", b"999999999999"):
+            for _ in range(8):
+                ct = eng.encrypt(pt)
+                lengths.add(len(ct))
+                self.assertEqual(eng.decrypt(ct), pt)
+        self.assertEqual(len(lengths), 1, lengths)
+
+    def test_ae_non_bytes_rejects_wrong_width_plaintext(self):
+        # An authentic frame whose plaintext is not exactly the fixed width
+        # was never produced by encrypt(): shorter (a shortlex-style encoding)
+        # and longer (padded) serializations are both rejected.
+        digits = fte.RegexFormat(r"^[0-9]+$", length=6)
+        eng = FTE(input_format=digits, output_format=BIG_HEX,
+                  cipher="aes-ctr-hmac", key=KEY_AE)
+        width = eng.max_plaintext_bytes
+        self.assertEqual(width, 3)  # 10**6 - 1 needs 20 bits
+        for pt_bytes in (b"\x00" * (width - 1), b"\x00" * (width + 1)):
+            framed = frame.FRAME_VERSION + eng._encrypter.encrypt(pt_bytes)
+            forged = BIG_HEX.unrank(frame.bytes_to_rank(framed))
+            with self.assertRaises(InvalidCovertextError):
+                eng.decrypt(forged)
+        # The genuine width still round-trips (rank 0 is all-zero bytes).
+        framed = frame.FRAME_VERSION + eng._encrypter.encrypt(b"\x00" * width)
+        self.assertEqual(
+            eng.decrypt(BIG_HEX.unrank(frame.bytes_to_rank(framed))), b"000000"
+        )
+
+    def test_ae_non_bytes_rejects_empty_plaintext_frame(self):
+        # An authentic frame carrying a 0-byte plaintext is rejected when the
+        # fixed width is positive: it is not a shortlex spelling of rank 0.
+        digits = fte.RegexFormat(r"^[0-9]+$", length=6)
+        eng = FTE(input_format=digits, output_format=BIG_HEX,
+                  cipher="aes-ctr-hmac", key=KEY_AE)
+        self.assertGreater(eng.max_plaintext_bytes, 0)
+        framed = frame.FRAME_VERSION + eng._encrypter.encrypt(b"")
+        forged = BIG_HEX.unrank(frame.bytes_to_rank(framed))
+        with self.assertRaises(InvalidCovertextError):
+            eng.decrypt(forged)
+
+    def test_ae_non_bytes_zero_width_rejects_one_byte_frame(self):
+        # A cardinality-1 input serializes its only rank at width 0, so the
+        # empty plaintext is the sole authentic frame; a 1-byte frame (rank 0
+        # written at width 1) was never produced by encrypt().
+        one_word = fte.RegexFormat(r"^a+$", length=5)
+        eng = FTE(input_format=one_word, output_format=BIG_HEX,
+                  cipher="aes-ctr-hmac", key=KEY_AE)
+        self.assertEqual(eng.max_plaintext_bytes, 0)
+        framed = frame.FRAME_VERSION + eng._encrypter.encrypt(b"\x00")
+        forged = BIG_HEX.unrank(frame.bytes_to_rank(framed))
+        with self.assertRaises(InvalidCovertextError):
+            eng.decrypt(forged)
+        # The genuine empty frame still decrypts to the one word.
+        framed = frame.FRAME_VERSION + eng._encrypter.encrypt(b"")
+        self.assertEqual(
+            eng.decrypt(BIG_HEX.unrank(frame.bytes_to_rank(framed))), b"aaaaa"
+        )
+
+    def test_ae_non_bytes_width_is_fixed_by_input_cardinality(self):
+        # W is the smallest width with 256**W >= n_in (W == 0 for n_in == 1),
+        # not the shortlex length of n_in - 1 (which is 1 for n_in == 257).
+        expected = {1: 0, 2: 1, 255: 1, 256: 1, 257: 2, 65536: 2, 65537: 3}
+        for n, width in expected.items():
+            with self.subTest(n=n):
+                eng = FTE(input_format=CountFormat(n), output_format=BIG_HEX,
+                          cipher="aes-ctr-hmac", key=KEY_AE)
+                self.assertEqual(eng.max_plaintext_bytes, width)
+                for value in {0, n // 2, n - 1}:
+                    self.assertEqual(eng.decrypt(eng.encrypt(value)), value)
+
     # ---- ValueError / error matrix for bad configs --------------------- #
     def test_tweak_with_ae_is_rejected(self):
         eng = FTE(output_format=BIG_HEX, key=KEY_AE)
@@ -430,6 +541,18 @@ class Tests(unittest.TestCase):
         fmt = DigitsFormat(6, fingerprint=b"fp:d6")  # 1e6, on the floor
         eng = FTE(input_format=fmt, output_format=fmt,
                   cipher=ToyCipher(), key=KEY_UNUSED)
+        self.assertEqual(eng.decrypt(eng.encrypt("000042")), "000042")
+
+    def test_small_domain_cross_format_is_judged_on_the_input(self):
+        # A deterministic map's strength is bounded by the input space, so the
+        # floor applies to n_in even when the output clears it.
+        fout = DigitsFormat(7, fingerprint=b"fp:out7")  # 1e7, above the floor
+        with self.assertRaises(SmallDomainError) as caught:
+            FTE(input_format=DigitsFormat(5, fingerprint=b"fp:in5"),
+                output_format=fout, cipher=ToyCipher(), key=KEY_UNUSED)
+        self.assertIn("input domain", str(caught.exception))
+        eng = FTE(input_format=DigitsFormat(6, fingerprint=b"fp:in6"),
+                  output_format=fout, cipher=ToyCipher(), key=KEY_UNUSED)
         self.assertEqual(eng.decrypt(eng.encrypt("000042")), "000042")
 
     def test_small_domain_slice_names_offending_lengths(self):

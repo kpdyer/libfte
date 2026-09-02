@@ -17,3 +17,8 @@ updates:
       github-actions:
         patterns:
           - "*"
+        # The PyPI publish action receives the trusted-publishing OIDC token
+        # and is never exercised by CI, so it always arrives as its own PR
+        # for human review instead of riding along in the group.
+        exclude-patterns:
+          - "pypa/gh-action-pypi-publish"

@@ -10,10 +10,6 @@ fixed-width field (an account number, a customer id, a batch of tickets).
 The transform is deterministic and unauthenticated: equal plaintexts map to
 equal covertexts, so pass a distinct per-record ``tweak`` (a column name, a row
 id) to keep encryptions of the same value in different contexts independent.
-
-Requires the optional libffx extra::
-
-    pip install fte[fpe]
 """
 
 import os
@@ -29,14 +25,8 @@ def main():
     id_format = fte.RegexFormat(r"^[0-9]+$", length=9)
     key = os.urandom(16)  # FF1 keys are 16/24/32 bytes; NOT an AES-CTR-HMAC key.
 
-    try:
-        # Same format in and out -> FPE. Length is preserved automatically.
-        cipher = fte.FTE(input_format=id_format, output_format=id_format,
-                         key=key)
-    except ImportError as exc:
-        print(exc)
-        print("\nSkipping: install the libffx extra to run this example.")
-        return
+    # Same format in and out -> FPE. Length is preserved automatically.
+    cipher = fte.FTE(input_format=id_format, output_format=id_format, key=key)
 
     # Synthetic demo identifiers (not real records).
     for account in (b"100000042", b"100000043", b"100000042"):

@@ -183,9 +183,8 @@ floor or construction raises `SmallDomainError`; with inferred length
 preservation every non-empty length slice must clear it. The floor applies to
 the input domain because the strength of a deterministic map is bounded by the
 input space, not by the key. Passing the same fingerprinted format on both
-sides infers `cipher="ff1"`. The cardinality check runs before libffx is
-imported, so a bare provider such as `LowerHex` is refused even without the
-`fpe` extra:
+sides infers `cipher="ff1"`. A bare provider such as `LowerHex`, which exposes
+no cardinality, is refused at construction:
 
 ```python
 import fte

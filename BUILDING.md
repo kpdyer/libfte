@@ -1,12 +1,13 @@
 # libfte Build Instructions
 
 libfte itself is pure Python; there is nothing in this repository to compile.
-It depends on two packages:
+It depends on three packages:
 
 - `cryptography` (AES-CTR): a compiled extension that bundles OpenSSL. PyPI
   ships prebuilt wheels for supported platforms, so no compiler is normally
   needed.
 - `regex2dfa` (pattern compilation): pure Python.
+- `libffx` (the `ff1` format-preserving cipher): pure Python.
 
 ## Requirements
 
@@ -26,14 +27,6 @@ For development (tests and coverage):
 ```bash
 pip install -e ".[dev]"
 ```
-
-The optional `fpe` extra adds `libffx>=2.0.0`, which provides `cipher="ff1"`:
-
-```bash
-pip install -e ".[dev,fpe]"
-```
-
-Without it, `tests/test_ff1_integration.py` and examples 10 and 11 skip.
 
 ## Verification
 

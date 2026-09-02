@@ -9,12 +9,12 @@ on decrypt. That safety costs a fixed 29-byte frame: a version byte, a 12-byte
 random nonce, and a 16-byte HMAC-SHA256 tag (Encrypt-then-MAC over AES-128-CTR).
 
 Here the input is a structured (non-bytes) format -- a 12-digit decimal string --
-re-encrypted as hex. This uses only the built-in engine, no extra dependency.
+re-encrypted as hex.
 
 Because ``aes-ctr-hmac`` expands by that fixed overhead, the output format must
 have more capacity than the input; you cannot round-trip ``aes-ctr-hmac`` in
 place through one finite format (that is the job of a deterministic cipher, such
-as the ``ff1`` format-preserving cipher from the optional libffx integration).
+as the ``ff1`` format-preserving cipher).
 """
 
 import os

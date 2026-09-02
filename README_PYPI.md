@@ -26,10 +26,10 @@ pip install fte
 ```
 
 libfte itself is pure Python. It depends on `cryptography` (AES-CTR on
-OpenSSL; it ships prebuilt wheels with OpenSSL bundled) and `regex2dfa` (pure
-Python), so no compiler or system library is needed on the platforms
-`cryptography` publishes wheels for. Format-preserving encryption needs the
-optional extra: `pip install 'fte[fpe]'`.
+OpenSSL; it ships prebuilt wheels with OpenSSL bundled), `regex2dfa` (pure
+Python) and `libffx` (pure Python; the FF1 format-preserving cipher), so no
+compiler or system library is needed on the platforms `cryptography` publishes
+wheels for.
 
 ## Quick Example
 
@@ -64,8 +64,8 @@ covertext can begin with a short run of the format's lowest-ranked symbols
 covertext; a fixed `length` is the special case where they are equal.
 
 **Format-preserving and deterministic FTE.** `cipher="ff1"` (NIST SP 800-38G
-FF1 via [libffx](https://github.com/kpdyer/libffx); `pip install 'fte[fpe]'`)
-is deterministic and zero-expansion: pass the same format as `input_format`
+FF1 via [libffx](https://github.com/kpdyer/libffx)) is deterministic and
+zero-expansion: pass the same format as `input_format`
 and `output_format` to re-encrypt a value in place (FPE, length preserved), or
 two different formats for a deterministic rank map between them. It refuses an
 input domain below one million values, is unauthenticated, and leaks plaintext

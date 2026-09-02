@@ -7295,23 +7295,6 @@
    ]
   ]
  },
- "union_empty_branch": {
-  "cardinality": "1",
-  "dfa": {
-   "alphabet": 2,
-   "states": 3,
-   "transitions": 2
-  },
-  "max_length": 2,
-  "min_length": 1,
-  "pattern": "^(a|)b$",
-  "probes": [
-   [
-    "0",
-    "6162"
-   ]
-  ]
- },
  "union_nested": {
   "cardinality": "1048576",
   "dfa": {

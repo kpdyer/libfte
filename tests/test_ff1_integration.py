@@ -1,10 +1,9 @@
 """Integration tests for the real deterministic cipher (``cipher="ff1"``).
 
-These exercise :class:`fte.FTE` against the genuine
-format-preserving cipher from libffx. That package is being built in parallel
-and is not importable here, so the whole module skips via
-``pytest.importorskip("ffx")``; the engine mechanics themselves are covered
-without ffx in ``test_engine_matrix.py``.
+These exercise :class:`fte.FTE` against the genuine format-preserving cipher
+from libffx (``pip install 'fte[fpe]'``, which CI installs). Without it the
+whole module skips via ``pytest.importorskip("ffx")``; the engine mechanics
+themselves are covered without ffx in ``test_engine_matrix.py``.
 """
 
 import unittest

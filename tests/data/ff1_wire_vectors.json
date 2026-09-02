@@ -1,0 +1,123 @@
+{
+  "comment": "Frozen wire vectors for the deterministic (cipher='ff1') path: rank -> libffx FF1 -> unrank, with the tweak derived from the 'fte:v2:ff1:1|' namespace, both format fingerprints, the length mode, and (when length is preserved) the value's length. Each covertext was produced by fte.FTE(input_format=..., output_format=..., cipher=..., key=...).encrypt(plaintext, tweak=...) and, because the path is deterministic, must keep being produced and decrypted byte for byte. cipher null means inferred from equal formats.",
+  "vectors": [
+    {
+      "input_pattern": "^[0-9]+$",
+      "input_length_kw": {
+        "length": 16
+      },
+      "output_pattern": "^[0-9]+$",
+      "output_length_kw": {
+        "length": 16
+      },
+      "cipher": null,
+      "preserve_length": true,
+      "key_hex": "000102030405060708090a0b0c0d0e0f",
+      "tweak_hex": "",
+      "plaintext_hex": "34313131313131313131313131313131",
+      "covertext_hex": "32393235343130313635363139363435"
+    },
+    {
+      "input_pattern": "^[0-9]+$",
+      "input_length_kw": {
+        "length": 16
+      },
+      "output_pattern": "^[0-9]+$",
+      "output_length_kw": {
+        "length": 16
+      },
+      "cipher": null,
+      "preserve_length": true,
+      "key_hex": "000102030405060708090a0b0c0d0e0f",
+      "tweak_hex": "6163636f756e74732e6e756d626572",
+      "plaintext_hex": "30313233343536373839303132333435",
+      "covertext_hex": "35313538323036383838343234363337"
+    },
+    {
+      "input_pattern": "^[0-9]+$",
+      "input_length_kw": {
+        "min_length": 6,
+        "max_length": 9
+      },
+      "output_pattern": "^[0-9]+$",
+      "output_length_kw": {
+        "min_length": 6,
+        "max_length": 9
+      },
+      "cipher": null,
+      "preserve_length": true,
+      "key_hex": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "tweak_hex": "",
+      "plaintext_hex": "313233343536",
+      "covertext_hex": "303636303632"
+    },
+    {
+      "input_pattern": "^[0-9]+$",
+      "input_length_kw": {
+        "min_length": 6,
+        "max_length": 9
+      },
+      "output_pattern": "^[0-9]+$",
+      "output_length_kw": {
+        "min_length": 6,
+        "max_length": 9
+      },
+      "cipher": null,
+      "preserve_length": true,
+      "key_hex": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "tweak_hex": "6f72646572732e6163636f756e74",
+      "plaintext_hex": "313233343536373839",
+      "covertext_hex": "373830373032353639"
+    },
+    {
+      "input_pattern": "^[a-z]+$",
+      "input_length_kw": {
+        "min_length": 5,
+        "max_length": 8
+      },
+      "output_pattern": "^[a-z]+$",
+      "output_length_kw": {
+        "min_length": 5,
+        "max_length": 8
+      },
+      "cipher": null,
+      "preserve_length": true,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "tweak_hex": "636f6c3a656d61696c",
+      "plaintext_hex": "616c696365",
+      "covertext_hex": "71776d6362"
+    },
+    {
+      "input_pattern": "^[0-9]+$",
+      "input_length_kw": {
+        "length": 8
+      },
+      "output_pattern": "^[0-9a-f]+$",
+      "output_length_kw": {
+        "length": 16
+      },
+      "cipher": "ff1",
+      "preserve_length": false,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "tweak_hex": "62617463682d32303236",
+      "plaintext_hex": "3031323334353637",
+      "covertext_hex": "38646232313435313032353866396230"
+    },
+    {
+      "input_pattern": "^[a-z]+$",
+      "input_length_kw": {
+        "length": 8
+      },
+      "output_pattern": "^[A-Za-z0-9]+$",
+      "output_length_kw": {
+        "length": 8
+      },
+      "cipher": "ff1",
+      "preserve_length": false,
+      "key_hex": "000102030405060708090a0b0c0d0e0f",
+      "tweak_hex": "",
+      "plaintext_hex": "636f766572747874",
+      "covertext_hex": "3475526644693455"
+    }
+  ]
+}

@@ -157,9 +157,10 @@ class Tests(unittest.TestCase):
             cipher.encrypt(b"123456")
 
     def test_finite_format_too_small_is_rejected_at_construction(self):
-        # length=8 hex holds 16**8 == 2**32 values, far too few for the 33-byte
-        # authenticated frame, so the format cannot hold even an empty message
-        # and building an FTE around it fails fast.
+        # length=8 hex holds 16**8 == 2**32 values, far too few for the 29-byte
+        # authenticated frame (1 version byte + 12-byte nonce + 16-byte tag),
+        # so the format cannot hold even an empty message and building an FTE
+        # around it fails fast.
         with self.assertRaises(fte.FormatCapacityError):
             fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
 

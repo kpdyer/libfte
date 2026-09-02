@@ -8,8 +8,8 @@ subpackage to copy for a new provider.
 
     >>> import fte
     >>> from fte.formats import RegexFormat
-    >>> cipher = fte.FTE(format=RegexFormat(r"^[0-9a-f]+$", length=96),
-    ...                  key=bytes(range(32)))
+    >>> cipher = fte.FTE(output_format=RegexFormat(r"^[0-9a-f]+$", length=96),
+    ...                  key=b"0123456789abcdef" * 2)  # demo key; 32 bytes
 """
 
 from fte.formats.base import RankedFormat

@@ -3,7 +3,12 @@
 `fte.FTE` separates cryptography from covertext generation at one narrow
 boundary: a non-negative integer rank. libfte owns encryption, authentication,
 versioned byte framing, and bytes-to-integer conversion. A format provider owns
-only the reversible mapping between ranks and canonical covertext values.
+only the reversible mapping between ranks and canonical values.
+
+A format can sit on either side of the engine: as the `output_format` (the
+covertext language) or as the `input_format` (the plaintext language, which
+defaults to `fte.BytesFormat`, raw bytes). The engine is
+`rank_in -> transform -> unrank_out`, so one provider serves both roles.
 
 ## Terminology
 
@@ -35,9 +40,28 @@ class RankedFormat(Protocol[T]):
 
 This is a structural protocol. Providers do not inherit from libfte, register
 plugins, or import libfte at runtime. An existing object with compatible methods
-already conforms. `cardinality` is optional; when supplied, it must be the exact
-positive size of the contiguous rank space `range(cardinality)`. libfte uses it
-to reject messages that cannot always fit before performing encryption.
+already conforms. Three optional conventions extend it:
+
+- `cardinality`: the exact positive size of the contiguous rank space
+  `range(cardinality)`. It is optional for the output of the `aes-ctr-hmac`
+  cipher, where libfte uses it to reject messages that cannot always fit before
+  performing encryption. The deterministic cipher requires it on both formats
+  and refuses a format without one at construction with
+  `FormatCapacityError: the deterministic cipher requires both formats to be
+  finite (expose a positive cardinality)`.
+- `fingerprint`: a stable `bytes` identifier for the exact ordering. The
+  deterministic cipher requires it on both formats (`ValueError: the
+  deterministic cipher requires both formats to expose a bytes fingerprint`),
+  binds it into every tweak, and infers FPE from equal fingerprints. Equal
+  fingerprints must guarantee identical ranking; the converse is not required
+  (`RegexFormat` hashes the pattern text, so two spellings of one language get
+  different fingerprints), so use the same spelling at both endpoints.
+- `slice_bounds(length) -> (offset, count)`, together with integer
+  `min_length` and `max_length` attributes: the first rank of the words of
+  `length` bytes and how many there are (possibly zero). When an equal-format
+  pair provides these, the deterministic cipher permutes each length slice in
+  place so a value keeps its length; `FTE.preserve_length` is inferred from
+  them, never requested.
 
 ## Required behavior
 
@@ -53,10 +77,17 @@ A provider must satisfy all of these rules:
 7. The ordering is a wire-level compatibility contract. Both endpoints must
    use implementations with identical ranking behavior.
 
-`unrank()` failures during encryption become `fte.FormatCapacityError`. Invalid
-values or failures during ranking become `fte.InvalidCovertextError`. Returning
-a non-integer or negative rank is a provider bug and raises
-`fte.FormatContractError`. Original provider exceptions are retained as causes.
+With the `aes-ctr-hmac` cipher, `unrank()` failures during encryption become
+`fte.FormatCapacityError`. On the deterministic path the cipher's output is
+always inside the output domain, so an `unrank()` failure there is a contract
+violation and propagates as raised. Invalid values or failures while ranking a
+covertext become `fte.InvalidCovertextError`; a plaintext the input format
+cannot rank, or whose rank falls outside `range(cardinality)`, becomes
+`fte.InvalidPlaintextError`. Returning a non-integer or negative rank for a
+covertext is a provider bug and raises `fte.FormatContractError` (on the input
+side the same defect is reported as `fte.InvalidPlaintextError`), as does a
+`cardinality` that is not a positive integer. Original provider exceptions are
+retained as causes.
 
 ## Example provider
 
@@ -81,8 +112,9 @@ Use it without an adapter:
 ```python
 from fte import FTE
 
-cipher = FTE(format=LowerHex(), key=shared_32_byte_key)
-covertext = cipher.encrypt(b"hello")
+shared_32_byte_key = bytes(range(32))  # demo only; use a real shared secret
+cipher = FTE(output_format=LowerHex(), key=shared_32_byte_key)
+covertext = cipher.encrypt(b"hello")   # lowercase hex; differs per run (nonce)
 assert cipher.decrypt(covertext) == b"hello"
 ```
 
@@ -91,20 +123,76 @@ unset it is derived: a finite provider (one exposing `cardinality`) uses the
 exact size its capacity allows, and an unbounded provider falls back to a 1 MiB
 default. That same limit is the guard that lets decryption reject an oversized
 rank before converting it back into a potentially large byte string, so set it
-explicitly only to tighten that bound or to cap an unbounded provider.
+explicitly only to tighten that bound or to cap an unbounded provider. It is a
+bytes-input knob: with a non-bytes `input_format` the argument is rejected
+(`ValueError`), and the property reports the serialization size of the
+input's largest rank (or `None` for the deterministic cipher).
 
-The version-one frame is variable length. Anyone who can rank a covertext can
-therefore infer its exact plaintext byte length without knowing the key. The
-mapping guarantees membership in the format's language, but it is not uniform
-over unused rank capacity when a finite provider is much larger than the
-message requires. Applications needing length hiding or a target distribution
-must add an appropriate fixed-size record/padding layer before `FTE.encrypt`.
+The version-one frame is variable length for a bytes input. Anyone who can rank
+a covertext can therefore infer its exact plaintext byte length without knowing
+the key. The mapping guarantees
+membership in the format's language, but it is not uniform over unused rank
+capacity when a finite provider is much larger than the message requires.
+Applications needing length hiding or a target distribution must add an
+appropriate fixed-size record/padding layer before `FTE.encrypt`.
 
-`FTE.decrypt` is not constant-time: it rejects malformed framing, length, and
-padding before verifying the authentication tag, so rejection latency depends on
-why a value was rejected. This is safe under FTE's threat model, where an
-on-path observer sees covertext but has no decryption oracle. Do not expose
-`decrypt` directly as a remote timing oracle to untrusted callers.
+`FTE.decrypt` is not constant-time: it rejects a covertext outside the format,
+an impossible rank or length, or a wrong version byte before verifying the
+authentication tag (the version-one frame has no padding), so rejection latency
+depends on why a value was rejected. Every check made before the tag uses only
+information available without the key. This is safe under FTE's threat model,
+where an on-path observer sees covertext but has no decryption oracle. Do not
+expose `decrypt` directly as a remote timing oracle to untrusted callers.
+
+## Input formats and the deterministic cipher
+
+Any provider can also be the `input_format`. With the `aes-ctr-hmac` cipher
+(which must be spelled out for a non-bytes input; the engine only infers it for
+raw bytes) the plaintext is ranked, the rank is serialized as a byte string
+(shortlex, so its length grows with the rank), and that byte string goes
+through the same randomized, authenticated frame as a bytes plaintext.
+`max_plaintext_bytes` reports the serialized size of the largest input rank,
+and a finite output must have room for that plus the 29-byte frame or
+construction raises `FormatCapacityError`.
+
+```python
+from fte import FTE, RegexFormat
+
+digits = RegexFormat(r"^[0-9]+$", length=12)      # 10**12 values: 5 bytes
+hex128 = RegexFormat(r"^[0-9a-f]+$", length=128)
+shared_32_byte_key = bytes(range(32))             # demo only; use a real secret
+
+cipher = FTE(input_format=digits, output_format=hex128,
+             key=shared_32_byte_key, cipher="aes-ctr-hmac")
+assert cipher.max_plaintext_bytes == 5            # the largest rank needs 5
+covertext = cipher.encrypt(b"123456789012")       # 128 hex bytes; random nonce
+assert cipher.decrypt(covertext) == b"123456789012"
+```
+
+The deterministic cipher (`cipher="ff1"`, or any object with
+`encrypt_int(x, *, domain, tweak)` / `decrypt_int(y, *, domain, tweak)`) maps
+an input rank straight to an output rank with no framing and no expansion. It
+needs both formats to be finite and fingerprinted, the input cardinality must
+not exceed the output cardinality (a permutation cannot be injective
+otherwise), and the output domain must clear the one-million format-preserving
+floor or construction raises `SmallDomainError`; with inferred length
+preservation every non-empty length slice must clear it. Passing the same
+fingerprinted format on both
+sides infers `cipher="ff1"`. The cardinality check runs before libffx is
+imported, so a bare provider such as `LowerHex` is refused even without the
+`fpe` extra:
+
+```python
+import fte
+
+try:
+    fte.FTE(input_format=LowerHex(), output_format=LowerHex(),
+            key=bytes(16), cipher="ff1")
+except fte.FormatCapacityError as exc:
+    print(exc)
+# the deterministic cipher requires both formats to be finite (expose a
+# positive cardinality)
+```
 
 ## Built-in regex provider
 
@@ -116,9 +204,10 @@ exactly the same extension point:
 from fte import FTE, RegexFormat
 
 fmt = RegexFormat(r"^[0-9a-f]+$", length=96)          # fixed 96-byte covertext
-cipher = FTE(format=fmt, key=shared_32_byte_key)
+shared_32_byte_key = bytes(range(32))                 # demo only; use a secret
+cipher = FTE(output_format=fmt, key=shared_32_byte_key)
 
-covertext: bytes = cipher.encrypt(b"hello")
+covertext: bytes = cipher.encrypt(b"hello")           # differs per run (nonce)
 assert cipher.decrypt(covertext) == b"hello"
 ```
 
@@ -137,13 +226,19 @@ the language has no words in the requested length range.
 `regex2dfa` compiles the pattern to a minimized DFA, so two patterns that denote
 the same language produce byte-identical ranking: `^[ab]+$` and `^(a|b)+$`
 interoperate. The wire contract is the format (the language, the length bounds,
-and the ordering version), never the pattern's spelling.
+and the ordering version), never the pattern's spelling. `RegexFormat` also
+exposes `fingerprint`, `slice_bounds`, `min_length`, and `max_length`, so it
+works on either side of the engine and, used on both, infers the deterministic
+cipher with in-place length preservation.
 
 ## Provider checklist
 
 - Test both inverse laws at representative and boundary ranks.
 - Test rejection of noncanonical values and unsupported ranks.
 - Document the native covertext type and ordering compatibility version.
+- Expose `cardinality` and a stable bytes `fingerprint` if the format will be
+  used with the deterministic cipher; add `slice_bounds` plus `min_length` /
+  `max_length` for in-place length preservation.
 - Document practical size, time, memory, and concurrency limits.
 - Bound work performed while ranking attacker-controlled values.
 - Keep transport framing and streaming outside the ranked-format object.

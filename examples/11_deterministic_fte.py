@@ -21,7 +21,7 @@ Requires the optional libffx extra::
 import os
 
 import fte
-from fte.core import InvalidCovertextError
+from fte import InvalidCovertextError
 
 
 def main():

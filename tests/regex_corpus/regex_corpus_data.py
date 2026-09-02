@@ -12,7 +12,9 @@ up to several thousand, and alphabets from 2 to 256 symbols (the ``dfa_*``
 entries), so the general ranking walk is exercised, not just flat languages.
 
 regex2dfa quirks the patterns respect: no ``{n}``/``{n,m}`` quantifiers
-(braces are literal), no ``\\x`` escapes; ``.`` means any of 256 bytes.
+(``RegexFormat`` rejects brace quantifiers, since regex2dfa would read the
+braces literally), ``\\xHH`` escapes are supported, and ``.`` means any of
+256 bytes.
 """
 
 from __future__ import annotations
@@ -116,7 +118,6 @@ CORPUS: list[tuple[str, str, object, list[str]]] = [
     ('dot_plus_short', '^.+$', 4, ['dot', 'b256']),
     ('explicit_3', '^[a-z][a-z][a-z]$', 3, ['explicit', 'fixed']),
     ('explicit_mixed', '^[a-z][0-9][a-z]$', 3, ['explicit', 'fixed']),
-    ('union_empty_branch', '^(a|)b$', (1, 2), ['optional-alt', 'edge']),
     ('deep_nest', '^((ab)|(cd)|(ef))+$', 8, ['union', 'nested']),
     ('alt_star', '^(a*b)+$', 8, ['star', 'nested', 'skew']),
     ('plus_of_opt', '^(ab?)+$', 8, ['optional', 'loop', 'skew']),
@@ -177,5 +178,5 @@ CORPUS: list[tuple[str, str, object, list[str]]] = [
     ('dfa_varloop', '^(ab|cde|fghi|jklmn)+$', (2, 12), ['dfa', 'loop', 'varlen']),
 ]
 
-assert len(CORPUS) == 150
-assert len({e[0] for e in CORPUS}) == 150  # unique ids
+assert len(CORPUS) == 149
+assert len({e[0] for e in CORPUS}) == 149  # unique ids

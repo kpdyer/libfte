@@ -1,10 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Example: Basic FTE usage.
-
-This example demonstrates the simplest way to use FTE -
-encrypting and decrypting a message with a regex format.
-"""
+"""Encrypt between two endpoints sharing a key, and reject a wrong key."""
 
 import os
 
@@ -12,30 +7,27 @@ import fte
 
 
 def main():
-    # One engine: FTE over a ranked format. RegexFormat is the built-in
-    # provider; give it a pattern and the exact covertext length. FTE takes the
-    # format and a 32-byte key.
-    cipher = fte.FTE(
-        output_format=fte.RegexFormat('^(a|b)+$', length=512),
-        key=os.urandom(32),
-    )
+    key = os.urandom(32)  # securely share this key with the receiving endpoint
+    fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=87)
+    sender = fte.FTE(output_format=fmt, key=key)
+    receiver = fte.FTE(output_format=fmt, key=key)
 
-    # Encrypt a message
-    plaintext = b'Hello, World!'
-    ciphertext = cipher.encrypt(plaintext)
+    plaintext = b"Hello, World!"
+    covertext = sender.encrypt(plaintext)
+    recovered = receiver.decrypt(covertext)
+    assert recovered == plaintext
+    print(f"Plaintext: {plaintext}")
+    print(f"Covertext: {covertext.decode()}")
+    print(f"Recovered: {recovered}")
 
-    # Decrypt it back
-    recovered = cipher.decrypt(ciphertext)
-
-    # Display results
-    print(f'Plaintext: {plaintext}')
-    print(f'Ciphertext: {ciphertext[:32].decode()}...{ciphertext[-32:].decode()}')
-    print(f'Recovered: {recovered}')
-
-    # Verify roundtrip
-    assert plaintext == recovered, "Roundtrip failed!"
-    print("\nSuccess! Message was correctly encrypted and decrypted.")
+    wrong_key = fte.FTE(output_format=fmt, key=os.urandom(32))
+    try:
+        wrong_key.decrypt(covertext)
+    except fte.InvalidCovertextError:
+        print("A different key fails authentication.")
+    else:
+        raise AssertionError("wrong key was accepted")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

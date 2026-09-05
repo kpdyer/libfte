@@ -17,8 +17,8 @@ To show both ends of that range, every format is timed with a short 18-byte
 payload and with a full-capacity payload (``cipher.max_plaintext_bytes``).
 It runs across a range of output formats (binary, hex, words, URLs, ...) and
 also sweeps the covertext ``length`` for one format to show how per-message
-cost scales. Every timed round-trip is verified, so a clean run also doubles as
-a correctness check. It prints the CPU / OS / Python it ran on, since absolute
+cost scales. One round-trip per format and payload is verified before timing.
+It prints the CPU / OS / Python it ran on, since absolute
 timings only mean something alongside the hardware.
 
 Usage:

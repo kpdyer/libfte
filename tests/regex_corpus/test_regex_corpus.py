@@ -31,7 +31,7 @@ from fte import FTE, frame
 from fte.core import FormatCapacityError
 from regex_corpus_data import CORPUS
 from fte.formats.regex.format import RegexFormat
-from gen_regex_corpus_golden import dfa_stats
+from gen_regex_corpus_golden import build_format, dfa_stats
 
 _GOLDEN = json.loads(Path(__file__).with_name("regex_corpus_golden.json").read_text())
 _KEY = bytes(range(32))
@@ -41,19 +41,13 @@ _IDS = [entry[0] for entry in CORPUS]
 _BY_ID = {entry[0]: entry for entry in CORPUS}
 
 
-def _build(pattern: str, spec) -> RegexFormat:
-    if isinstance(spec, (tuple, list)):
-        return RegexFormat(pattern, min_length=spec[0], max_length=spec[1])
-    return RegexFormat(pattern, length=spec)
-
-
 @lru_cache(maxsize=None)
 def _format_for(label: str) -> RegexFormat:
     # Cached so a large-DFA entry is compiled once across the whole test module,
     # not rebuilt per test function. Tests only read the format, so sharing it
     # is safe.
     _, pattern, spec, _ = _BY_ID[label]
-    return _build(pattern, spec)
+    return build_format(pattern, spec)
 
 
 def test_corpus_size_and_unique_ids():
@@ -62,7 +56,7 @@ def test_corpus_size_and_unique_ids():
 
 
 def test_golden_matches_corpus_ids():
-    # corpus.py and the frozen goldens must describe the same set of regexes;
+    # The corpus and frozen goldens must describe the same set of regexes;
     # editing one without regenerating the other is a mistake, not a silent pass.
     assert set(_GOLDEN) == set(_IDS)
 

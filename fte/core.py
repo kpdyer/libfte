@@ -1,29 +1,7 @@
 """The FTE engine: ``rank_in -> transform -> unrank_out``.
 
-The engine ranks a value of the *input format* to an integer, transforms that
-integer, and unranks the result into the *output format*. Two independent
-choices shape it:
-
-* the **format pair**: ``input_format`` (default
-  :class:`~fte.formats.bytes.BytesFormat`, i.e. raw bytes) and
-  ``output_format``, each a :class:`RankedFormat`; and
-* the **cipher** on the integer in between: the randomized, authenticated,
-  expanding AES-CTR+HMAC scheme (``"aes-ctr-hmac"``, the wire-frozen path
-  framed by
-  :mod:`fte.frame`) or a deterministic, zero-expansion format-preserving
-  permutation (``"ff1"`` via libffx, or any duck-typed object).
-
-That gives a 2x2 of behaviors:
-
-================  =========================  ============================
-cipher \\ format   input == output            input != output
-================  =========================  ============================
-``ff1`` / obj     FPE (in place)             deterministic FTE (rank map)
-``aes-ctr-hmac``  authenticated, expanding   classic bytes -> AE -> format
-================  =========================  ============================
-
-The engine owns the cryptography; a format owns nothing but its ordering. See
-:mod:`fte.formats` for the provider contract.
+The engine owns encryption and framing; :mod:`fte.formats` providers own the
+reversible ordering of plaintext and covertext values.
 """
 
 from __future__ import annotations
@@ -126,10 +104,9 @@ class FTE(Generic[Plaintext, Covertext]):
     insecure over a domain small enough to brute-force. There is no opt-out.
 
     ``key`` is 32 bytes for ``"aes-ctr-hmac"`` (16 encryption + 16 MAC) and
-    16/24/32
-    bytes for ``"ff1"``. **Never reuse a key across the two ciphers**: the AE
-    and format-preserving constructions are unrelated and share no security
-    proof.
+    16/24/32 bytes for ``"ff1"``. **Never reuse a key across the two ciphers**:
+    the AE and format-preserving constructions are unrelated and share no
+    security proof.
 
     ``tweak`` (a per-call keyword on :meth:`encrypt` / :meth:`decrypt`) is only
     meaningful with the deterministic cipher; the AE path has no
@@ -500,14 +477,12 @@ class FTE(Generic[Plaintext, Covertext]):
     def max_plaintext_bytes(self) -> int | None:
         """Largest plaintext this instance accepts (AE cipher only).
 
-        For a bytes input with a finite output format this defaults to the
-        exact size the output's capacity allows; an unbounded output falls
-        back to a 1 MiB default, and an explicit ``max_plaintext_bytes``
-        lowers it further. It is also the guard that lets ``decrypt`` reject
-        an oversized covertext before materializing a huge integer. For a
-        finite non-bytes input it is the fixed serialization width of every
-        input rank, set by the input's cardinality (so the frame length never
-        depends on the plaintext); for the deterministic cipher it is ``None``.
+        For bytes input, this is the smaller of the resource ceiling (1 MiB
+        by default) and any finite output capacity. An explicit constructor
+        limit can raise or lower the ceiling, up to 2**32 - 1 bytes. The same
+        limit bounds accepted frame lengths during decryption. For a finite
+        non-bytes input it is the fixed serialization width of every input
+        rank; for the deterministic cipher it is ``None``.
         """
 
         return self._max_plaintext_bytes
@@ -518,40 +493,31 @@ class FTE(Generic[Plaintext, Covertext]):
     def encrypt(self, plaintext: Plaintext, /, *, tweak: bytes = b"") -> Covertext:
         """Encrypt ``plaintext`` into a value of the output format."""
 
-        if not isinstance(tweak, (bytes, bytearray)):
-            raise TypeError("tweak must be bytes")
-        tweak = bytes(tweak)
+        tweak = self._validate_tweak(tweak)
         if self._cipher_mode == "aes-ctr-hmac":
-            if tweak:
-                raise ValueError(
-                    "the 'aes-ctr-hmac' cipher has no associated-data "
-                    "support; a "
-                    "non-empty tweak is only valid with a deterministic cipher"
-                )
             return self._encrypt_ae(plaintext)
         return self._encrypt_deterministic(plaintext, tweak)
 
     def decrypt(self, covertext: Covertext, /, *, tweak: bytes = b"") -> Plaintext:
         """Decrypt one output-format value back to a plaintext."""
 
-        if not isinstance(tweak, (bytes, bytearray)):
-            raise TypeError("tweak must be bytes")
-        tweak = bytes(tweak)
+        tweak = self._validate_tweak(tweak)
         if self._cipher_mode == "aes-ctr-hmac":
-            if tweak:
-                raise ValueError(
-                    "the 'aes-ctr-hmac' cipher has no associated-data "
-                    "support; a "
-                    "non-empty tweak is only valid with a deterministic cipher"
-                )
             return self._decrypt_ae(covertext)
         return self._decrypt_deterministic(covertext, tweak)
 
-    # ---- deterministic path ------------------------------------------ #
-    def _encrypt_deterministic(self, plaintext: Plaintext, tweak: bytes):
-        if self._preserve_length:
-            return self._encrypt_preserve_length(plaintext, tweak)
+    def _validate_tweak(self, tweak: bytes) -> bytes:
+        if not isinstance(tweak, (bytes, bytearray)):
+            raise TypeError("tweak must be bytes")
+        tweak = bytes(tweak)
+        if self._cipher_mode == "aes-ctr-hmac" and tweak:
+            raise ValueError(
+                "the 'aes-ctr-hmac' cipher has no associated-data support; a "
+                "non-empty tweak is only valid with a deterministic cipher"
+            )
+        return tweak
 
+    def _rank_plaintext(self, plaintext: Plaintext) -> int:
         try:
             r = self._input_format.rank(plaintext)
         except Exception as exc:
@@ -560,6 +526,14 @@ class FTE(Generic[Plaintext, Covertext]):
             raise InvalidPlaintextError(
                 "plaintext rank is outside the input format's rank space"
             )
+        return r
+
+    # ---- deterministic path ------------------------------------------ #
+    def _encrypt_deterministic(self, plaintext: Plaintext, tweak: bytes):
+        if self._preserve_length:
+            return self._encrypt_preserve_length(plaintext, tweak)
+
+        r = self._rank_plaintext(plaintext)
         c = self._cipher.encrypt_int(
             r, domain=self._n_out, tweak=self._tweak_base + tweak
         )
@@ -653,14 +627,7 @@ class FTE(Generic[Plaintext, Covertext]):
                     "length"
                 )
         else:
-            try:
-                r = self._input_format.rank(plaintext)
-            except Exception as exc:
-                raise InvalidPlaintextError("invalid plaintext") from exc
-            if type(r) is not int or not 0 <= r < self._n_in:
-                raise InvalidPlaintextError(
-                    "plaintext rank is outside the input format's rank space"
-                )
+            r = self._rank_plaintext(plaintext)
             pt_bytes = r.to_bytes(self._max_plaintext_bytes, "big")
 
         ciphertext = self._encrypter.encrypt(pt_bytes)

@@ -1,25 +1,7 @@
-"""``RegexFormat``: the reference :class:`~fte.formats.base.RankedFormat`.
+"""The built-in regex provider for :class:`~fte.formats.base.RankedFormat`.
 
-This is the provider libfte ships with, and the worked example to copy when you
-write your own. Each instance is a format: a ranked, finite slice of the byte
-language a pattern denotes, so ciphertext comes out looking like the pattern
-you chose: hex, alphanumeric tokens, URL paths, and so on.
-
-Covertext length is the format's choice, not the engine's. ``RegexFormat`` lets
-you pin it or leave it to vary:
-
-* ``RegexFormat(pattern, length=N)`` ranks the words of exactly ``N`` bytes, so
-  every covertext is ``N`` bytes long. This is the classic fixed-slice behavior,
-  which makes a stream trivial to parse (fixed-size chunks).
-* ``RegexFormat(pattern, min_length=a, max_length=b)`` ranks the words whose
-  length is in ``[a, b]``, ordered by length and then lexicographically, so a
-  covertext's length varies with the message. ``min_length == max_length`` is
-  the fixed case, identical to ``length=``.
-
-There is deliberately no cryptography here. Compiling and ranking the DFA (in
-the sibling :mod:`~fte.formats.regex.dfa` module) is the provider's only job;
-:class:`fte.FTE` owns encryption, authentication, and framing. That separation
-is exactly what makes a new provider easy to add.
+Each format ranks a finite slice of a byte language. The sibling DFA module
+implements ranking; ``fte/formats/regex/README.md`` documents the regex dialect.
 """
 
 from __future__ import annotations
@@ -247,25 +229,10 @@ class RegexFormat:
             uses syntax regex2dfa would silently misread (a brace quantifier
             such as ``{3}``, an escape it does not implement such as ``\D``,
             a backslash inside ``[...]``, a mid-pattern ``^`` or ``$``, an
-            empty alternative or an empty group ``()``; see the note below);
+            empty alternative or an empty group ``()``; see the regex guide);
             if ``pattern`` is otherwise not a valid regular expression
-            (including one denoting the empty language, such as ``^$``); or
+            (including one matching only the empty string, such as ``^$``); or
             if the language has no words in the requested length range.
-
-    Note:
-        **Supported syntax.** The pattern goes to ``regex2dfa``, whose dialect
-        is smaller than Python's ``re`` and always matches the whole
-        covertext. Supported: literal characters, the quantifiers ``*`` ``+``
-        ``?``, alternation ``|``, groups ``(...)``, character classes with
-        ranges and ``^`` negation, ``.`` for any of the 256 bytes, the escapes
-        ``\n`` ``\t`` ``\r`` ``\0`` ``\xHH`` ``\d`` ``\s`` ``\w``, and a
-        backslash before any punctuation character for that literal character
-        (so ``\{`` or ``[{]`` is a literal brace). Brace quantifiers, other
-        letter or digit escapes, escapes inside ``[...]``, ``^``/``$`` away
-        from the edges of the pattern or of an alternative, empty
-        alternatives (``a|``, ``(a|)``) and empty groups (``()``) are
-        rejected up front because regex2dfa would misread them. See
-        ``fte/formats/regex/README.md`` for the full list.
 
     Example:
         >>> fmt = RegexFormat(r"^[0-9a-f]+$", length=96)
@@ -325,8 +292,8 @@ class RegexFormat:
         _check_pattern_syntax(pattern)
         try:
             # regex2dfa raises its own parser errors; the DFA rejects an
-            # automaton with no symbols, which is what an empty-language
-            # pattern such as '^$' compiles to.
+            # automaton with no symbols, including patterns such as '^$'
+            # that match only the empty string.
             dfa = DFA(regex2dfa.regex2dfa(pattern), hi)
         except Exception as exc:
             raise ValueError(

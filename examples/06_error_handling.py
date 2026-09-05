@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """Example: Proper error handling.
 
-Shows the exceptions the FTE engine and RegexFormat raise, and how to handle
-each one.
+Handle common input, capacity, and authentication errors.
 """
 
 import os
@@ -12,8 +11,6 @@ import fte
 
 
 def main():
-    print("=== Error Handling ===\n")
-
     key = os.urandom(32)
     cipher = fte.FTE(output_format=fte.RegexFormat('^[a-z]+$', length=128), key=key)
 
@@ -38,11 +35,10 @@ def main():
     except ValueError as e:
         print(f"   Caught ValueError: {e}")
 
-    # 4. Message too large for the fixed-length format
+    # 4. A format too small for even an empty authenticated message
     print("\n4. Insufficient capacity:")
     try:
-        tiny = fte.FTE(output_format=fte.RegexFormat('^[0-9a-f]+$', length=8), key=key)
-        tiny.encrypt(b'x' * 100)
+        fte.FTE(output_format=fte.RegexFormat('^[0-9a-f]+$', length=8), key=key)
     except fte.FormatCapacityError as e:
         print(f"   Caught FormatCapacityError: {e}")
 
@@ -56,20 +52,12 @@ def main():
     # 6. Corrupted / unauthenticated covertext
     print("\n6. Tampered covertext:")
     covertext = cipher.encrypt(b'hello')
-    tampered = bytes([covertext[0] ^ 0x01]) + covertext[1:]
+    fmt = cipher.output_format
+    tampered = fmt.unrank(fmt.rank(covertext) + 1)  # altered, still in the language
     try:
         cipher.decrypt(tampered)
     except fte.InvalidCovertextError as e:
         print(f"   Caught InvalidCovertextError: {e}")
-
-    # Correct usage
-    print("\n" + "=" * 50)
-    print("\nCorrect usage:")
-    plaintext = b'Hello, World!'
-    ciphertext = cipher.encrypt(plaintext)
-    recovered = cipher.decrypt(ciphertext)
-    print(f"   Original:  {plaintext}")
-    print(f"   Recovered: {recovered}")
 
 
 if __name__ == '__main__':

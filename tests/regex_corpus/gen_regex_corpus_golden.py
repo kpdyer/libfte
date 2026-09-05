@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Regenerate ``corpus_golden.json`` from ``corpus.py`` using the STOCK ranking.
+"""Regenerate ``regex_corpus_golden.json`` from ``regex_corpus_data.py``.
 
 The golden file freezes the exact ranking bijection (cardinality + sampled
 ``unrank`` outputs) for every corpus regex. ``test_regex_corpus.py`` compares the

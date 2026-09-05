@@ -1,46 +1,17 @@
-"""FTE - Format-Transforming Encryption library.
+"""Format-transforming and format-preserving encryption.
 
-This library implements Format-Transforming Encryption (FTE) and Format-
-Preserving Encryption (FPE) with one engine, :class:`fte.FTE`. The engine maps
-``rank_in -> transform -> unrank_out``: it ranks a value of the input format to
-an integer, transforms that integer, and unranks the result into the output
-format. Two independent choices shape it:
-
-* the **format pair** (``input_format`` / ``output_format``), and
-* the **cipher**: ``"aes-ctr-hmac"`` (randomized, authenticated, expanding:
-  the classic AES-CTR + HMAC path) or ``"ff1"`` (deterministic, zero-expansion,
-  format-preserving, via the libffx package).
-
-FPE is simply the same format on both sides (equal fingerprints): equal formats infer
-the deterministic cipher and re-encrypt a value in place. Classic FTE (bytes
-hidden as covertext) is the case where the input is raw bytes::
+Use :class:`FTE` with :class:`RegexFormat`, :class:`BytesFormat`, or a custom
+:class:`RankedFormat`. Bytes input defaults to authenticated encryption;
+matching finite formats infer the deterministic FF1 cipher.
 
     >>> import fte
     >>> cipher = fte.FTE(
     ...     output_format=fte.RegexFormat('^[a-z]+$', length=128),
-    ...     key=bytes(range(32)),
+    ...     key=bytes(range(32)),  # demonstration key
     ... )
-    >>> covertext = cipher.encrypt(b'secret message')
-    >>> assert cipher.decrypt(covertext) == b'secret message'
+    >>> assert cipher.decrypt(cipher.encrypt(b'hello')) == b'hello'
 
-    >>> digits = fte.RegexFormat('^[0-9]+$', length=9)
-    >>> ssn = fte.FTE(
-    ...     input_format=digits,
-    ...     output_format=digits,                       # equal formats -> FPE
-    ...     key=bytes(range(16)),
-    ... )
-    >>> assert ssn.decrypt(ssn.encrypt(b'123456789')) == b'123456789'
-
-``fte.RegexFormat`` is the built-in regex provider and ``fte.BytesFormat`` is
-the raw-bytes identity format (the default input). Supply your own
-:class:`fte.RankedFormat` to target any other format. See :mod:`fte.formats`
-for the provider contract and the reference implementation.
-
-See the paper "Protocol Misidentification Made Easy with Format-Transforming
-Encryption" for scheme details (https://kpdyer.com/publications/ccs2013-fte.pdf)
-and "LibFTE: A Toolkit for Constructing Practical, Format-Abiding Encryption
-Schemes" for the FPE/FTE toolkit this library is named for
-(https://kpdyer.com/publications/usenix2014-fte.pdf).
+See ``docs/api.md`` for the API and ``SECURITY.md`` for the security model.
 """
 
 from pathlib import Path

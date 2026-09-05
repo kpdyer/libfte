@@ -160,7 +160,6 @@ class DFA:
         self._num_states = 0
         self._symbols: List[int] = list(parsed.symbols)
         self._final_states: Set[int] = set(parsed.final_states)
-        self._sigma_reverse: Dict[int, int] = {}  # symbol byte value -> index
         self._symbol_index: List[int] = []        # byte value -> index or -1
         self._delta: List[List[int]] = []         # transition table
         self._delta_dense: List[bool] = []        # all-transitions-equal flag
@@ -188,20 +187,14 @@ class DFA:
         self._num_states = dead_state + 1
         num_symbols = len(self._symbols)
 
-        self._sigma_reverse = {
-            symbol: idx for idx, symbol in enumerate(self._symbols)
-        }
-        # Same map as a 256-entry list so rank can index by byte value
-        # instead of calling ``dict.get`` for every symbol. That fixes the
-        # alphabet to byte values: a larger symbol would not fit the list and
-        # a negative one would silently alias another entry.
-        for symbol in self._symbols:
+        # Index directly by byte value during construction and ranking. Reject
+        # out-of-range symbols before indexing: negative values would alias.
+        self._symbol_index = [-1] * 256
+        for idx, symbol in enumerate(self._symbols):
             if not 0 <= symbol <= 255:
                 raise InvalidFSTFormat(
                     f"symbol {symbol} is outside the byte range 0..255"
                 )
-        self._symbol_index = [-1] * 256
-        for symbol, idx in self._sigma_reverse.items():
             self._symbol_index[symbol] = idx
 
         # Initialize delta (transition table) to dead state
@@ -211,7 +204,7 @@ class DFA:
 
         # Fill in transitions
         for src, dst, symbol in transitions:
-            symbol_idx = self._sigma_reverse[symbol]
+            symbol_idx = self._symbol_index[symbol]
             self._delta[src][symbol_idx] = dst
 
     def _build_table(self) -> None:

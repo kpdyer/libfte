@@ -118,8 +118,8 @@ class Tests(unittest.TestCase):
             cipher.decrypt(excessive_bits)
 
     def test_finite_format_derives_max_plaintext_from_capacity(self):
-        # A finite format (RegexFormat exposes cardinality) sets the ceiling
-        # from its own capacity, not the 1 MiB default.
+        # A finite format below the 1 MiB default lowers the effective limit
+        # to its own capacity.
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=96)
         cipher = fte.FTE(output_format=fmt, key=KEY)
         limit = cipher.max_plaintext_bytes
@@ -142,6 +142,26 @@ class Tests(unittest.TestCase):
         self.assertEqual(
             cipher.max_plaintext_bytes, fte.FTE._DEFAULT_MAX_PLAINTEXT_BYTES
         )
+
+    def test_finite_capacity_above_default_keeps_resource_ceiling(self):
+        ceiling = 1 << 20
+        capacity = ceiling + 1
+
+        class LargeHexFormat(HexFormat):
+            cardinality = frame_rank_limit(
+                capacity + 1 + fte.FTE._CIPHERTEXT_EXPANSION
+            )
+
+        fmt = LargeHexFormat()
+        cipher = fte.FTE(output_format=fmt, key=KEY)
+        self.assertEqual(cipher.max_plaintext_bytes, ceiling)
+        plaintext = b"x" * capacity
+        with self.assertRaises(fte.MessageTooLargeError):
+            cipher.encrypt(plaintext)
+
+        raised = fte.FTE(output_format=fmt, key=KEY, max_plaintext_bytes=capacity)
+        self.assertEqual(raised.max_plaintext_bytes, capacity)
+        self.assertEqual(raised.decrypt(raised.encrypt(plaintext)), plaintext)
 
     def test_explicit_max_tightens_finite_format(self):
         # An explicit value lowers the ceiling below the format's capacity and

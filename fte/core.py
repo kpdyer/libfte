@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 from typing import Generic, TypeVar
 
-from fte import frame
+from fte import _frame as frame
 from fte._encrypter import DecryptionError, Encrypter
 from fte.formats.base import RankedFormat
 from fte.formats.bytes import BytesFormat

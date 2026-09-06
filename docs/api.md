@@ -1,5 +1,33 @@
 # API reference
 
+## Public API and compatibility
+
+Use the names exported by `fte`: `FTE`, `RegexFormat`, `BytesFormat`,
+`RankedFormat`, and the [engine exceptions](#exceptions), including `FTEError`.
+Their documented constructors, methods, and properties form the stable public
+API. `fte.__version__` reports the installed version. The provider aliases in
+`fte.formats` and `fte.formats.regex.RegexFormat` remain supported.
+
+Direct imports from `fte.frame` and `fte.formats.regex.dfa` are deprecated.
+Both modules retain their existing exported functions, classes, and exceptions
+during migration and emit `DeprecationWarning` when first imported. They will
+be removed in a future breaking release; ordinary public API use does not
+import them or emit these warnings. To show deprecation warnings while testing,
+run Python with `-W default::DeprecationWarning`.
+
+| Deprecated use | Migration |
+|----------------|-----------|
+| `fte.frame.bytes_to_rank()` / `rank_to_bytes()` | `fte.BytesFormat().rank()` / `.unrank()` |
+| Frame capacity calculations for a configured cipher | Construct `fte.FTE(...)` and read `max_plaintext_bytes`; construction rejects an insufficient format |
+| Raw DFA construction and per-length ranking | Use `fte.RegexFormat` for regex languages, or implement the `fte.RankedFormat` [provider contract](formats.md) |
+
+There is no stable replacement for raw DFA/FST parsing or the remaining frame
+internals. Applications that need these interfaces should pin a release that
+still provides them while moving that functionality into their own provider
+or another maintained dependency. Modules and names beginning with `_` are
+private implementation details, not migration targets. The deprecation does
+not change ranking, fingerprints, or encrypted-frame bytes.
+
 ## `fte.FTE`
 
 The engine maps `input_format.rank(plaintext)` through a cipher, then calls

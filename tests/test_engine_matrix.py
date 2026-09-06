@@ -18,7 +18,7 @@ import math
 import unittest
 
 import fte
-from fte import frame
+from fte import _frame as frame
 from fte.core import (
     FTE,
     FormatCapacityError,

@@ -4,7 +4,7 @@ import os
 import unittest
 
 import fte
-from fte.frame import (
+from fte._frame import (
     bytes_to_rank,
     capacity_plaintext_limit,
     frame_rank_limit,

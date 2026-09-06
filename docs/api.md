@@ -33,8 +33,12 @@ fte.FTE(
 | `"ff1"` | Deterministic rank permutation using `libffx.FF1`, with no nonce or authentication tag | 16, 24, or 32 bytes |
 | Cipher object | A custom permutation with `encrypt_int(x, *, domain, tweak)` and `decrypt_int(y, *, domain, tweak)` | The object owns its key; `FTE` still requires a bytes `key` argument |
 
-With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`. Otherwise,
-equal bytes fingerprints select `"ff1"`; any other format pair needs an explicit
+With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`. Select
+`cipher="ff1"` explicitly for deterministic, unauthenticated encryption.
+For compatibility, equal bytes fingerprints still infer `"ff1"`, but successful
+construction emits `DeprecationWarning`; this inference will be removed in a
+future breaking release. Adding `cipher="ff1"` preserves existing ciphertexts,
+keys, tweaks, and length behavior. Other format pairs already require an explicit
 cipher. See the [provider contract](formats.md) for custom formats.
 
 The deterministic cipher requires finite, fingerprinted formats with input

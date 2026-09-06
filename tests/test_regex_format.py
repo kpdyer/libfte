@@ -71,7 +71,7 @@ class Tests(unittest.TestCase):
     def test_empty_language_pattern_is_value_error(self):
         # These compile to an automaton with no symbols; the DFA's own error
         # must surface as ValueError, chained from the original.
-        from fte.formats.regex.dfa import InvalidFSTFormat
+        from fte.formats.regex._dfa import InvalidFSTFormat
 
         for pattern in ("", "^", "$", "^$"):
             with self.subTest(pattern=pattern):

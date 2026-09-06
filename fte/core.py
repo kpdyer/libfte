@@ -7,9 +7,10 @@ reversible ordering of plaintext and covertext values.
 from __future__ import annotations
 
 import hashlib
+import warnings
 from typing import Generic, TypeVar
 
-from fte import frame
+from fte import _frame as frame
 from fte._encrypter import DecryptionError, Encrypter
 from fte.formats.base import RankedFormat
 from fte.formats.bytes import BytesFormat
@@ -88,8 +89,8 @@ class FTE(Generic[Plaintext, Covertext]):
       ``FTE(output_format=fmt, key=key)`` is the classic pipeline: bytes in,
       the AE cipher, ``fmt`` out.
     * **FPE is the equal-formats case**: passing the same format as
-      ``input_format`` and ``output_format`` re-encrypts a value in place with
-      the deterministic cipher. Length is preserved automatically when the
+      ``input_format`` and ``output_format`` with ``cipher="ff1"`` re-encrypts
+      a value in place. Length is preserved automatically when the
       format can name its per-length slices (a ``slice_bounds`` method plus
       integer ``min_length`` / ``max_length``), so a value keeps its length;
       otherwise the whole language is permuted. See :attr:`preserve_length`.
@@ -97,7 +98,9 @@ class FTE(Generic[Plaintext, Covertext]):
       ``encrypt_int(x, *, domain, tweak) -> int`` /
       ``decrypt_int(y, *, domain, tweak) -> int``, or ``None`` to infer it:
       a bytes input picks ``"aes-ctr-hmac"``; otherwise two formats with equal
-      fingerprints pick ``"ff1"``; anything else must be spelled out.
+      fingerprints still pick ``"ff1"`` with a :class:`DeprecationWarning`.
+      Pass ``cipher="ff1"`` explicitly to select unauthenticated encryption;
+      anything else must be spelled out.
 
     The deterministic cipher refuses a domain below one million (Draft
     SP 800-38G Rev 1), raising :class:`SmallDomainError`, because FF1 is
@@ -130,6 +133,12 @@ class FTE(Generic[Plaintext, Covertext]):
     bounded by the size of the input space rather than by the key, so the
     one-million floor is enforced on the input domain. Pass a distinct
     per-record ``tweak`` to separate encryptions.
+
+    Passing an object with ``encrypt_int()`` / ``decrypt_int()`` is deprecated
+    and emits :class:`DeprecationWarning`. Existing objects retain their behavior
+    and own their key; the ``FTE`` key argument is unused for them. Keep the
+    original object when decrypting old data: switching to a named cipher is
+    not generally ciphertext compatible.
     """
 
     _FRAME_VERSION = frame.FRAME_VERSION
@@ -183,6 +192,7 @@ class FTE(Generic[Plaintext, Covertext]):
         fp_out = getattr(output_format, "fingerprint", None)
 
         # ---- resolve the cipher ----------------------------------------
+        inferred_ff1 = False
         if cipher is None:
             if input_is_bytes:
                 cipher = "aes-ctr-hmac"
@@ -192,12 +202,13 @@ class FTE(Generic[Plaintext, Covertext]):
                 and fp_in == fp_out
             ):
                 cipher = "ff1"
+                inferred_ff1 = True
             else:
                 raise ValueError(
                     "cannot infer cipher for this format pair; pass "
                     "cipher='ff1' for a deterministic transform, "
                     "cipher='aes-ctr-hmac' "
-                    "for authenticated encryption, or a cipher object"
+                    "for authenticated encryption"
                 )
 
         if isinstance(cipher, str):
@@ -207,9 +218,8 @@ class FTE(Generic[Plaintext, Covertext]):
                 cipher_mode = "deterministic"
             else:
                 raise ValueError(
-                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac', "
-                    "'ff1', or an "
-                    "object with encrypt_int()/decrypt_int()"
+                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac' "
+                    "or 'ff1'"
                 )
         else:
             if not callable(getattr(cipher, "encrypt_int", None)) or not callable(
@@ -256,6 +266,15 @@ class FTE(Generic[Plaintext, Covertext]):
 
         if cipher_mode == "deterministic":
             self._init_deterministic(cipher, key, fp_in, fp_out)
+            if inferred_ff1:
+                warnings.warn(
+                    "Implicit FF1 selection is deprecated and will be removed "
+                    "in a future breaking release; pass cipher='ff1' explicitly "
+                    "to select deterministic, unauthenticated encryption. "
+                    "Explicit selection preserves existing ciphertexts.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
         else:
             if len(key) != 32:
                 raise ValueError(
@@ -264,6 +283,16 @@ class FTE(Generic[Plaintext, Covertext]):
                 )
             self._encrypter = Encrypter(key[:16], key[16:])
             self._init_ae_capacity(max_plaintext_bytes)
+
+        if not isinstance(cipher, str):
+            warnings.warn(
+                "Passing a cipher object to FTE is deprecated; use "
+                "cipher='ff1' or cipher='aes-ctr-hmac' for new data. "
+                "Keep the original cipher to decrypt existing "
+                "custom-cipher covertexts until migrated.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     # ------------------------------------------------------------------ #
     # Construction helpers                                               #

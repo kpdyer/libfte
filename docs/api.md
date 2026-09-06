@@ -1,5 +1,33 @@
 # API reference
 
+## Public API and compatibility
+
+Use the names exported by `fte`: `FTE`, `RegexFormat`, `BytesFormat`,
+`RankedFormat`, and the [engine exceptions](#exceptions), including `FTEError`.
+Their documented constructors, methods, and properties form the stable public
+API. `fte.__version__` reports the installed version. The provider aliases in
+`fte.formats` and `fte.formats.regex.RegexFormat` remain supported.
+
+Direct imports from `fte.frame` and `fte.formats.regex.dfa` are deprecated.
+Both modules retain their existing exported functions, classes, and exceptions
+during migration and emit `DeprecationWarning` when first imported. They will
+be removed in a future breaking release; ordinary public API use does not
+import them or emit these warnings. To show deprecation warnings while testing,
+run Python with `-W default::DeprecationWarning`.
+
+| Deprecated use | Migration |
+|----------------|-----------|
+| `fte.frame.bytes_to_rank()` / `rank_to_bytes()` | `fte.BytesFormat().rank()` / `.unrank()` |
+| Frame capacity calculations for a configured cipher | Construct `fte.FTE(...)` and read `max_plaintext_bytes`; construction rejects an insufficient format |
+| Raw DFA construction and per-length ranking | Use `fte.RegexFormat` for regex languages, or implement the `fte.RankedFormat` [provider contract](formats.md) |
+
+There is no stable replacement for raw DFA/FST parsing or the remaining frame
+internals. Applications that need these interfaces should pin a release that
+still provides them while moving that functionality into their own provider
+or another maintained dependency. Modules and names beginning with `_` are
+private implementation details, not migration targets. The deprecation does
+not change ranking, fingerprints, or encrypted-frame bytes.
+
 ## `fte.FTE`
 
 The engine maps `input_format.rank(plaintext)` through a cipher, then calls
@@ -31,10 +59,14 @@ fte.FTE(
 |-------------------|----------|-----|
 | `"aes-ctr-hmac"` | Randomized, authenticated encryption with a 29-byte frame overhead | 32 bytes: 16 for AES, 16 for HMAC |
 | `"ff1"` | Deterministic rank permutation using `libffx.FF1`, with no nonce or authentication tag | 16, 24, or 32 bytes |
-| Cipher object | A custom permutation with `encrypt_int(x, *, domain, tweak)` and `decrypt_int(y, *, domain, tweak)` | The object owns its key; `FTE` still requires a bytes `key` argument |
+| Cipher object **(deprecated)** | A custom permutation with `encrypt_int(x, *, domain, tweak)` and `decrypt_int(y, *, domain, tweak)`; construction emits `DeprecationWarning` | The object owns its key; the required bytes `FTE` key argument is unused |
 
-With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`. Otherwise,
-equal bytes fingerprints select `"ff1"`; any other format pair needs an explicit
+With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`. Select
+`cipher="ff1"` explicitly for deterministic, unauthenticated encryption.
+For compatibility, equal bytes fingerprints still infer `"ff1"`, but successful
+construction emits `DeprecationWarning`; this inference will be removed in a
+future breaking release. Adding `cipher="ff1"` preserves existing ciphertexts,
+keys, tweaks, and length behavior. Other format pairs already require an explicit
 cipher. See the [provider contract](formats.md) for custom formats.
 
 The deterministic cipher requires finite, fingerprinted formats with input
@@ -51,6 +83,27 @@ input space raises `InvalidCovertextError`.
 cipher binds it to the formats and length mode. Authenticated encryption has no
 associated-data support and rejects a nonempty tweak. Never reuse keys across
 the two ciphers; see [SECURITY.md](../SECURITY.md).
+
+### Migrating custom cipher objects
+
+Passing a cipher object is deprecated. It remains accepted during the migration
+period and produces the same covertexts as before. The deprecation does not
+affect custom [format providers](formats.md).
+
+For new data, choose `cipher="ff1"` for deterministic encryption or
+`cipher="aes-ctr-hmac"` for authenticated encryption, and pass the encryption
+key directly to `FTE`. Authenticated encryption also requires enough output
+capacity for its frame; it cannot replace every deterministic configuration.
+
+A custom object can implement a different permutation, own a different key, or
+interpret tweaks differently from a built-in cipher. Changing its `cipher`
+argument to `"ff1"` is therefore **not generally ciphertext compatible**.
+Retain the original implementation, its key, format definitions, and tweaks to
+decrypt existing data. Migrate by decrypting with that configuration and
+encrypting with a separately configured named cipher. Keep track of which
+configuration produced each stored value; do not try to identify it by whether
+unauthenticated decryption returns a value in the format. No public replacement
+for arbitrary cipher injection is introduced.
 
 ### Plaintext limits
 

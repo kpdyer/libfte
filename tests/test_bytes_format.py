@@ -4,7 +4,7 @@ import os
 import unittest
 
 from fte.formats.bytes import BytesFormat
-from fte.frame import bytes_to_rank, rank_offset, rank_to_bytes
+from fte._frame import bytes_to_rank, rank_offset, rank_to_bytes
 
 
 class Tests(unittest.TestCase):
@@ -61,7 +61,7 @@ class Tests(unittest.TestCase):
             )
 
     def test_frame_rank_limit_matches_closed_form(self):
-        from fte.frame import frame_rank_limit
+        from fte._frame import frame_rank_limit
 
         for frame_length in (1, 2, 5, 33, 128, 300):
             self.assertEqual(

@@ -173,6 +173,15 @@ ranges containing no matching words raise `ValueError`.
 | `fingerprint` | SHA-256 identifier derived from pattern text and length bounds |
 | `slice_bounds(length, /) -> tuple[int, int]` | Starting rank and word count for one length; `ValueError` outside the bounds |
 
+`pattern`, `min_length`, `max_length`, `cardinality`, and `fingerprint` are
+read-only. Create a new `RegexFormat` to use a different pattern or length
+range; assigning or deleting these properties raises `AttributeError`.
+
+When upgrading from writable metadata, reconstruct formats from their pattern
+and length arguments instead of loading previously pickled instances. Python
+pickle state is not a cross-version format; rankings and fingerprints are
+unchanged by this change.
+
 The pattern matches the whole covertext. The dialect is smaller than Python's
 `re`; see the [supported syntax](../fte/formats/regex/README.md#supported-syntax)
 and [compatibility rules](formats.md#compatibility).

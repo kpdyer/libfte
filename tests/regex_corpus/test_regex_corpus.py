@@ -27,7 +27,8 @@ from pathlib import Path
 
 import pytest
 
-from fte import FTE, frame
+from fte import FTE
+from fte import _frame as frame
 from fte.core import FormatCapacityError
 from regex_corpus_data import CORPUS
 from fte.formats.regex.format import RegexFormat

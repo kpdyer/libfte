@@ -2,7 +2,7 @@
 
 This is the identity covertext language: every finite byte string is a valid
 value, ordered length-first and then numerically (shortlex), exactly the
-ordering :mod:`fte.frame` defines. It is the default ``input_format`` for
+ordering used by the wire format. It is the default ``input_format`` for
 :class:`fte.FTE`, so the classic ``bytes -> AE -> format`` pipeline is just
 ``input_format=BytesFormat()``.
 
@@ -12,7 +12,7 @@ it exposes no ``cardinality`` because there is no largest byte string.
 
 from __future__ import annotations
 
-from fte import frame
+from fte import _frame as frame
 
 
 __all__ = ["BytesFormat"]

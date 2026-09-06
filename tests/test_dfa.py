@@ -10,7 +10,7 @@ import unittest
 
 import regex2dfa
 
-from fte.formats.regex.dfa import (
+from fte.formats.regex._dfa import (
     DFA,
     InvalidFSTFormat,
     InvalidRankInput,

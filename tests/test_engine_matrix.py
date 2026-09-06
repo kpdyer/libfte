@@ -21,7 +21,7 @@ import unittest
 import warnings
 
 import fte
-from fte import frame
+from fte import _frame as frame
 from fte.core import (
     FTE,
     FormatCapacityError,

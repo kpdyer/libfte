@@ -3,8 +3,9 @@
 """Example: A gallery of regex covertext formats.
 
 The pattern you choose denotes the covertext language. The same engine and
-key produce hex strings, alphanumeric tokens, or pronounceable words just by
-swapping the pattern.
+key produce hex strings, alphanumeric tokens, or alternating consonant/vowel
+pairs by swapping the pattern. Format membership does not guarantee natural
+words or a uniform distribution over the language.
 """
 
 import os
@@ -18,7 +19,7 @@ VOWELS = 'aeiou'
 FORMATS = [
     ("Hex (log files, debugging)", r'^[0-9a-f]+$', 128),
     ("Alphanumeric (tokens, IDs)", r'^[A-Za-z0-9]+$', 64),
-    ("Pronounceable words", f'^([{CONSONANTS}][{VOWELS}])+$', 128),
+    ("Consonant/vowel pairs", f'^([{CONSONANTS}][{VOWELS}])+$', 128),
 ]
 
 

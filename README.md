@@ -6,8 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Format-transforming encryption (FTE) encrypts data into a chosen format, such
-as hexadecimal strings, alphanumeric tokens, or a language defined by a regular
-expression. Custom providers can target other formats through reversible
+as hexadecimal strings, alphanumeric tokens, or a language defined by the
+[supported byte-regex dialect](https://github.com/kpdyer/libfte/blob/master/fte/formats/regex/README.md#supported-syntax).
+Custom providers can target other formats through reversible
 `rank()` and `unrank()` methods.
 
 One engine, `fte.FTE`, supports randomized authenticated encryption and
@@ -84,7 +85,8 @@ see the [deterministic FTE example](https://github.com/kpdyer/libfte/blob/master
 - For bytes input, the default plaintext limit is 1 MiB, reduced further by a
   finite output's capacity. An explicit `max_plaintext_bytes` can adjust the
   resource limit; see the [API reference](https://github.com/kpdyer/libfte/blob/master/docs/api.md#plaintext-limits).
-- Authenticated FTE reveals plaintext byte length through the covertext's rank.
+- For bytes input, authenticated FTE reveals plaintext byte length through the
+  covertext's rank, even when every covertext has the same fixed length.
   It guarantees format membership, not a uniform distribution over the format.
   Excess capacity can produce long runs of leading zeros or other low-ranked
   symbols; choose a length close to what the message needs.

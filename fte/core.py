@@ -7,6 +7,7 @@ reversible ordering of plaintext and covertext values.
 from __future__ import annotations
 
 import hashlib
+import warnings
 from typing import Generic, TypeVar
 
 from fte import frame
@@ -130,6 +131,12 @@ class FTE(Generic[Plaintext, Covertext]):
     bounded by the size of the input space rather than by the key, so the
     one-million floor is enforced on the input domain. Pass a distinct
     per-record ``tweak`` to separate encryptions.
+
+    Passing an object with ``encrypt_int()`` / ``decrypt_int()`` is deprecated
+    and emits :class:`DeprecationWarning`. Existing objects retain their behavior
+    and own their key; the ``FTE`` key argument is unused for them. Keep the
+    original object when decrypting old data: switching to a named cipher is
+    not generally ciphertext compatible.
     """
 
     _FRAME_VERSION = frame.FRAME_VERSION
@@ -197,7 +204,7 @@ class FTE(Generic[Plaintext, Covertext]):
                     "cannot infer cipher for this format pair; pass "
                     "cipher='ff1' for a deterministic transform, "
                     "cipher='aes-ctr-hmac' "
-                    "for authenticated encryption, or a cipher object"
+                    "for authenticated encryption"
                 )
 
         if isinstance(cipher, str):
@@ -207,9 +214,8 @@ class FTE(Generic[Plaintext, Covertext]):
                 cipher_mode = "deterministic"
             else:
                 raise ValueError(
-                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac', "
-                    "'ff1', or an "
-                    "object with encrypt_int()/decrypt_int()"
+                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac' "
+                    "or 'ff1'"
                 )
         else:
             if not callable(getattr(cipher, "encrypt_int", None)) or not callable(
@@ -264,6 +270,16 @@ class FTE(Generic[Plaintext, Covertext]):
                 )
             self._encrypter = Encrypter(key[:16], key[16:])
             self._init_ae_capacity(max_plaintext_bytes)
+
+        if not isinstance(cipher, str):
+            warnings.warn(
+                "Passing a cipher object to FTE is deprecated; use "
+                "cipher='ff1' or cipher='aes-ctr-hmac' for new data. "
+                "Keep the original cipher to decrypt existing "
+                "custom-cipher covertexts until migrated.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     # ------------------------------------------------------------------ #
     # Construction helpers                                               #

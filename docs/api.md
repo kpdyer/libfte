@@ -31,7 +31,7 @@ fte.FTE(
 |-------------------|----------|-----|
 | `"aes-ctr-hmac"` | Randomized, authenticated encryption with a 29-byte frame overhead | 32 bytes: 16 for AES, 16 for HMAC |
 | `"ff1"` | Deterministic rank permutation using `libffx.FF1`, with no nonce or authentication tag | 16, 24, or 32 bytes |
-| Cipher object | A custom permutation with `encrypt_int(x, *, domain, tweak)` and `decrypt_int(y, *, domain, tweak)` | The object owns its key; `FTE` still requires a bytes `key` argument |
+| Cipher object **(deprecated)** | A custom permutation with `encrypt_int(x, *, domain, tweak)` and `decrypt_int(y, *, domain, tweak)`; construction emits `DeprecationWarning` | The object owns its key; the required bytes `FTE` key argument is unused |
 
 With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`. Otherwise,
 equal bytes fingerprints select `"ff1"`; any other format pair needs an explicit
@@ -51,6 +51,27 @@ input space raises `InvalidCovertextError`.
 cipher binds it to the formats and length mode. Authenticated encryption has no
 associated-data support and rejects a nonempty tweak. Never reuse keys across
 the two ciphers; see [SECURITY.md](../SECURITY.md).
+
+### Migrating custom cipher objects
+
+Passing a cipher object is deprecated. It remains accepted during the migration
+period and produces the same covertexts as before. The deprecation does not
+affect custom [format providers](formats.md).
+
+For new data, choose `cipher="ff1"` for deterministic encryption or
+`cipher="aes-ctr-hmac"` for authenticated encryption, and pass the encryption
+key directly to `FTE`. Authenticated encryption also requires enough output
+capacity for its frame; it cannot replace every deterministic configuration.
+
+A custom object can implement a different permutation, own a different key, or
+interpret tweaks differently from a built-in cipher. Changing its `cipher`
+argument to `"ff1"` is therefore **not generally ciphertext compatible**.
+Retain the original implementation, its key, format definitions, and tweaks to
+decrypt existing data. Migrate by decrypting with that configuration and
+encrypting with a separately configured named cipher. Keep track of which
+configuration produced each stored value; do not try to identify it by whether
+unauthenticated decryption returns a value in the format. No public replacement
+for arbitrary cipher injection is introduced.
 
 ### Plaintext limits
 

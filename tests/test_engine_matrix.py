@@ -1,12 +1,13 @@
 """The 2x2 engine matrix: {ff1/object, aes-ctr-hmac} x {input==output, input!=output}.
 
-These tests exercise :class:`fte.FTE` end to end without the real ``ffx``
+The matrix exercises :class:`fte.FTE` end to end without the real ``ffx``
 package. The deterministic cells use a duck-typed *toy* cipher object -- any
 object exposing ``encrypt_int(x, *, domain, tweak) -> int`` and
 ``decrypt_int(y, *, domain, tweak) -> int`` forming a permutation of
-``range(domain)`` is a valid cipher, which is both the test seam and the public
-extension point. The AE cells use the real, wire-frozen authenticated path over
-:class:`~fte.formats.regex.RegexFormat`.
+``range(domain)`` is accepted by the deprecated object-cipher path. These tests
+retain coverage of that behavior during migration. The AE cells use the real,
+wire-frozen authenticated path over :class:`~fte.formats.regex.RegexFormat`.
+The focused deprecation checks also construct the real named ciphers.
 
 The deterministic domain floor (one million) is always enforced, so the formats
 here are *computed* decimal-string languages large enough to clear it, and the
@@ -14,11 +15,13 @@ deterministic assertions sample rather than enumerate.
 """
 
 import hashlib
+import inspect
 import math
 import unittest
+import warnings
 
 import fte
-from fte import frame
+from fte import _frame as frame
 from fte.core import (
     FTE,
     FormatCapacityError,
@@ -220,7 +223,78 @@ KEY_UNUSED = b"ignored-for-object-cipher"
 BIG_HEX = fte.RegexFormat(r"^[0-9a-f]+$", length=256)
 
 
+class CustomCipherDeprecation(unittest.TestCase):
+    def test_warning_points_to_constructor_caller_and_occurs_once(self):
+        fmt = DigitsFormat(6, fingerprint=b"fp:legacy-custom")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            call_line = inspect.currentframe().f_lineno + 1
+            eng = FTE(input_format=fmt, output_format=fmt,
+                      cipher=ToyCipher(), key=b"")
+            self.assertEqual(eng.decrypt(eng.encrypt("123456")), "123456")
+        self.assertEqual(len(caught), 1)
+        self.assertIs(caught[0].category, DeprecationWarning)
+        self.assertIn(
+            "Passing a cipher object to FTE is deprecated", str(caught[0].message)
+        )
+        self.assertIn("existing", str(caught[0].message))
+        self.assertEqual(caught[0].filename, __file__)
+        self.assertEqual(caught[0].lineno, call_line)
+
+    def test_existing_custom_cipher_covertexts_and_key_ownership_are_preserved(self):
+        fmt = DigitsFormat(6, fingerprint=b"fp:legacy-custom")
+        # Frozen before deprecation, using ToyCipher's own default key.
+        vectors = [
+            ("000000", b"", "214186"),
+            ("123456", b"record-A", "889261"),
+            ("999999", b"", "164859"),
+        ]
+        for key in (b"", bytes(range(32))):
+            with self.subTest(key=key):
+                with self.assertWarns(DeprecationWarning):
+                    eng = FTE(input_format=fmt, output_format=fmt,
+                              cipher=ToyCipher(), key=key)
+                for plaintext, tweak, covertext in vectors:
+                    self.assertEqual(eng.encrypt(plaintext, tweak=tweak), covertext)
+                    self.assertEqual(eng.decrypt(covertext, tweak=tweak), plaintext)
+
+    def test_named_ciphers_and_default_bytes_input_do_not_warn(self):
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            eng = FTE(input_format=fmt, output_format=fmt,
+                      cipher="ff1", key=bytes(range(16)))
+            self.assertEqual(eng.decrypt(eng.encrypt("123456")), "123456")
+            for cipher in ("aes-ctr-hmac", None):
+                eng = FTE(output_format=BIG_HEX, cipher=cipher, key=KEY_AE)
+                self.assertEqual(eng.decrypt(eng.encrypt(b"hello")), b"hello")
+        self.assertEqual(caught, [])
+
+    def test_invalid_objects_are_rejected_without_deprecation_warning(self):
+        fmt = DigitsFormat(6, fingerprint=b"fp:d6")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with self.assertRaisesRegex(TypeError, "callable encrypt_int"):
+                FTE(input_format=fmt, output_format=fmt, cipher=object(), key=b"")
+            small = DigitsFormat(5, fingerprint=b"fp:d5")
+            with self.assertRaises(SmallDomainError):
+                FTE(input_format=small, output_format=small,
+                    cipher=ToyCipher(), key=b"")
+        self.assertEqual(caught, [])
+
+
 class Tests(unittest.TestCase):
+    def setUp(self):
+        # The matrix keeps exercising legacy object behavior. Warning behavior
+        # is asserted separately above; do not hide any other deprecation.
+        context = warnings.catch_warnings()
+        context.__enter__()
+        self.addCleanup(context.__exit__, None, None, None)
+        warnings.filterwarnings(
+            "ignore", message="Passing a cipher object to FTE is deprecated;",
+            category=DeprecationWarning,
+        )
+
     # ---- deterministic, input == output (FPE cell) --------------------- #
     def test_deterministic_fpe_roundtrip_and_membership(self):
         fmt = DigitsFormat(6, fingerprint=b"fp:d6")

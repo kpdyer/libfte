@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Example: Format-preserving encryption of a 9-digit identifier.
 
-This is the FPE corner of the 2x2: the deterministic cipher (``ff1``) with the
-input and output being the *same* format, length preserved in place. A 9-digit
+The deterministic cipher (``ff1``) uses the same input and output format,
+preserving length in place. A 9-digit
 number encrypts to another 9-digit number, so the ciphertext still fits a
 fixed-width field (an account number, a customer id, a batch of tickets).
 

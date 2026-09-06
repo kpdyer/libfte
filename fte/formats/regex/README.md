@@ -85,9 +85,11 @@ Supported:
   `\d` (`[0-9]`), `\w` (`[0-9A-Za-z_]`), and `\s` (tab, newline, carriage
   return, space; not `\v` or `\f`), plus a backslash before any punctuation
   character for that literal character (`\.`, `\\`, `\{`, `\$`, ...).
-- `^` at the start and `$` at the end of the pattern or of an alternative
-  (`^a$|^b$`). They are optional: `a`, `^a`, `a$`, and `^a$` denote the same
-  language.
+- `^` at the start and `$` at the end of a whole-value alternative
+  (`^a$|^b$`). Nested groups are allowed when their surrounding alternative
+  also starts or ends there (`^(^a|^b)$`, `a(b$|c$)`). Anchors cannot occur
+  inside quantified groups. They are optional: `a`, `^a`, `a$`, and `^a$`
+  denote the same language.
 
 Rejected by `RegexFormat` with `ValueError` before compilation, because
 regex2dfa would silently misread them (as literal text, or by dropping or
@@ -108,12 +110,20 @@ rebinding them):
   Python string).
 - An empty class `[]` or `[^]` (the first `]` always closes the class), and
   POSIX classes like `[[:alpha:]]`.
-- `^` or `$` anywhere but the start or end of the pattern or of an alternative
-  (`^a$b$`): regex2dfa drops them. Write `\^` or `[$]` for the literal
+- `^` or `$` away from the start or end of a whole-value alternative
+  (`^a$b$`, `a(^b)$`, `^(a$)b$`, `^(a$|b)c$`): regex2dfa drops them. A group
+  boundary does not make an anchor valid when an enclosing alternative has
+  preceding or following atoms. Optional atoms count too: `a?(^b)` and
+  `(a$)b?` are rejected. Write `\^` or `[$]` for the literal
   character. A `\$` at the very end of the pattern is rejected too: regex2dfa
   strips the final `$` before parsing, and the dangling backslash would become
   a NUL byte. Write `\$$` or `[$]` instead. A pattern ending in a bare
   backslash is rejected for the same reason.
+- Quantified anchors (`^+a`) and any group containing an anchor that is
+  quantified with `*`, `+`, or `?` (`(^a)+`, `((a$)|b)*`, `(^a)?`). This is a
+  conservative syntax rule: regex2dfa discards assertions rather than enforcing
+  them on each repetition. Optional whole-value anchors belong outside the
+  quantified group, as in `^(a)+$`.
 - Empty alternatives (`a|`, `|a`, `a||b`, `(|a)`, `(a|)`): regex2dfa rejects
   most of them, but one right before `)` silently folds the atom before the
   group into the alternation (`x(b|)y` becomes `(x|b)y`). Write `?` after a
@@ -132,6 +142,15 @@ Equivalent patterns rank identically for the same length bounds, but their
 fingerprints depend on the pattern text. Deterministic encryption requires the
 same pattern text and bounds at both endpoints. See the
 [provider compatibility rules](../../../docs/formats.md#compatibility).
+
+Older releases accepted some internal and quantified anchors that regex2dfa
+ignored. These patterns now raise `ValueError`; the library does not reinterpret
+them. For new data, choose a supported pattern that describes the intended
+whole-value language. For existing ciphertext, retain the original library
+version, pattern text, and length bounds in a legacy reader, then decrypt and
+re-encrypt into the new format. Do not simply rewrite the pattern used to read
+existing FF1 ciphertext: even a language-equivalent rewrite changes the format
+fingerprint and therefore the encryption mapping.
 
 ## Implementation
 

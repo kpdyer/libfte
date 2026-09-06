@@ -35,8 +35,8 @@ def _check_pattern_syntax(pattern: str) -> None:
 
     regex2dfa raises its own error for lazy quantifiers, ``(?...)`` groups and
     malformed patterns, but it reads several other constructs as plain text
-    (or drops them) rather than reporting them. This single left-to-right pass
-    catches those before compilation; see the ``RegexFormat`` docstring and
+    (or drops them) rather than reporting them. The scanner and anchor checks
+    catch those before compilation; see the ``RegexFormat`` docstring and
     ``fte/formats/regex/README.md`` for the dialect it enforces.
     """
 
@@ -50,7 +50,9 @@ def _check_pattern_syntax(pattern: str) -> None:
 
     n = len(pattern)
     i = 0
-    prev = ""  # the previous significant character, "" after escapes/classes
+    # Escapes and classes become one atom, so anchor checks cannot mistake
+    # their literal punctuation for groups, alternatives, or assertions.
+    tokens: list[tuple[str, int]] = []
     # Whether the current alternative (since the pattern start, the last '('
     # or the last '|') has no atom yet, and which of those opened it.
     empty_alt = True
@@ -78,8 +80,8 @@ def _check_pattern_syntax(pattern: str) -> None:
                         "two hex digits: regex2dfa reads a shorter one at "
                         "the end of the pattern as a different byte"
                     )
+                tokens.append(("atom", i))
                 i += 4
-                prev = ""
                 empty_alt = False
                 continue
             if esc == "0" and pattern[i + 2 : i + 3] in tuple("0123456789"):
@@ -96,8 +98,8 @@ def _check_pattern_syntax(pattern: str) -> None:
                     "Python's re (the supported escapes are \\n \\t \\r \\0 "
                     "\\xHH \\d \\s \\w and a backslash before punctuation)"
                 )
+            tokens.append(("atom", i))
             i += 2
-            prev = ""
             empty_alt = False
             continue
         if c == "[":
@@ -131,8 +133,8 @@ def _check_pattern_syntax(pattern: str) -> None:
                     "would be matched literally; write the range out instead "
                     "(e.g. '[A-Za-z]')"
                 )
+            tokens.append(("atom", i))
             i = end + 1
-            prev = "]"
             empty_alt = False
             continue
         if c == "{":
@@ -141,20 +143,7 @@ def _check_pattern_syntax(pattern: str) -> None:
                 f"in {pattern!r} would be matched literally; write '\\{{' "
                 "or '[{]' for a literal brace"
             )
-        # Anchors are meaningful only at the start or end of the pattern or
-        # of an alternative; regex2dfa silently ignores them anywhere else.
-        if c == "^" and i > 0 and prev not in ("(", "|", "^"):
-            raise ValueError(
-                f"regex2dfa ignores '^' in the middle of a pattern (position "
-                f"{i} in {pattern!r}; every pattern is matched in full); "
-                "write '\\^' for a literal caret"
-            )
-        if c == "$" and i + 1 < n and pattern[i + 1] not in ")|$":
-            raise ValueError(
-                f"regex2dfa ignores '$' in the middle of a pattern (position "
-                f"{i} in {pattern!r}; every pattern is matched in full); "
-                "write '[$]' for a literal dollar sign"
-            )
+        tokens.append((c if c in "()|^$*+?" else "atom", i))
         # Empty alternatives and empty groups. regex2dfa rejects most empty
         # alternatives itself, but one right before ')' silently folds the
         # atom before the group into the alternation ('x(b|)y' becomes
@@ -181,9 +170,70 @@ def _check_pattern_syntax(pattern: str) -> None:
         elif c not in "^$":
             empty_alt = False
         i += 1
-        prev = c
     if empty_alt and alt_start == "|":
         raise ValueError(_empty_alternative(pattern, n))
+    _check_anchors(pattern, tokens)
+
+
+def _check_anchors(pattern: str, tokens: list[tuple[str, int]]) -> None:
+    """Allow only assertions that whole-value matching already guarantees.
+
+    A group edge is not necessarily a value edge: ``a(^b)`` and ``(a$)b``
+    must be rejected too. Check each alternative with the prefix/suffix of
+    its enclosing groups included. Reject quantified anchored groups rather
+    than trying to implement assertion semantics that regex2dfa discards.
+    """
+    group_anchors: list[int | None] = [None]
+    for j, (token, pos) in enumerate(tokens):
+        if token == "(":
+            group_anchors.append(None)
+        elif token == ")":
+            if len(group_anchors) == 1:
+                return  # regex2dfa reports unmatched parentheses
+            anchor_pos = group_anchors.pop()
+            if anchor_pos is not None:
+                if j + 1 < len(tokens) and tokens[j + 1][0] in "*+?":
+                    raise ValueError(
+                        f"anchor at position {anchor_pos} in {pattern!r} is "
+                        "inside a quantified group: regex2dfa drops anchors; "
+                        "place optional whole-value anchors outside quantifiers"
+                    )
+                group_anchors[-1] = anchor_pos
+        elif token in ("^", "$"):
+            group_anchors[-1] = pos
+            if j + 1 < len(tokens) and tokens[j + 1][0] in "*+?":
+                raise ValueError(
+                    f"quantified anchor at position {pos} in {pattern!r}: "
+                    "regex2dfa drops anchors; anchors cannot be quantified"
+                )
+    if len(group_anchors) != 1:
+        return  # regex2dfa reports unmatched parentheses
+
+    for anchor, opening, closing, ordered in (
+        ("^", "(", ")", tokens),
+        ("$", ")", "(", reversed(tokens)),
+    ):
+        # Each entry includes the surrounding prefix (or suffix on the
+        # reverse pass). An alternative resets only its own group's atoms.
+        seen_atom = [False]
+        for token, pos in ordered:
+            if token == opening:
+                seen_atom.append(seen_atom[-1])
+            elif token == closing:
+                seen_atom.pop()
+                seen_atom[-1] = True
+            elif token == "|":
+                seen_atom[-1] = seen_atom[-2] if len(seen_atom) > 1 else False
+            elif token == anchor and seen_atom[-1]:
+                literal = r"\^" if anchor == "^" else "[$]"
+                raise ValueError(
+                    f"regex2dfa ignores {anchor!r} in the middle of a pattern "
+                    f"(position {pos} in {pattern!r}; every pattern is matched "
+                    "in full): enclosing groups must also be at the value "
+                    f"edge; write {literal!r} for a literal {anchor!r}"
+                )
+            elif token not in ("^", "$"):
+                seen_atom[-1] = True
 
 
 def _empty_alternative(pattern: str, i: int) -> str:
@@ -228,8 +278,9 @@ class RegexFormat:
             character above U+00FF (patterns denote byte languages); if it
             uses syntax regex2dfa would silently misread (a brace quantifier
             such as ``{3}``, an escape it does not implement such as ``\D``,
-            a backslash inside ``[...]``, a mid-pattern ``^`` or ``$``, an
-            empty alternative or an empty group ``()``; see the regex guide);
+            a backslash inside ``[...]``, a ``^`` or ``$`` away from a value
+            edge or inside a quantified group, an empty alternative or an
+            empty group ``()``; see the regex guide);
             if ``pattern`` is otherwise not a valid regular expression
             (including one matching only the empty string, such as ``^$``); or
             if the language has no words in the requested length range.

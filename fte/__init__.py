@@ -2,7 +2,7 @@
 
 Use :class:`FTE` with :class:`RegexFormat`, :class:`BytesFormat`, or a custom
 :class:`RankedFormat`. Bytes input defaults to authenticated encryption;
-matching finite formats infer the deterministic FF1 cipher.
+pass ``cipher="ff1"`` explicitly for deterministic, unauthenticated encryption.
 
     >>> import fte
     >>> cipher = fte.FTE(

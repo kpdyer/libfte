@@ -54,14 +54,16 @@ max_length=400)` produces matching strings within that range.
 
 ## Format-preserving encryption
 
-Use the same finite format on both sides to infer `cipher="ff1"`:
+Use the same finite format on both sides and select `cipher="ff1"` explicitly:
 
 ```python
 import os
 import fte
 
 digits = fte.RegexFormat(r"^[0-9]+$", length=9)
-cipher = fte.FTE(input_format=digits, output_format=digits, key=os.urandom(16))
+cipher = fte.FTE(
+    input_format=digits, output_format=digits, key=os.urandom(16), cipher="ff1"
+)
 
 token = cipher.encrypt(b"100000042", tweak=b"account:42")
 assert len(token) == 9 and token.isdigit()

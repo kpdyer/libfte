@@ -26,7 +26,9 @@ def main():
     key = os.urandom(16)  # FF1 keys are 16/24/32 bytes; NOT an AES-CTR-HMAC key.
 
     # Same format in and out -> FPE. Length is preserved automatically.
-    cipher = fte.FTE(input_format=id_format, output_format=id_format, key=key)
+    cipher = fte.FTE(
+        input_format=id_format, output_format=id_format, key=key, cipher="ff1"
+    )
 
     # Synthetic demo identifiers (not real records).
     for account in (b"100000042", b"100000043", b"100000042"):

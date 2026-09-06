@@ -10,7 +10,7 @@ import hashlib
 
 import regex2dfa
 
-from fte.formats.regex.dfa import DFA
+from fte.formats.regex._dfa import DFA
 
 
 __all__ = ["RegexFormat"]

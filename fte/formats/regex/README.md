@@ -136,6 +136,7 @@ same pattern text and bounds at both endpoints. See the
 ## Implementation
 
 [format.py](format.py) implements the provider using the Goldberg-Sipser ranker
-in [dfa.py](dfa.py). To implement another format, see the
+in [_dfa.py](_dfa.py). The DFA implementation is private. To implement another
+format, see the
 [provider contract](../../../docs/formats.md) and
 [custom provider example](../../../examples/08_custom_format.py).

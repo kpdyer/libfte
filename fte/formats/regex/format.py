@@ -204,6 +204,10 @@ class RegexFormat:
     exposing it lets :class:`fte.FTE` reject an over-long message before
     encrypting it.
 
+    Configuration and cardinality are read-only after construction. Create a
+    new format to change the pattern or length range, so the metadata always
+    agrees with the compiled ranking tables and fingerprint.
+
     Args:
         pattern: A regular expression denoting the covertext language.
         length: A single fixed covertext length. Shorthand for
@@ -249,10 +253,10 @@ class RegexFormat:
     """
 
     __slots__ = (
-        "pattern",
-        "min_length",
-        "max_length",
-        "cardinality",
+        "_pattern",
+        "_min_length",
+        "_max_length",
+        "_cardinality",
         "_dfa",
         "_offsets",
         "_counts",
@@ -316,10 +320,10 @@ class RegexFormat:
                 f"pattern {pattern!r} has no words with length in [{lo}, {hi}]"
             )
 
-        self.pattern = pattern
-        self.min_length = lo
-        self.max_length = hi
-        self.cardinality = cumulative
+        self._pattern = pattern
+        self._min_length = lo
+        self._max_length = hi
+        self._cardinality = cumulative
         self._dfa = dfa
         self._offsets = offsets
         self._counts = counts
@@ -331,6 +335,30 @@ class RegexFormat:
             + b"|"
             + str(hi).encode("utf-8")
         ).digest()
+
+    @property
+    def pattern(self) -> str:
+        """The regular expression used to compile this format."""
+
+        return self._pattern
+
+    @property
+    def min_length(self) -> int:
+        """The smallest covertext length."""
+
+        return self._min_length
+
+    @property
+    def max_length(self) -> int:
+        """The largest covertext length."""
+
+        return self._max_length
+
+    @property
+    def cardinality(self) -> int:
+        """The number of matching words in the configured length range."""
+
+        return self._cardinality
 
     @property
     def fingerprint(self) -> bytes:

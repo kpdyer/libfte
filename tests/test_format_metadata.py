@@ -6,10 +6,72 @@ slices. :class:`~fte.formats.regex.RegexFormat` and
 :class:`~fte.formats.bytes.BytesFormat` provide them.
 """
 
+import copy
+import pickle
 import unittest
 
 import fte
 from fte.formats.bytes import BytesFormat
+
+
+class MetadataImmutabilityTests(unittest.TestCase):
+    def test_mutation_cannot_desynchronize_metadata_from_ranking(self):
+        fmt = fte.RegexFormat(r"^[ab]+$", min_length=1, max_length=2)
+        words = [fmt.unrank(i) for i in range(fmt.cardinality)]
+        fingerprint = fmt.fingerprint
+
+        for name, value in (
+            ("pattern", r"^[0-9]+$"),
+            ("min_length", 2),
+            ("max_length", 3),
+            ("cardinality", 100),
+            ("fingerprint", b"changed"),
+        ):
+            with self.subTest(attribute=name):
+                with self.assertRaises(AttributeError):
+                    setattr(fmt, name, value)
+                with self.assertRaises(AttributeError):
+                    delattr(fmt, name)
+
+        self.assertEqual(fmt.pattern, r"^[ab]+$")
+        self.assertEqual((fmt.min_length, fmt.max_length), (1, 2))
+        self.assertEqual(fmt.fingerprint, fingerprint)
+        self.assertEqual(fmt.slice_bounds(2), (2, 4))
+        self.assertEqual([fmt.unrank(i) for i in range(fmt.cardinality)], words)
+        self.assertEqual([fmt.rank(word) for word in words], list(range(6)))
+
+    def test_copy_and_pickle_preserve_metadata_and_ranking(self):
+        fmt = fte.RegexFormat(r"^[ab]+$", min_length=1, max_length=2)
+        for method, restored in (
+            ("copy", copy.copy(fmt)),
+            ("deepcopy", copy.deepcopy(fmt)),
+            ("pickle", pickle.loads(pickle.dumps(fmt))),
+        ):
+            with self.subTest(method=method):
+                self.assertIsNot(restored, fmt)
+                self.assertEqual(restored.pattern, fmt.pattern)
+                self.assertEqual(restored.fingerprint, fmt.fingerprint)
+                self.assertEqual(restored.cardinality, fmt.cardinality)
+                for length in range(fmt.min_length, fmt.max_length + 1):
+                    self.assertEqual(
+                        restored.slice_bounds(length), fmt.slice_bounds(length)
+                    )
+                for rank in range(fmt.cardinality):
+                    self.assertEqual(restored.unrank(rank), fmt.unrank(rank))
+                    self.assertEqual(restored.rank(fmt.unrank(rank)), rank)
+                with self.assertRaises(AttributeError):
+                    restored.cardinality = 100
+
+    def test_subclasses_can_add_metadata_but_not_replace_configuration(self):
+        class LabeledFormat(fte.RegexFormat):
+            pass
+
+        fmt = LabeledFormat(r"^[ab]+$", length=2)
+        fmt.label = "example"
+        self.assertEqual(fmt.label, "example")
+        with self.assertRaises(AttributeError):
+            fmt.pattern = r"^[0-9]+$"
+        self.assertEqual(fmt.unrank(0), b"aa")
 
 
 class FingerprintTests(unittest.TestCase):

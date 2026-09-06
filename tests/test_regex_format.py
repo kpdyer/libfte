@@ -274,10 +274,42 @@ class Tests(unittest.TestCase):
             fte.RegexFormat(r"^[[:alpha:]]+$", length=4)
 
     def test_mid_pattern_anchor_is_rejected(self):
-        for pattern in (r"^a$b$", r"^a^b$", r"a$b", r"a^b"):
+        for pattern in (
+            r"^a$b$", r"^a^b$", r"a$b", r"a^b",
+            r"a(^b)$", r"^(a$)b$", r"^(a$|b)c$",
+            r"a((^b)|c)", r"((a$)|b)c",
+            r"(a|b)(^c)", r"(a$)(b|c)",
+            r"a?(^b)", r"(a$)b?",
+            r"\^(^a)", r"(a$)[$]",
+        ):
             with self.subTest(pattern=pattern):
                 with self.assertRaisesRegex(ValueError, "middle of a pattern"):
                     fte.RegexFormat(pattern, length=2)
+
+    def test_quantified_anchors_are_rejected(self):
+        # Dropping the inner assertion would allow multiple copies of 'a'.
+        # Optional anchored groups are rejected as a conservative syntax rule.
+        for pattern in (
+            r"(^a)+", r"(a$)*", r"(^a)?", r"(a$)?",
+            r"((^a)|b)+", r"(a|(b$))*", r"((^a))?",
+            r"^+a", r"a$?", r"^*a",
+        ):
+            with self.subTest(pattern=pattern):
+                with self.assertRaisesRegex(ValueError, "quantified"):
+                    fte.RegexFormat(pattern, min_length=1, max_length=3)
+
+    def test_literal_anchor_punctuation_is_preserved(self):
+        for pattern, value in (
+            (r"^a\^b$", b"a^b"),
+            (r"^a[$]b$", b"a$b"),
+            (r"^(\^a)+$", b"^a^a"),
+            (r"^(a[$])+$", b"a$a$"),
+            (r"^[a^$()|]+$", b"$$$"),
+            (r"^\x5ea\x24$", b"^a$"),
+        ):
+            with self.subTest(pattern=pattern):
+                fmt = fte.RegexFormat(pattern, length=len(value))
+                self.assertEqual(fmt.unrank(fmt.rank(value)), value)
 
     def test_empty_alternative_is_rejected(self):
         # regex2dfa rejects most empty alternatives itself, but one right
@@ -307,9 +339,27 @@ class Tests(unittest.TestCase):
                     fte.RegexFormat(pattern, length=1)
 
     def test_anchors_at_alternative_edges_are_accepted(self):
-        for pattern in (r"^a$|^b$", r"^(^a|^b)$", r"a|b", r"^a", r"a$", r"^^a$$"):
+        for pattern in (
+            r"^a$|^b$", r"^(^a|^b)$", r"a|b", r"^a", r"a$", r"^^a$$",
+            r"(a$|b$)", r"((^a$)|(^b$))", r"a|(^b$)",
+        ):
             with self.subTest(pattern=pattern):
-                self.assertEqual(fte.RegexFormat(pattern, length=1).unrank(0), b"a")
+                fmt = fte.RegexFormat(pattern, length=1)
+                matcher = re.compile(pattern.encode("ascii"))
+                for index in range(fmt.cardinality):
+                    value = fmt.unrank(index)
+                    self.assertIsNotNone(matcher.fullmatch(value))
+                    self.assertEqual(fmt.rank(value), index)
+
+    def test_nested_anchors_allow_consumption_at_the_opposite_edge(self):
+        for pattern in (r"(^a)b", r"a(b$)", r"(^a|^b)c", r"a(b$|c$)"):
+            with self.subTest(pattern=pattern):
+                fmt = fte.RegexFormat(pattern, length=2)
+                matcher = re.compile(pattern.encode("ascii"))
+                for index in range(fmt.cardinality):
+                    value = fmt.unrank(index)
+                    self.assertIsNotNone(matcher.fullmatch(value))
+                    self.assertEqual(fmt.rank(value), index)
 
     def test_supported_escapes_compile_to_their_meaning(self):
         self.assertEqual(

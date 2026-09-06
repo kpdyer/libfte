@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Security :: Cryptography",
 ]
 dependencies = [
-    "cryptography>=41.0",
+    "cryptography>=50.0.0",
     "regex2dfa>=0.2.0",
     # The built-in cipher="ff1" (format-preserving, deterministic,
     # zero-expansion) is libffx's FF1; pure Python.

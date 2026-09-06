@@ -2,16 +2,15 @@
 # -*- coding: utf-8 -*-
 """Example: Deterministic FTE across two different formats.
 
-This is the cross-format corner of the deterministic row: the ``ff1`` cipher
-with an input format that differs from the output format. A 12-digit decimal
-string is re-encoded as a 16-character hex string. The transform is a
-zero-expansion, deterministic bijection from the input's rank space into the
-output's, so it is reversible without any authentication tag or randomness.
+The ``ff1`` cipher maps between different input and output formats. A 12-digit
+decimal string is encrypted as a 16-character hex string. The transform is
+deterministic and injective: each input maps to a distinct output. It has no
+nonce or authentication-tag overhead, but the output string is longer.
 
 Because the output space (16**16) is far larger than the input space (10**12),
 most hex strings are not the image of any 12-digit input; decrypting one raises
-InvalidCovertextError. And because it is deterministic, use a per-record
-``tweak`` to separate encryptions of the same value.
+InvalidCovertextError. This rejection does not provide authentication. Use a
+per-record ``tweak`` to separate deterministic encryptions of the same value.
 """
 
 import os

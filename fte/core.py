@@ -89,8 +89,8 @@ class FTE(Generic[Plaintext, Covertext]):
       ``FTE(output_format=fmt, key=key)`` is the classic pipeline: bytes in,
       the AE cipher, ``fmt`` out.
     * **FPE is the equal-formats case**: passing the same format as
-      ``input_format`` and ``output_format`` re-encrypts a value in place with
-      the deterministic cipher. Length is preserved automatically when the
+      ``input_format`` and ``output_format`` with ``cipher="ff1"`` re-encrypts
+      a value in place. Length is preserved automatically when the
       format can name its per-length slices (a ``slice_bounds`` method plus
       integer ``min_length`` / ``max_length``), so a value keeps its length;
       otherwise the whole language is permuted. See :attr:`preserve_length`.
@@ -98,7 +98,9 @@ class FTE(Generic[Plaintext, Covertext]):
       ``encrypt_int(x, *, domain, tweak) -> int`` /
       ``decrypt_int(y, *, domain, tweak) -> int``, or ``None`` to infer it:
       a bytes input picks ``"aes-ctr-hmac"``; otherwise two formats with equal
-      fingerprints pick ``"ff1"``; anything else must be spelled out.
+      fingerprints still pick ``"ff1"`` with a :class:`DeprecationWarning`.
+      Pass ``cipher="ff1"`` explicitly to select unauthenticated encryption;
+      anything else must be spelled out.
 
     The deterministic cipher refuses a domain below one million (Draft
     SP 800-38G Rev 1), raising :class:`SmallDomainError`, because FF1 is
@@ -190,6 +192,7 @@ class FTE(Generic[Plaintext, Covertext]):
         fp_out = getattr(output_format, "fingerprint", None)
 
         # ---- resolve the cipher ----------------------------------------
+        inferred_ff1 = False
         if cipher is None:
             if input_is_bytes:
                 cipher = "aes-ctr-hmac"
@@ -199,6 +202,7 @@ class FTE(Generic[Plaintext, Covertext]):
                 and fp_in == fp_out
             ):
                 cipher = "ff1"
+                inferred_ff1 = True
             else:
                 raise ValueError(
                     "cannot infer cipher for this format pair; pass "
@@ -262,6 +266,15 @@ class FTE(Generic[Plaintext, Covertext]):
 
         if cipher_mode == "deterministic":
             self._init_deterministic(cipher, key, fp_in, fp_out)
+            if inferred_ff1:
+                warnings.warn(
+                    "Implicit FF1 selection is deprecated and will be removed "
+                    "in a future breaking release; pass cipher='ff1' explicitly "
+                    "to select deterministic, unauthenticated encryption. "
+                    "Explicit selection preserves existing ciphertexts.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
         else:
             if len(key) != 32:
                 raise ValueError(

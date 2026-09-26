@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Authenticated encryption for FTE: AES-CTR + HMAC-SHA256 (Encrypt-then-MAC).
 
 This is the construction from the FTE paper -- AES in counter mode, then an HMAC
@@ -26,7 +24,6 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 class DecryptionError(Exception):
     """Raised when a ciphertext cannot be authenticated and decrypted."""
-    pass
 
 
 class Encrypter:
@@ -59,14 +56,18 @@ class Encrypter:
             raise TypeError('Each key must be of type bytes.')
         if len(K1) != Encrypter._KEY_LENGTH or len(K2) != Encrypter._KEY_LENGTH:
             raise ValueError('Each key must be 16 bytes long.')
-        self._enc_key = K1
-        self._mac_key = K2
+        # Built once per key and never mutated (the keyed HMAC is only
+        # copied), so sharing them across calls and threads is safe.
+        self._aes = algorithms.AES(K1)
+        self._mac = hmac.new(K2, digestmod=hashlib.sha256)
 
     def _counter(self, nonce: bytes) -> bytes:
         return nonce + b'\x00' * (Encrypter._COUNTER_LENGTH - Encrypter._NONCE_LENGTH)
 
     def _tag(self, data: bytes) -> bytes:
-        return hmac.new(self._mac_key, data, hashlib.sha256).digest()[:Encrypter._TAG_LENGTH]
+        mac = self._mac.copy()
+        mac.update(data)
+        return mac.digest()[:Encrypter._TAG_LENGTH]
 
     def encrypt(self, plaintext: bytes) -> bytes:
         """Encrypt-then-MAC ``plaintext``.
@@ -85,7 +86,7 @@ class Encrypter:
 
         nonce = os.urandom(Encrypter._NONCE_LENGTH)
         encryptor = Cipher(
-            algorithms.AES(self._enc_key), modes.CTR(self._counter(nonce))
+            self._aes, modes.CTR(self._counter(nonce))
         ).encryptor()
         ciphertext = encryptor.update(plaintext) + encryptor.finalize()
         return nonce + ciphertext + self._tag(nonce + ciphertext)
@@ -110,6 +111,6 @@ class Encrypter:
             raise DecryptionError('Failed to authenticate ciphertext.')
 
         decryptor = Cipher(
-            algorithms.AES(self._enc_key), modes.CTR(self._counter(nonce))
+            self._aes, modes.CTR(self._counter(nonce))
         ).decryptor()
         return decryptor.update(body) + decryptor.finalize()

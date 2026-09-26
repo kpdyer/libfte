@@ -6,6 +6,7 @@ directly.
 """
 
 import random
+import sys
 import unittest
 
 import regex2dfa
@@ -20,6 +21,33 @@ from fte.formats.regex._dfa import (
 
 def build(pattern, length):
     return DFA(regex2dfa.regex2dfa(pattern), length)
+
+
+def flat_fst(symbols):
+    """A hand-built FST for every nonempty word over ``symbols``.
+
+    State 0 reads any symbol into accepting state 1, which loops on all of
+    them, so from the second symbol on the walk is in a free state.
+    """
+    return (
+        "".join(f"0\t1\t{s}\t{s}\n" for s in symbols)
+        + "".join(f"1\t1\t{s}\t{s}\n" for s in symbols)
+        + "1\n"
+    )
+
+
+def numeral_word(index, length, symbols):
+    """Reference unrank for a flat language: ``index`` in base b."""
+    out = bytearray(length)
+    for i in range(length - 1, -1, -1):
+        index, digit = divmod(index, len(symbols))
+        out[i] = symbols[digit]
+    return bytes(out)
+
+
+def alphabet(size, seed):
+    """A sorted ``size``-symbol byte alphabet scattered over 0..255."""
+    return sorted(random.Random(seed).sample(range(256), size))
 
 
 class Tests(unittest.TestCase):
@@ -212,6 +240,59 @@ class Tests(unittest.TestCase):
             dfa.rank(b"axaxaxaz")       # 'z' is outside the alphabet
         with self.assertRaises(InvalidUnrankInput):
             dfa.unrank(256, 8)
+
+
+class FreeTailTests(unittest.TestCase):
+    """Inputs the free-state fast path must handle that the golden regex
+    corpus never reaches: bytes outside the alphabet, bytearray input, and
+    Python's limit on int() digits."""
+
+    def test_rank_rejects_symbols_outside_the_alphabet(self):
+        # A byte outside the alphabet anywhere in a free tail is reported
+        # like the per-symbol walk reports it: the first offending byte.
+        for b in (16, 26, 62, 254):
+            symbols = alphabet(b, seed=b)
+            dfa = DFA(flat_fst(symbols), 700)
+            outsiders = [v for v in range(256) if v not in symbols]
+            for length in (20, 700):
+                word = numeral_word(12345, length, symbols)
+                for bad in (outsiders[0], outsiders[-1]):
+                    with self.subTest(base=b, length=length, bad=bad):
+                        corrupt = bytearray(word)
+                        corrupt[length - 3] = bad
+                        corrupt[length - 1] = outsiders[0]
+                        with self.assertRaisesRegex(
+                            InvalidRankInput, f"Symbol {bad} not in alphabet"
+                        ):
+                            dfa.rank(bytes(corrupt))
+
+    def test_rank_accepts_bytearray(self):
+        for b in (2, 26, 62, 256):
+            symbols = alphabet(b, seed=b)
+            dfa = DFA(flat_fst(symbols), 700)
+            word = numeral_word(3 ** 400, 700, symbols)
+            with self.subTest(base=b):
+                self.assertEqual(dfa.rank(bytearray(word)), 3 ** 400)
+
+    @unittest.skipUnless(
+        hasattr(sys, "set_int_max_str_digits"), "no int/str digit limit"
+    )
+    def test_long_tails_work_under_the_lowest_int_digit_limit(self):
+        # int() limits the digits it parses in non-power-of-two bases; 640 is
+        # the lowest limit Python allows. Ranking must not trip over it.
+        previous = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(640)
+        try:
+            for b in (10, 26, 36):
+                symbols = alphabet(b, seed=b)
+                dfa = DFA(flat_fst(symbols), 2000)
+                index = random.Random(b).randrange(b ** 2000)
+                word = numeral_word(index, 2000, symbols)
+                with self.subTest(base=b):
+                    self.assertEqual(dfa.rank(word), index)
+                    self.assertEqual(dfa.unrank(index, 2000), word)
+        finally:
+            sys.set_int_max_str_digits(previous)
 
 
 if __name__ == "__main__":

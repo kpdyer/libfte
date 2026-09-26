@@ -14,7 +14,7 @@ pass ``cipher="ff1"`` explicitly for deterministic, unauthenticated encryption.
 See ``docs/api.md`` for the API and ``SECURITY.md`` for the security model.
 """
 
-from pathlib import Path
+import os as _os
 
 from fte.core import (
     FTE,
@@ -28,7 +28,13 @@ from fte.core import (
 )
 from fte.formats import BytesFormat, RankedFormat
 
-__version__ = (Path(__file__).parent / '_version.txt').read_text().strip()
+# os.path rather than pathlib: importing pathlib (and the re module it pulls
+# in) would be a large share of the cost of "import fte".
+with open(
+    _os.path.join(_os.path.dirname(__file__), '_version.txt'), encoding='utf-8'
+) as _f:
+    __version__ = _f.read().strip()
+del _f, _os
 __author__ = 'Kevin P. Dyer'
 __email__ = 'kpdyer@gmail.com'
 

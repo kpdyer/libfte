@@ -85,12 +85,11 @@ def capacity_plaintext_limit(cardinality: int, expansion: int) -> int:
     if cardinality < frame_rank_limit(min_frame):
         return -1
     # frame_rank_limit(fl) is dominated by 256**fl, so the frame length is
-    # close to log256(cardinality). Estimate it, then correct by a step or two.
+    # close to log256(cardinality). Estimate it, then correct upward by a step
+    # or two. The estimate never overshoots: min_frame fits (checked above),
+    # and E = bit_length // 8 fits because cardinality >= 2**(8E - 1) while
+    # frame_rank_limit(E) < 4 * 256**(E - 1) = 2**(8E - 6).
     frame_length = max(min_frame, cardinality.bit_length() // 8)
-    # The estimate is never larger than the true frame length, so in practice
-    # only the upward correction runs; the downward one is a defensive guard.
-    while cardinality < frame_rank_limit(frame_length):  # pragma: no cover
-        frame_length -= 1
     while cardinality >= frame_rank_limit(frame_length + 1):
         frame_length += 1
     return frame_length - 1 - expansion

@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Internal DFA ranking/unranking for FTE.
 
 Implements the DFA (Deterministic Finite Automaton) ranking and unranking used
@@ -29,6 +27,25 @@ __all__ = [
 # per-symbol walk stays ahead. Measured break-even: rank at a runs/symbols
 # ratio of about 0.4, unrank at about 0.9; one third keeps both ahead.
 _RUN_PATH_DIVISOR = 3
+
+# The digits ``int()`` accepts for bases up to 36, in order of value.
+_INT_DIGITS = b"0123456789abcdefghijklmnopqrstuvwxyz"
+
+# ``int()`` refuses to parse more than ``sys.get_int_max_str_digits()`` digits
+# in a base that is not a power of two (4300 by default). 640 is the smallest
+# limit a program can set, so parsing at most this many digits at a time is
+# always allowed.
+_INT_PARSE_CHUNK = 640
+
+# The bases ``format()`` writes in linear time, and its spelling for each.
+_FORMAT_CODES = {2: "b", 8: "o", 16: "x"}
+
+# Converting a free tail has a fixed cost (a method call, a table translation,
+# a conversion call) that beats the per-symbol walk only once about eight
+# symbols remain, i.e. from table column 7 on. Measured break-even: rank at
+# three to seven remaining symbols, unrank at two to ten, depending on the
+# base.
+_FREE_TAIL_MIN_COL = 7
 
 
 class InvalidFSTFormat(Exception):
@@ -168,9 +185,11 @@ class DFA:
         # None when rank/unrank should walk that state symbol by symbol.
         self._runs: List[Optional[List[Tuple[int, int, int]]]] = []
         self._T: List[List[int]] = []             # counting table
+        self._free: List[bool] = []               # accepts-everything flag
 
         self._build_delta(parsed.transitions)
         self._build_table()
+        self._build_free_tail()
 
     def _build_delta(
         self, transitions: Tuple[Tuple[int, int, int], ...]
@@ -281,6 +300,116 @@ class DFA:
                 T[q][i] = total
             prev_col = cur_col
 
+    def _build_free_tail(self) -> None:
+        """Prepare rank and unrank for states that accept every continuation.
+
+        A *free* state is accepting and sends every symbol back to itself;
+        ``^[a-z]+$`` is in one after its first letter. The words of length
+        ``m`` from a free state are all ``b ** m`` strings over the
+        ``b``-symbol alphabet, so ``T[q][m] == b ** m`` and the rest of a word
+        is just its rank written as an ``m``-digit base-``b`` numeral. Rank
+        and unrank convert that numeral in one step, with Python's C-level
+        integer conversions where the base allows, instead of one big-integer
+        operation per symbol. A one-symbol alphabet has no numerals to speed
+        up (every word from a free state is the lone symbol repeated, with
+        rank 0) and no base for ``int()``, so it keeps the ordinary walk.
+        """
+        b = len(self._symbols)
+        delta = self._delta
+        final_states = self._final_states
+        self._free = [
+            b > 1 and dense and delta[q][0] == q and q in final_states
+            for q, dense in enumerate(self._delta_dense)
+        ]
+        if not any(self._free):
+            return
+
+        symbols = bytes(self._symbols)
+        self._alphabet = symbols
+        # ``_powers[m] == b ** m``: the counting row of any free state.
+        self._powers = self._T[self._free.index(True)]
+
+        # Tables between symbols and digits: the digit characters of int()
+        # and format() for the bases they handle, else raw digit values.
+        values = bytes(range(b))
+        self._digit_of = bytes.maketrans(
+            symbols, _INT_DIGITS[:b] if b <= 36 else values
+        )
+        self._format_code = _FORMAT_CODES.get(b)
+        self._symbol_of = bytes.maketrans(
+            _INT_DIGITS[:b] if self._format_code else values, symbols
+        )
+
+        # The other bases convert in chunks of digits whose value fits in one
+        # 30-bit CPython digit; ``_chunk_powers`` holds a chunk's place
+        # values, most significant first.
+        chunk = 30 // b.bit_length()
+        self._chunk_powers = [b ** i for i in range(chunk - 1, -1, -1)]
+
+    def _rank_free(self, tail: bytes) -> int:
+        """Return the rank of ``tail`` read from a free state.
+
+        That is ``tail``'s value as a base-``b`` numeral.
+        """
+        # Deleting the alphabet's bytes leaves any byte outside it.
+        if tail.translate(None, self._alphabet):
+            self._reject_symbol(tail)
+        b = len(self._alphabet)
+        if b == 256:
+            return int.from_bytes(tail, "big")
+        digits = tail.translate(self._digit_of)
+        powers = self._powers
+        value = 0
+        if b <= 36:
+            for start in range(0, len(digits), _INT_PARSE_CHUNK):
+                part = digits[start:start + _INT_PARSE_CHUNK]
+                value = value * powers[len(part)] + int(part, b)
+            return value
+        # No C-level parser for this base: Horner over small-int chunks.
+        chunk = len(self._chunk_powers)
+        for start in range(0, len(digits), chunk):
+            part = digits[start:start + chunk]
+            v = 0
+            for digit in part:
+                v = v * b + digit
+            value = value * powers[len(part)] + v
+        return value
+
+    def _reject_symbol(self, tail: bytes) -> None:
+        """Raise InvalidRankInput for the first byte of ``tail`` outside the
+        alphabet."""
+        for byte_val in tail:
+            if self._symbol_index[byte_val] < 0:
+                raise InvalidRankInput(f"Symbol {byte_val} not in alphabet")
+
+    def _unrank_free(self, c: int, m: int) -> bytes:
+        """Return the ``m``-symbol word at rank ``c`` read from a free state.
+
+        That is ``c`` (below ``b ** m``) as an ``m``-digit base-``b`` numeral.
+        """
+        b = len(self._alphabet)
+        if b == 256:
+            return c.to_bytes(m, "big")
+        if self._format_code is not None:
+            numeral = format(c, f"0{m}{self._format_code}")
+            return numeral.encode("ascii").translate(self._symbol_of)
+        # No C-level writer for this base. Peel one chunk of digits at a time
+        # off the top of ``c`` (the first chunk takes the remainder), then
+        # split each chunk's small quotient into digits.
+        powers = self._powers
+        chunk_powers = self._chunk_powers
+        chunk = len(chunk_powers)
+        pos = m - (m % chunk or chunk)
+        v, c = divmod(c, powers[pos])
+        digits = [v // p % b for p in chunk_powers[chunk - (m - pos):]]
+        chunks = []
+        while pos:
+            pos -= chunk
+            v, c = divmod(c, powers[pos])
+            chunks.append(v)
+        digits += [v // p % b for v in chunks for p in chunk_powers]
+        return bytes(digits).translate(self._symbol_of)
+
     def rank(self, X: bytes) -> int:
         """Return the lexicographic rank of ``X`` among words of its own length.
 
@@ -313,6 +442,7 @@ class DFA:
         T = self._T
         delta = self._delta
         dense = self._delta_dense
+        free = self._free
         runs = self._runs
         symbol_index = self._symbol_index
 
@@ -337,6 +467,10 @@ class DFA:
             col = n - i
 
             if dense[q]:
+                if free[q] and col >= _FREE_TAIL_MIN_COL:
+                    # The rest of X is a base-b numeral; q stays accepting.
+                    append(self._rank_free(X[i - 1:]))
+                    break
                 # Optimized: all transitions from q go to same state
                 if symbol_idx:
                     append(T[delta_q[0]][col] * symbol_idx)
@@ -410,6 +544,7 @@ class DFA:
         T = self._T
         delta = self._delta
         dense = self._delta_dense
+        free = self._free
         runs = self._runs
         symbols = self._symbols
 
@@ -418,6 +553,11 @@ class DFA:
             delta_q = delta[q]
 
             if dense[q]:
+                if free[q] and col >= _FREE_TAIL_MIN_COL:
+                    # The last col + 1 symbols are c in base b; q stays
+                    # accepting.
+                    result += self._unrank_free(c, col + 1)
+                    break
                 # Optimized: all transitions from q go to same state
                 state = delta_q[0]
                 divisor = T[state][col]

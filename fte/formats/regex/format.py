@@ -7,6 +7,7 @@ implements ranking; ``fte/formats/regex/README.md`` documents the regex dialect.
 from __future__ import annotations
 
 import hashlib
+from bisect import bisect_right
 
 import regex2dfa
 
@@ -307,6 +308,7 @@ class RegexFormat:
         "_dfa",
         "_offsets",
         "_counts",
+        "_starts",
         "_fingerprint",
     )
 
@@ -374,6 +376,8 @@ class RegexFormat:
         self._dfa = dfa
         self._offsets = offsets
         self._counts = counts
+        # The same offsets in length order, for unrank to bisect.
+        self._starts = list(offsets.values())
         self._fingerprint = hashlib.sha256(
             b"fte:regex:1|"
             + pattern.encode("utf-8")
@@ -432,9 +436,7 @@ class RegexFormat:
             raise ValueError(
                 f"index {index!r} outside [0, {self.cardinality})"
             )
-        for word_length in range(self.min_length, self.max_length + 1):
-            count = self._counts[word_length]
-            if index < count:
-                return self._dfa.unrank(index, word_length)
-            index -= count
-        raise AssertionError("unreachable: cardinality guard already passed")
+        # The last length starting at or below ``index`` holds it: an empty
+        # length starts where the next one does, so it is never the last.
+        i = bisect_right(self._starts, index) - 1
+        return self._dfa.unrank(index - self._starts[i], self.min_length + i)

@@ -11,7 +11,9 @@ when you use it:
      dominated by the DFA rank/unrank on large integers, so it grows with the
      covertext ``length`` (the DFA walk) and with the plaintext size (the
      magnitude of the integer being ranked): a payload that fills the format's
-     capacity can cost several times (up to ~10x) more than a short one.
+     capacity can cost several times more than a short one. Flat alphabets
+     such as ``^[0-9a-f]+$`` convert most of the covertext in one step and
+     grow far more slowly.
 
 To show both ends of that range, every format is timed with a short 18-byte
 payload and with a full-capacity payload (``cipher.max_plaintext_bytes``).

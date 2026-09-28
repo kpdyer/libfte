@@ -55,7 +55,8 @@ Repository = "https://github.com/kpdyer/libfte"
 Documentation = "https://github.com/kpdyer/libfte#readme"
 
 [tool.setuptools.dynamic]
-version = {file = "fte/_version.txt"}
+# Read statically from the __version__ literal; nothing is imported.
+version = {attr = "fte.__version__"}
 
 [tool.setuptools.packages.find]
 # Tests live in the top-level tests/ directory, outside the fte package, so
@@ -63,7 +64,7 @@ version = {file = "fte/_version.txt"}
 include = ["fte*"]
 
 [tool.setuptools.package-data]
-fte = ["_version.txt", "py.typed", "formats/regex/README.md"]
+fte = ["py.typed", "formats/regex/README.md"]
 
 # All tests live in the top-level tests/ directory.
 [tool.pytest.ini_options]

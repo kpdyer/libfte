@@ -115,7 +115,7 @@ class FTE(Generic[Plaintext, Covertext]):
         "_input_format",
         "_output_format",
         "_input_is_bytes",
-        "_cipher_mode",  # "aes-ctr-hmac" | "deterministic"
+        "_cipher_mode",  # "aes-ctr-hmac" | "ff1"
         "_cipher",       # the FF1 instance, else None
         "_encrypter",    # the AE encrypter, else None
         "_preserve_length",
@@ -133,14 +133,12 @@ class FTE(Generic[Plaintext, Covertext]):
         self,
         *,
         input_format: RankedFormat[Plaintext] | None = None,
-        output_format: RankedFormat[Covertext] | None = None,
+        output_format: RankedFormat[Covertext],
         key: bytes,
         cipher: str | None = None,
         max_plaintext_bytes: int | None = None,
     ) -> None:
         # ---- resolve the format pair -----------------------------------
-        if output_format is None:
-            raise ValueError("output_format is required")
         if input_format is None:
             input_format = BytesFormat()
 
@@ -161,11 +159,7 @@ class FTE(Generic[Plaintext, Covertext]):
                     "cipher='aes-ctr-hmac' for authenticated encryption"
                 )
             cipher = "aes-ctr-hmac"
-        if cipher == "aes-ctr-hmac":
-            cipher_mode = "aes-ctr-hmac"
-        elif cipher == "ff1":
-            cipher_mode = "deterministic"
-        else:
+        if cipher not in ("aes-ctr-hmac", "ff1"):
             raise ValueError(
                 f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac' or 'ff1'"
             )
@@ -191,7 +185,7 @@ class FTE(Generic[Plaintext, Covertext]):
         self._input_format = input_format
         self._output_format = output_format
         self._input_is_bytes = input_is_bytes
-        self._cipher_mode = cipher_mode
+        self._cipher_mode = cipher
         self._preserve_length = False  # set by _init_deterministic if inferred
         self._n_in = n_in
         self._n_out = n_out
@@ -203,7 +197,7 @@ class FTE(Generic[Plaintext, Covertext]):
         self._max_plaintext_bytes = None
         self._max_frame_bytes = None
 
-        if cipher_mode == "deterministic":
+        if cipher == "ff1":
             self._init_deterministic(key)
         else:
             if len(key) != 32:
@@ -395,7 +389,7 @@ class FTE(Generic[Plaintext, Covertext]):
 
     @property
     def cipher(self) -> str:
-        """The resolved cipher mode: ``"aes-ctr-hmac"`` or ``"deterministic"``."""
+        """The resolved cipher: ``"aes-ctr-hmac"`` or ``"ff1"``."""
 
         return self._cipher_mode
 

@@ -171,7 +171,7 @@ class Tests(unittest.TestCase):
         fmt = DigitsFormat(6, fingerprint=b"fp:d6")
         eng = FTE(input_format=fmt, output_format=fmt,
                   cipher="ff1", key=KEY_FF1)
-        self.assertEqual(eng.cipher, "deterministic")
+        self.assertEqual(eng.cipher, "ff1")
         self.assertTrue(eng.preserve_length)  # equal format + slice_bounds
         for i in _sample_ranks(fmt.cardinality):
             pt = fmt.unrank(i)
@@ -476,9 +476,11 @@ class Tests(unittest.TestCase):
             FTE(input_format=digits, output_format=BIG_HEX,
                 cipher="aes-ctr-hmac", key=KEY_AE, max_plaintext_bytes=8)
 
-    def test_exactly_one_output_format_required(self):
-        with self.assertRaises(ValueError):
+    def test_output_format_is_required(self):
+        with self.assertRaises(TypeError):
             FTE(key=KEY_AE)
+        with self.assertRaises(TypeError):
+            FTE(output_format=None, key=KEY_AE)
 
     # ---- SmallDomainError (always enforced, no opt-out) ---------------- #
     def test_small_domain_raises(self):

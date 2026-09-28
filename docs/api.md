@@ -11,16 +11,18 @@ names beginning with `_` are private implementation details.
 
 ### Upgrading from 0.4
 
-0.5.0 removes these 0.4.0 APIs. Ranking, fingerprints, and encrypted-frame
-bytes are unchanged.
+0.5.0 removes or changes these 0.4.0 APIs. Ranking, fingerprints, and
+encrypted-frame bytes are unchanged.
 
-| Removed | Replacement |
-|---------|-------------|
+| 0.4 | 0.5 |
+|-----|-----|
 | `fte.frame.bytes_to_rank()` / `rank_to_bytes()` | `fte.BytesFormat().rank()` / `.unrank()` |
 | `fte.frame` capacity helpers | Construct `fte.FTE(...)` and read `max_plaintext_bytes` |
 | `fte.formats.regex.dfa` | `fte.RegexFormat`, or a custom [provider](formats.md) |
 | No `cipher` for two equal non-bytes formats (inferred FF1) | Pass `cipher="ff1"`; covertexts are unchanged |
 | A cipher object with `encrypt_int()` / `decrypt_int()` | Decrypt with 0.4 and the original object, then re-encrypt with `"ff1"` or `"aes-ctr-hmac"` |
+| `FTE.cipher` reports `"deterministic"` for FF1 | It reports `"ff1"` |
+| Omitting `output_format` raises `ValueError` | It raises `TypeError` |
 
 ## `fte.FTE`
 
@@ -31,7 +33,7 @@ The engine maps `input_format.rank(plaintext)` through a cipher, then calls
 fte.FTE(
     *,
     input_format=None,               # defaults to BytesFormat()
-    output_format=None,              # required; None raises ValueError
+    output_format,                   # required
     key: bytes,
     cipher: str | None = None,
     max_plaintext_bytes: int | None = None,
@@ -43,7 +45,7 @@ fte.FTE(
 | `encrypt(plaintext, /, *, tweak=b"")` | Encrypt one input-format value into an output-format value |
 | `decrypt(covertext, /, *, tweak=b"")` | Decrypt one output-format value into an input-format value |
 | `input_format`, `output_format` | The configured formats; read-only |
-| `cipher` | Resolved mode: `"aes-ctr-hmac"` or `"deterministic"` |
+| `cipher` | Resolved cipher: `"aes-ctr-hmac"` or `"ff1"` |
 | `preserve_length` | Whether the deterministic cipher permutes each length slice in place |
 | `max_plaintext_bytes` | Effective bytes-input limit, fixed input-rank width, or `None`; see below |
 

@@ -7,7 +7,6 @@ reversible ordering of plaintext and covertext values.
 from __future__ import annotations
 
 import hashlib
-import warnings
 from typing import Generic, TypeVar
 
 from fte import _frame as frame
@@ -79,66 +78,31 @@ def _load_ff1():
 
 
 class FTE(Generic[Plaintext, Covertext]):
-    """Encrypt a value of the input format into one of the output format.
+    """Encrypt a value of the input format into a value of the output format.
 
     Construct with keyword-only arguments::
 
         FTE(input_format=..., output_format=..., key=..., cipher=...)
 
-    * ``input_format`` defaults to :class:`~fte.formats.bytes.BytesFormat`, so
-      ``FTE(output_format=fmt, key=key)`` is the classic pipeline: bytes in,
-      the AE cipher, ``fmt`` out.
-    * **FPE is the equal-formats case**: passing the same format as
-      ``input_format`` and ``output_format`` with ``cipher="ff1"`` re-encrypts
-      a value in place. Length is preserved automatically when the
-      format can name its per-length slices (a ``slice_bounds`` method plus
-      integer ``min_length`` / ``max_length``), so a value keeps its length;
-      otherwise the whole language is permuted. See :attr:`preserve_length`.
-    * ``cipher`` is ``"aes-ctr-hmac"``, ``"ff1"``, a duck-typed object exposing
-      ``encrypt_int(x, *, domain, tweak) -> int`` /
-      ``decrypt_int(y, *, domain, tweak) -> int``, or ``None`` to infer it:
-      a bytes input picks ``"aes-ctr-hmac"``; otherwise two formats with equal
-      fingerprints still pick ``"ff1"`` with a :class:`DeprecationWarning`.
-      Pass ``cipher="ff1"`` explicitly to select unauthenticated encryption;
-      anything else must be spelled out.
+    ``input_format`` defaults to :class:`~fte.formats.bytes.BytesFormat`, and a
+    bytes input defaults to ``cipher="aes-ctr-hmac"``. Any other input needs an
+    explicit ``cipher``:
 
-    The deterministic cipher refuses a domain below one million (Draft
-    SP 800-38G Rev 1), raising :class:`SmallDomainError`, because FF1 is
-    insecure over a domain small enough to brute-force. There is no opt-out.
+    * ``"aes-ctr-hmac"``: randomized, authenticated encryption with a 32-byte
+      key (16 for AES-CTR, 16 for HMAC). Encrypting the same plaintext twice
+      gives different covertexts. A non-bytes input is serialized at a fixed
+      width set by its cardinality, so the frame length never depends on the
+      plaintext.
+    * ``"ff1"``: deterministic, unauthenticated format-preserving encryption
+      with a 16, 24, or 32-byte key. Both formats must be finite and
+      fingerprinted, and the input domain must hold at least one million
+      values (:class:`SmallDomainError`). When the input and output are the
+      same format and it exposes ``slice_bounds``, each value keeps its length
+      (see :attr:`preserve_length`). Pass a distinct per-record ``tweak`` to
+      :meth:`encrypt` / :meth:`decrypt` to separate equal plaintexts.
 
-    ``key`` is 32 bytes for ``"aes-ctr-hmac"`` (16 encryption + 16 MAC) and
-    16/24/32 bytes for ``"ff1"``. **Never reuse a key across the two ciphers**:
-    the AE and format-preserving constructions are unrelated and share no
-    security proof.
-
-    ``tweak`` (a per-call keyword on :meth:`encrypt` / :meth:`decrypt`) is only
-    meaningful with the deterministic cipher; the AE path has no
-    associated-data support and rejects a non-empty tweak.
-
-    ``max_plaintext_bytes`` keeps its classic meaning for a bytes input (a
-    resource ceiling and decrypt-side size guard; see the property) and is
-    rejected for a non-bytes input, whose size the format's cardinality
-    already fixes.
-
-    With the ``aes-ctr-hmac`` cipher the covertext is randomized and authenticated, so
-    encrypting the same plaintext twice yields two different covertexts: they
-    are re-drawn per call. This holds for a non-bytes input too, whose rank is
-    serialized at a fixed width (set by the input format's cardinality, so the
-    frame length never depends on the plaintext) and then run through the same
-    randomized AE frame.
-
-    The deterministic (``ff1`` / object) cipher is, by contrast,
-    *deterministic* and *unauthenticated*: equal plaintexts map to equal
-    covertexts, so it leaks plaintext equality, and its effective strength is
-    bounded by the size of the input space rather than by the key, so the
-    one-million floor is enforced on the input domain. Pass a distinct
-    per-record ``tweak`` to separate encryptions.
-
-    Passing an object with ``encrypt_int()`` / ``decrypt_int()`` is deprecated
-    and emits :class:`DeprecationWarning`. Existing objects retain their behavior
-    and own their key; the ``FTE`` key argument is unused for them. Keep the
-    original object when decrypting old data: switching to a named cipher is
-    not generally ciphertext compatible.
+    Never reuse a key across the two ciphers. See ``docs/api.md`` for plaintext
+    limits, framing, and errors.
     """
 
     _FRAME_VERSION = frame.FRAME_VERSION
@@ -152,7 +116,7 @@ class FTE(Generic[Plaintext, Covertext]):
         "_output_format",
         "_input_is_bytes",
         "_cipher_mode",  # "aes-ctr-hmac" | "deterministic"
-        "_cipher",       # the deterministic cipher object, else None
+        "_cipher",       # the FF1 instance, else None
         "_encrypter",    # the AE encrypter, else None
         "_preserve_length",
         "_tweak_base",   # deterministic effective-tweak stem, else None
@@ -171,7 +135,7 @@ class FTE(Generic[Plaintext, Covertext]):
         input_format: RankedFormat[Plaintext] | None = None,
         output_format: RankedFormat[Covertext] | None = None,
         key: bytes,
-        cipher: str | object | None = None,
+        cipher: str | None = None,
         max_plaintext_bytes: int | None = None,
     ) -> None:
         # ---- resolve the format pair -----------------------------------
@@ -188,48 +152,23 @@ class FTE(Generic[Plaintext, Covertext]):
         n_in = self._finite_cardinality(input_format, "input_format")
         n_out = self._finite_cardinality(output_format, "output_format")
 
-        fp_in = getattr(input_format, "fingerprint", None)
-        fp_out = getattr(output_format, "fingerprint", None)
-
         # ---- resolve the cipher ----------------------------------------
-        inferred_ff1 = False
         if cipher is None:
-            if input_is_bytes:
-                cipher = "aes-ctr-hmac"
-            elif (
-                isinstance(fp_in, bytes)
-                and isinstance(fp_out, bytes)
-                and fp_in == fp_out
-            ):
-                cipher = "ff1"
-                inferred_ff1 = True
-            else:
+            if not input_is_bytes:
                 raise ValueError(
-                    "cannot infer cipher for this format pair; pass "
-                    "cipher='ff1' for a deterministic transform, "
-                    "cipher='aes-ctr-hmac' "
-                    "for authenticated encryption"
+                    "a non-bytes input_format needs an explicit cipher; pass "
+                    "cipher='ff1' for a deterministic transform or "
+                    "cipher='aes-ctr-hmac' for authenticated encryption"
                 )
-
-        if isinstance(cipher, str):
-            if cipher == "aes-ctr-hmac":
-                cipher_mode = "aes-ctr-hmac"
-            elif cipher == "ff1":
-                cipher_mode = "deterministic"
-            else:
-                raise ValueError(
-                    f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac' "
-                    "or 'ff1'"
-                )
-        else:
-            if not callable(getattr(cipher, "encrypt_int", None)) or not callable(
-                getattr(cipher, "decrypt_int", None)
-            ):
-                raise TypeError(
-                    "cipher object must provide callable encrypt_int() and "
-                    "decrypt_int() methods"
-                )
+            cipher = "aes-ctr-hmac"
+        if cipher == "aes-ctr-hmac":
+            cipher_mode = "aes-ctr-hmac"
+        elif cipher == "ff1":
             cipher_mode = "deterministic"
+        else:
+            raise ValueError(
+                f"unknown cipher {cipher!r}; expected 'aes-ctr-hmac' or 'ff1'"
+            )
 
         if not isinstance(key, bytes):
             raise TypeError("key must be bytes")
@@ -265,16 +204,7 @@ class FTE(Generic[Plaintext, Covertext]):
         self._max_frame_bytes = None
 
         if cipher_mode == "deterministic":
-            self._init_deterministic(cipher, key, fp_in, fp_out)
-            if inferred_ff1:
-                warnings.warn(
-                    "Implicit FF1 selection is deprecated and will be removed "
-                    "in a future breaking release; pass cipher='ff1' explicitly "
-                    "to select deterministic, unauthenticated encryption. "
-                    "Explicit selection preserves existing ciphertexts.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
+            self._init_deterministic(key)
         else:
             if len(key) != 32:
                 raise ValueError(
@@ -283,16 +213,6 @@ class FTE(Generic[Plaintext, Covertext]):
                 )
             self._encrypter = Encrypter(key[:16], key[16:])
             self._init_ae_capacity(max_plaintext_bytes)
-
-        if not isinstance(cipher, str):
-            warnings.warn(
-                "Passing a cipher object to FTE is deprecated; use "
-                "cipher='ff1' or cipher='aes-ctr-hmac' for new data. "
-                "Keep the original cipher to decrypt existing "
-                "custom-cipher covertexts until migrated.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
     # ------------------------------------------------------------------ #
     # Construction helpers                                               #
@@ -319,13 +239,9 @@ class FTE(Generic[Plaintext, Covertext]):
             )
         return cardinality
 
-    def _init_deterministic(
-        self,
-        cipher: str | object,
-        key: bytes,
-        fp_in: object,
-        fp_out: object,
-    ) -> None:
+    def _init_deterministic(self, key: bytes) -> None:
+        fp_in = getattr(self._input_format, "fingerprint", None)
+        fp_out = getattr(self._output_format, "fingerprint", None)
         if self._n_in is None or self._n_out is None:
             raise FormatCapacityError(
                 "the deterministic cipher requires both formats to be finite "
@@ -368,16 +284,9 @@ class FTE(Generic[Plaintext, Covertext]):
                 f"floor {_FF1_DOMAIN_FLOOR}; enlarge the input format"
             )
 
-        # Resolve the concrete cipher object.
-        if isinstance(cipher, str):  # cipher == "ff1"
-            FF1 = _load_ff1()
-            if len(key) not in (16, 24, 32):
-                raise ValueError(
-                    "cipher='ff1' requires a 16, 24, or 32 byte key"
-                )
-            self._cipher = FF1(key)
-        else:
-            self._cipher = cipher
+        if len(key) not in (16, 24, 32):
+            raise ValueError("cipher='ff1' requires a 16, 24, or 32 byte key")
+        self._cipher = _load_ff1()(key)
 
         # Length-prefix the fingerprints so the digest input is injective in
         # (fp_in, fp_out, mode) even for fingerprints containing separator
@@ -542,7 +451,7 @@ class FTE(Generic[Plaintext, Covertext]):
         if self._cipher_mode == "aes-ctr-hmac" and tweak:
             raise ValueError(
                 "the 'aes-ctr-hmac' cipher has no associated-data support; a "
-                "non-empty tweak is only valid with a deterministic cipher"
+                "non-empty tweak is only valid with cipher='ff1'"
             )
         return tweak
 

@@ -27,8 +27,8 @@ not receive backported patches, so please upgrade to a supported version.
   verifies the tag (constant-time compare) before decrypting anything. The
   pre-tag rejection timing reveals only what is computable without the key. Do
   not expose `decrypt` to untrusted callers as a timing oracle.
-- **Deterministic cipher** (`cipher="ff1"` or a cipher object): deterministic
-  and unauthenticated. Equal plaintexts give equal covertexts, so it leaks
+- **Deterministic cipher** (`cipher="ff1"`): deterministic and
+  unauthenticated. Equal plaintexts give equal covertexts, so it leaks
   plaintext equality unless each record gets a distinct `tweak`, and it has no
   integrity protection. Domains below one million values are refused: the
   input domain must clear the floor and the output domain must be at least as

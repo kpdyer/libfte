@@ -19,6 +19,8 @@ bytes are unchanged.
 | `fte.frame.bytes_to_rank()` / `rank_to_bytes()` | `fte.BytesFormat().rank()` / `.unrank()` |
 | `fte.frame` capacity helpers | Construct `fte.FTE(...)` and read `max_plaintext_bytes` |
 | `fte.formats.regex.dfa` | `fte.RegexFormat`, or a custom [provider](formats.md) |
+| No `cipher` for two equal non-bytes formats (inferred FF1) | Pass `cipher="ff1"`; covertexts are unchanged |
+| A cipher object with `encrypt_int()` / `decrypt_int()` | Decrypt with 0.4 and the original object, then re-encrypt with `"ff1"` or `"aes-ctr-hmac"` |
 
 ## `fte.FTE`
 
@@ -31,7 +33,7 @@ fte.FTE(
     input_format=None,               # defaults to BytesFormat()
     output_format=None,              # required; None raises ValueError
     key: bytes,
-    cipher: str | object | None = None,
+    cipher: str | None = None,
     max_plaintext_bytes: int | None = None,
 )
 ```
@@ -51,15 +53,10 @@ fte.FTE(
 |-------------------|----------|-----|
 | `"aes-ctr-hmac"` | Randomized, authenticated encryption with a 29-byte frame overhead | 32 bytes: 16 for AES, 16 for HMAC |
 | `"ff1"` | Deterministic rank permutation using `libffx.FF1`, with no nonce or authentication tag | 16, 24, or 32 bytes |
-| Cipher object **(deprecated)** | A custom permutation with `encrypt_int(x, *, domain, tweak)` and `decrypt_int(y, *, domain, tweak)`; construction emits `DeprecationWarning` | The object owns its key; the required bytes `FTE` key argument is unused |
 
-With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`. Select
-`cipher="ff1"` explicitly for deterministic, unauthenticated encryption.
-For compatibility, equal bytes fingerprints still infer `"ff1"`, but successful
-construction emits `DeprecationWarning`; this inference will be removed in a
-future breaking release. Adding `cipher="ff1"` preserves existing ciphertexts,
-keys, tweaks, and length behavior. Other format pairs already require an explicit
-cipher. See the [provider contract](formats.md) for custom formats.
+With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`; any other
+input needs an explicit `cipher`. See the [provider contract](formats.md) for
+custom formats.
 
 The deterministic cipher requires finite, fingerprinted formats with input
 cardinality no greater than output cardinality. Its input domain must contain
@@ -75,27 +72,6 @@ input space raises `InvalidCovertextError`.
 cipher binds it to the formats and length mode. Authenticated encryption has no
 associated-data support and rejects a nonempty tweak. Never reuse keys across
 the two ciphers; see [SECURITY.md](../SECURITY.md).
-
-### Migrating custom cipher objects
-
-Passing a cipher object is deprecated. It remains accepted during the migration
-period and produces the same covertexts as before. The deprecation does not
-affect custom [format providers](formats.md).
-
-For new data, choose `cipher="ff1"` for deterministic encryption or
-`cipher="aes-ctr-hmac"` for authenticated encryption, and pass the encryption
-key directly to `FTE`. Authenticated encryption also requires enough output
-capacity for its frame; it cannot replace every deterministic configuration.
-
-A custom object can implement a different permutation, own a different key, or
-interpret tweaks differently from a built-in cipher. Changing its `cipher`
-argument to `"ff1"` is therefore **not generally ciphertext compatible**.
-Retain the original implementation, its key, format definitions, and tweaks to
-decrypt existing data. Migrate by decrypting with that configuration and
-encrypting with a separately configured named cipher. Keep track of which
-configuration produced each stored value; do not try to identify it by whether
-unauthenticated decryption returns a value in the format. No public replacement
-for arbitrary cipher injection is introduced.
 
 ### Plaintext limits
 

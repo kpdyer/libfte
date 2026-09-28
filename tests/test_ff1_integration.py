@@ -1,12 +1,11 @@
 """Integration tests for the real deterministic cipher (``cipher="ff1"``).
 
 These exercise :class:`fte.FTE` against the genuine format-preserving cipher
-from libffx, a hard dependency. The engine mechanics themselves are covered
-with a toy cipher object in ``test_engine_matrix.py``.
+from libffx, a hard dependency. ``test_engine_matrix.py`` covers the engine
+mechanics over computed formats.
 """
 
 import unittest
-import warnings
 
 import fte
 from fte.core import FTE, InvalidCovertextError
@@ -22,7 +21,7 @@ class Tests(unittest.TestCase):
         pt = b"0123456789012345"
         ct = eng.encrypt(pt)
         self.assertEqual(len(ct), 16)
-        self.assertEqual(fmt.rank(ct), fmt.rank(ct))  # ct is in-format
+        self.assertTrue(ct.isdigit())
         self.assertEqual(eng.decrypt(ct), pt)
         # Deterministic: same plaintext + tweak -> same covertext.
         self.assertEqual(eng.encrypt(pt), ct)
@@ -45,8 +44,7 @@ class Tests(unittest.TestCase):
                   key=KEY)
         pt = b"01234567"
         ct = eng.encrypt(pt)
-        self.assertEqual(len(ct), 16)  # hex output length
-        self.assertEqual(hex_fmt.rank(ct), hex_fmt.rank(ct))  # in-format
+        self.assertRegex(ct, rb"^[0-9a-f]{16}$")
         self.assertEqual(eng.decrypt(ct), pt)
 
     def test_wrong_tweak_rejected_when_output_dwarfs_input(self):
@@ -63,41 +61,6 @@ class Tests(unittest.TestCase):
         self.assertEqual(eng.decrypt(ct, tweak=b"per-record-A"), b"123456")
         with self.assertRaises(InvalidCovertextError):
             eng.decrypt(ct, tweak=b"per-record-B")
-
-    def test_legacy_fpe_inference_warns_and_preserves_ciphertext(self):
-        fmt = fte.RegexFormat(r"^[0-9]+$", length=16)
-        eng = fte.FTE(input_format=fmt, output_format=fmt, key=KEY, cipher="ff1")
-        with self.assertWarnsRegex(DeprecationWarning, "pass cipher='ff1'") as warning:
-            legacy = fte.FTE(input_format=fmt, output_format=fmt, key=KEY)
-        self.assertEqual(warning.filename, __file__)
-        pt = b"4111111111111111"
-        ct = eng.encrypt(pt)
-        self.assertEqual(legacy.encrypt(pt), ct)
-        self.assertEqual(legacy.decrypt(ct), pt)
-        self.assertEqual(len(ct), 16)
-        self.assertEqual(eng.decrypt(ct), pt)
-        # FPE with a distinct tweak separates the covertext.
-        self.assertNotEqual(eng.encrypt(pt, tweak=b"x"), ct)
-
-    def test_explicit_ciphers_and_bytes_default_do_not_warn(self):
-        fmt = fte.RegexFormat(r"^[0-9]+$", length=6)
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            explicit = fte.FTE(input_format=fmt, output_format=fmt,
-                               cipher="ff1", key=KEY)
-            authenticated = fte.FTE(output_format=fte.BytesFormat(),
-                                    cipher="aes-ctr-hmac", key=bytes(range(32)))
-            default = fte.FTE(output_format=fte.BytesFormat(), key=bytes(range(32)))
-        self.assertEqual(explicit.cipher, "deterministic")
-        self.assertEqual(authenticated.cipher, "aes-ctr-hmac")
-        self.assertEqual(default.cipher, "aes-ctr-hmac")
-
-    def test_invalid_inferred_domain_reports_original_error(self):
-        fmt = fte.RegexFormat(r"^[0-9]+$", length=5)
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            with self.assertRaises(fte.SmallDomainError):
-                fte.FTE(input_format=fmt, output_format=fmt, key=KEY)
 
     def test_fpe_is_injective_on_a_sample(self):
         # The domain floor forbids tiny enumerable domains, so sample a

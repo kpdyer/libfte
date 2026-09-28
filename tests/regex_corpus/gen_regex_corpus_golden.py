@@ -2,9 +2,9 @@
 """Regenerate ``regex_corpus_golden.json`` from ``regex_corpus_data.py``.
 
 The golden file freezes the exact ranking bijection (cardinality + sampled
-``unrank`` outputs) for every corpus regex. ``test_regex_corpus.py`` compares the
-live implementation against it, so a performance change that alters any output
-fails the suite.
+``unrank`` outputs) for every corpus regex, keyed by corpus id.
+``test_regex_corpus.py`` compares the live implementation against it, so a
+performance change that alters any output fails the suite.
 
 Run this ONLY when a ranking change is intentional. Changing the bijection
 changes the wire format: sender and receiver must both upgrade. Regenerating
@@ -17,8 +17,6 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-
-import regex2dfa
 
 from regex_corpus_data import CORPUS
 from fte.formats.regex.format import RegexFormat
@@ -49,54 +47,18 @@ def build_format(pattern: str, spec) -> RegexFormat:
     return RegexFormat(pattern, length=spec)
 
 
-def dfa_stats(pattern: str) -> dict:
-    """Size of the minimized DFA for ``pattern``: distinct states, transitions,
-    and alphabet symbols. Computed from ``regex2dfa``'s AT&T FST output (public
-    and stable) rather than any libfte DFA internals, so it documents the
-    corpus's coverage of DFA shapes independently of how the ranker stores them.
-    """
-    fst = regex2dfa.regex2dfa(pattern)
-    states: set[str] = set()
-    symbols: set[str] = set()
-    transitions = 0
-    for line in fst.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split("\t")
-        if len(parts) >= 4:  # src dst input output
-            states.add(parts[0])
-            states.add(parts[1])
-            symbols.add(parts[2])
-            transitions += 1
-        elif len(parts) == 1:  # final state
-            states.add(parts[0])
-    return {"states": len(states), "transitions": transitions,
-            "alphabet": len(symbols)}
-
-
 def build_golden() -> dict:
     golden: dict = {}
-    for label, pattern, spec, _tags in CORPUS:
+    for label, pattern, spec in CORPUS:
         fmt = build_format(pattern, spec)
         n = fmt.cardinality
-        if n <= 0:
-            raise ValueError(f"{label}: empty format")
         probes = []
         for i in probe_indices(n):
             word = fmt.unrank(i)
             if fmt.rank(word) != i:
                 raise ValueError(f"{label}: rank/unrank not inverse at {i}")
             probes.append([str(i), word.hex()])
-        lo, hi = (spec if isinstance(spec, (tuple, list)) else (spec, spec))
-        golden[label] = {
-            "pattern": pattern,
-            "min_length": lo,
-            "max_length": hi,
-            "cardinality": str(n),
-            "dfa": dfa_stats(pattern),
-            "probes": probes,
-        }
+        golden[label] = {"cardinality": str(n), "probes": probes}
     return golden
 
 

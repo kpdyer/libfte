@@ -275,16 +275,11 @@ class RegexFormat:
     Raises:
         TypeError: If ``pattern`` is not a string.
         ValueError: If the length arguments are missing, mixed, or not positive
-            integers with ``min_length <= max_length``; if ``pattern`` has a
-            character above U+00FF (patterns denote byte languages); if it
-            uses syntax regex2dfa would silently misread (a brace quantifier
-            such as ``{3}``, an escape it does not implement such as ``\D``,
-            a backslash inside ``[...]``, a ``^`` or ``$`` away from a value
-            edge or inside a quantified group, an empty alternative or an
-            empty group ``()``; see the regex guide);
-            if ``pattern`` is otherwise not a valid regular expression
-            (including one matching only the empty string, such as ``^$``); or
-            if the language has no words in the requested length range.
+            integers with ``min_length <= max_length``; if ``pattern`` is not
+            valid in the supported dialect ("Supported syntax" in
+            ``fte/formats/regex/README.md`` lists what is rejected, such as
+            brace quantifiers and characters above U+00FF); or if the language
+            has no words in the requested length range.
 
     Example:
         >>> fmt = RegexFormat(r"^[0-9a-f]+$", length=96)

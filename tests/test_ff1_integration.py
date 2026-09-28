@@ -8,7 +8,7 @@ mechanics over computed formats.
 import unittest
 
 import fte
-from fte.core import FTE, InvalidCovertextError
+from fte.core import FTE, InvalidCovertextError, InvalidPlaintextError
 
 
 KEY = bytes(range(16))  # FF1 accepts 16/24/32-byte keys.
@@ -61,6 +61,27 @@ class Tests(unittest.TestCase):
         self.assertEqual(eng.decrypt(ct, tweak=b"per-record-A"), b"123456")
         with self.assertRaises(InvalidCovertextError):
             eng.decrypt(ct, tweak=b"per-record-B")
+
+    def test_invalid_values_are_rejected_in_both_length_modes(self):
+        # Each defect is InvalidPlaintextError on encrypt and
+        # InvalidCovertextError on decrypt, whether the engine permutes each
+        # length slice or the whole rank space: no length, a length outside
+        # the bounds, a length with no words (7), and a byte outside the
+        # alphabet.
+        fmt = fte.RegexFormat(r"^([0-9][0-9])+$", min_length=6, max_length=8)
+        hex_fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=16)
+        engines = (
+            FTE(input_format=fmt, output_format=fmt, cipher="ff1", key=KEY),
+            FTE(input_format=fmt, output_format=hex_fmt, cipher="ff1", key=KEY),
+        )
+        self.assertEqual([e.preserve_length for e in engines], [True, False])
+        for eng in engines:
+            for value in (123456, b"12345", b"1234567", b"12345a"):
+                with self.subTest(preserve=eng.preserve_length, value=value):
+                    with self.assertRaises(InvalidPlaintextError):
+                        eng.encrypt(value)
+                    with self.assertRaises(InvalidCovertextError):
+                        eng.decrypt(value)
 
     def test_fpe_is_injective_on_a_sample(self):
         # The domain floor forbids tiny enumerable domains, so sample a

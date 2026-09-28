@@ -124,7 +124,6 @@ class FTE(Generic[Plaintext, Covertext]):
         "_n_out",        # finite output cardinality, else None
         # AE-path resource / capacity machinery:
         "_resource_max",
-        "_capacity_limit",
         "_max_plaintext_bytes",
         "_max_frame_bytes",
     )
@@ -193,7 +192,6 @@ class FTE(Generic[Plaintext, Covertext]):
         self._encrypter = None
         self._tweak_base = None
         self._resource_max = None
-        self._capacity_limit = None
         self._max_plaintext_bytes = None
         self._max_frame_bytes = None
 
@@ -271,7 +269,7 @@ class FTE(Generic[Plaintext, Covertext]):
         # The strength of a deterministic map is bounded by the input space,
         # so the floor applies to n_in (n_in <= n_out, so n_out clears it too).
         if preserve_length:
-            self._check_slice_domains(_FF1_DOMAIN_FLOOR)
+            self._check_slice_domains()
         elif self._n_in < _FF1_DOMAIN_FLOOR:
             raise SmallDomainError(
                 f"input domain {self._n_in} is below the format-preserving "
@@ -295,82 +293,66 @@ class FTE(Generic[Plaintext, Covertext]):
             + mode_tag
         ).digest()
 
-    def _check_slice_domains(self, floor: int) -> None:
+    def _check_slice_domains(self) -> None:
         fmt = self._input_format
-        lo = fmt.min_length
-        hi = fmt.max_length
         offending = []
-        for length in range(lo, hi + 1):
+        for length in range(fmt.min_length, fmt.max_length + 1):
             _, count = fmt.slice_bounds(length)
-            if 0 < count < floor:
+            if 0 < count < _FF1_DOMAIN_FLOOR:
                 offending.append(length)
         if offending:
             raise SmallDomainError(
                 f"length slices {offending} are below the format-preserving "
-                f"floor {floor}; widen the alphabet or raise the minimum length"
+                f"floor {_FF1_DOMAIN_FLOOR}; widen the alphabet or raise the "
+                "minimum length"
             )
 
     def _init_ae_capacity(self, max_plaintext_bytes: int | None) -> None:
         if self._input_is_bytes:
-            # Classic behavior: the resource ceiling and capacity limit are
-            # driven by the output format alone; the bytes input is unbounded.
-            cardinality = self._n_out
-            resource_max = (
+            # The resource ceiling bounds a bytes input; a finite output can
+            # lower the effective limit to its own capacity.
+            self._resource_max = (
                 self._DEFAULT_MAX_PLAINTEXT_BYTES
                 if max_plaintext_bytes is None
                 else max_plaintext_bytes
             )
-            if cardinality is None:
-                capacity_limit = None
-                effective = resource_max
-            else:
-                capacity_limit = min(
-                    frame.capacity_plaintext_limit(
-                        cardinality, self._CIPHERTEXT_EXPANSION
-                    ),
-                    self._ENCRYPTER_MAX_PLAINTEXT_BYTES,
+            limit = self._resource_max
+            if self._n_out is not None:
+                capacity = frame.capacity_plaintext_limit(
+                    self._n_out, self._CIPHERTEXT_EXPANSION
                 )
-                if capacity_limit < 0:
+                if capacity < 0:
                     raise FormatCapacityError(
                         "format is too small to hold even an empty encrypted "
                         "message"
                     )
-                effective = min(resource_max, capacity_limit)
-
-            self._resource_max = resource_max
-            self._capacity_limit = capacity_limit
-            self._max_plaintext_bytes = effective
-            self._max_frame_bytes = effective + 1 + self._CIPHERTEXT_EXPANSION
-            return
-
-        # AE over a finite non-bytes input: the plaintext is the fixed-width
-        # big-endian serialization of an input rank in [0, n_in), padded to the
-        # smallest W with 256**W >= n_in, so every frame has the same length
-        # and the covertext reveals nothing about the rank. (The shortlex
-        # length of n_in - 1 would be one byte short for e.g. n_in = 257.)
-        # There is no separate resource knob (max_plaintext_bytes was rejected
-        # earlier).
-        if self._n_in is None:
-            raise FormatCapacityError(
-                "a non-bytes input_format must expose a finite cardinality "
-                "for the 'aes-ctr-hmac' cipher"
-            )
-        max_pt_bytes = ((self._n_in - 1).bit_length() + 7) // 8
-        self._resource_max = max_pt_bytes
-        self._capacity_limit = max_pt_bytes
-        self._max_plaintext_bytes = max_pt_bytes
-        self._max_frame_bytes = max_pt_bytes + 1 + self._CIPHERTEXT_EXPANSION
-
-        if self._n_out is not None:
-            output_capacity = frame.capacity_plaintext_limit(
-                self._n_out, self._CIPHERTEXT_EXPANSION
-            )
-            if output_capacity < max_pt_bytes:
+                limit = min(limit, capacity)
+        else:
+            # AE over a finite non-bytes input: the plaintext is the
+            # fixed-width big-endian serialization of an input rank in
+            # [0, n_in), padded to the smallest W with 256**W >= n_in, so every
+            # frame has the same length and the covertext reveals nothing
+            # about the rank. (The shortlex length of n_in - 1 would be one
+            # byte short for e.g. n_in = 257.) There is no separate resource
+            # knob (max_plaintext_bytes was rejected earlier).
+            if self._n_in is None:
                 raise FormatCapacityError(
-                    "output format cannot represent every authenticated frame "
-                    f"for this input (needs room for {max_pt_bytes} plaintext "
-                    f"bytes, holds {max(output_capacity, 0)})"
+                    "a non-bytes input_format must expose a finite cardinality "
+                    "for the 'aes-ctr-hmac' cipher"
                 )
+            limit = ((self._n_in - 1).bit_length() + 7) // 8
+            if self._n_out is not None:
+                output_capacity = frame.capacity_plaintext_limit(
+                    self._n_out, self._CIPHERTEXT_EXPANSION
+                )
+                if output_capacity < limit:
+                    raise FormatCapacityError(
+                        "output format cannot represent every authenticated "
+                        f"frame for this input (needs room for {limit} "
+                        f"plaintext bytes, holds {max(output_capacity, 0)})"
+                    )
+        self._max_plaintext_bytes = limit
+        self._max_frame_bytes = limit + 1 + self._CIPHERTEXT_EXPANSION
 
     # ------------------------------------------------------------------ #
     # Public properties                                                  #
@@ -499,14 +481,11 @@ class FTE(Generic[Plaintext, Covertext]):
         fmt = self._input_format
         try:
             length = len(plaintext)
-        except TypeError as exc:
-            raise InvalidPlaintextError("plaintext has no length") from exc
-        try:
             offset, count = fmt.slice_bounds(length)
             r = fmt.rank(plaintext) - offset
         except Exception as exc:
             raise InvalidPlaintextError("invalid plaintext") from exc
-        if count <= 0 or not 0 <= r < count:
+        if not 0 <= r < count:
             raise InvalidPlaintextError(
                 "plaintext is not in the length slice it claims"
             )
@@ -518,15 +497,7 @@ class FTE(Generic[Plaintext, Covertext]):
         fmt = self._input_format
         try:
             length = len(covertext)
-        except TypeError as exc:
-            raise InvalidCovertextError("invalid covertext") from exc
-        try:
             offset, count = fmt.slice_bounds(length)
-        except Exception as exc:
-            raise InvalidCovertextError("invalid covertext") from exc
-        if count <= 0:
-            raise InvalidCovertextError("invalid covertext")
-        try:
             r = fmt.rank(covertext) - offset
         except Exception as exc:
             raise InvalidCovertextError("invalid covertext") from exc
@@ -542,18 +513,14 @@ class FTE(Generic[Plaintext, Covertext]):
             if not isinstance(plaintext, bytes):
                 raise TypeError("plaintext must be bytes")
             pt_bytes = plaintext
-            # Exceeding the resource ceiling is the caller's own limit;
-            # exceeding a finite format's capacity is the format being too
-            # small. The capacity check is the exact inverse of
-            # frame.capacity_plaintext_limit.
-            if len(pt_bytes) > self._resource_max:
-                raise MessageTooLargeError(
-                    "plaintext exceeds the configured max_plaintext_bytes"
-                )
-            if (
-                self._capacity_limit is not None
-                and len(pt_bytes) > self._capacity_limit
-            ):
+            # Exceeding the resource ceiling is the caller's own limit; any
+            # lower effective limit is the finite output's capacity, the exact
+            # inverse of frame.capacity_plaintext_limit.
+            if len(pt_bytes) > self._max_plaintext_bytes:
+                if len(pt_bytes) > self._resource_max:
+                    raise MessageTooLargeError(
+                        "plaintext exceeds the configured max_plaintext_bytes"
+                    )
                 raise FormatCapacityError(
                     "format cannot represent every encrypted payload at this "
                     "length"
@@ -595,8 +562,6 @@ class FTE(Generic[Plaintext, Covertext]):
         # max_plaintext_bytes, while these checks are cheap on every decrypt.
         if self._n_out is not None and index >= self._n_out:
             raise InvalidCovertextError("invalid covertext")
-        if index.bit_length() > 8 * self._max_frame_bytes + 1:
-            raise InvalidCovertextError("invalid covertext")
         if frame.rank_byte_length(index) > self._max_frame_bytes:
             raise InvalidCovertextError("invalid covertext")
 
@@ -612,9 +577,9 @@ class FTE(Generic[Plaintext, Covertext]):
         except DecryptionError:
             pt_bytes = None
         if pt_bytes is None:
-            # Raised outside the handler: pre-MAC header detail must not chain
-            # into public errors, so neither __cause__ nor __context__ is set.
-            raise InvalidCovertextError("invalid covertext") from None
+            # Raised outside the handler so the public error does not chain the
+            # DecryptionError: neither __cause__ nor __context__ is set.
+            raise InvalidCovertextError("invalid covertext")
 
         if self._input_is_bytes:
             return pt_bytes

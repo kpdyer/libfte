@@ -66,9 +66,10 @@ include = ["fte*"]
 [tool.setuptools.package-data]
 fte = ["py.typed", "formats/regex/README.md"]
 
-# All tests live in the top-level tests/ directory.
+# The suite in tests/ plus the docstring examples in fte/.
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "fte"]
+addopts = "--doctest-modules"
 
 [tool.coverage.run]
 source = ["fte"]

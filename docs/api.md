@@ -138,7 +138,7 @@ ranges containing no matching words raise `ValueError`.
 | `pattern` | Original regex text |
 | `min_length`, `max_length` | Inclusive covertext length bounds |
 | `cardinality` | Exact number of matching words in the range |
-| `rank(value, /) -> int` | Rank of a matching bytes or bytearray value |
+| `rank(value, /) -> int` | Rank of a matching bytes or bytearray value; `ValueError` for any other value of the right type |
 | `unrank(index, /) -> bytes` | Word at an integer rank in `range(cardinality)` |
 | `fingerprint` | SHA-256 identifier derived from pattern text and length bounds |
 | `slice_bounds(length, /) -> tuple[int, int]` | Starting rank and word count for one length; `ValueError` outside the bounds |

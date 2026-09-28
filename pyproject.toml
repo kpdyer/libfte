@@ -34,7 +34,10 @@ classifiers = [
 ]
 dependencies = [
     "cryptography>=50.0.0",
-    "regex2dfa>=0.2.0",
+    # 0.2.1 compiles some alternations to the wrong language (e.g. 256
+    # words of length 9 for ^(a|ab|abc)+$ instead of 149), which silently
+    # changes RegexFormat's ranking.
+    "regex2dfa>=0.2.2",
     # The built-in cipher="ff1" (format-preserving, deterministic,
     # zero-expansion) is libffx's FF1; pure Python.
     "libffx>=2.0.0",

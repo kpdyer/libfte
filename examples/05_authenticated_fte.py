@@ -1,14 +1,12 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Example: Authenticated FTE with the ``aes-ctr-hmac`` cipher.
+"""Authenticated FTE of a structured input with the ``aes-ctr-hmac`` cipher.
 
-This is the authenticated row of the 2x2: the wire-frozen AES-CTR + HMAC path.
-``aes-ctr-hmac`` is randomized and authenticated -- encrypting the same
+``aes-ctr-hmac`` is randomized and authenticated: encrypting the same
 plaintext twice yields two different covertexts, and any tampering is detected
 on decrypt. That safety costs a fixed 29-byte frame: a version byte, a 12-byte
 random nonce, and a 16-byte HMAC-SHA256 tag (Encrypt-then-MAC over AES-128-CTR).
 
-Here the input is a structured (non-bytes) format -- a 12-digit decimal string --
+Here the input is a structured (non-bytes) format, a 12-digit decimal string,
 re-encrypted as hex.
 
 Because ``aes-ctr-hmac`` expands by that fixed overhead, the output format must
@@ -57,19 +55,21 @@ def main():
     tampered = hex_out.unrank((hex_out.rank(first) + 1) % hex_out.cardinality)
     try:
         cipher.decrypt(tampered)
-        print("unexpected: tampered covertext decrypted")
     except InvalidCovertextError:
         print("A tampered covertext is rejected -> aes-ctr-hmac is authenticated.")
+    else:
+        raise AssertionError("a tampered covertext decrypted")
 
     # Aside: aes-ctr-hmac expands, so the same finite format cannot serve both sides.
     try:
         fte.FTE(input_format=digits, output_format=digits, cipher="aes-ctr-hmac", key=key)
-        print("unexpected: in-place aes-ctr-hmac construction succeeded")
     except FormatCapacityError:
         print(
             "In-place aes-ctr-hmac (same format both sides) is refused at construction: "
-            "the 29-byte frame does not fit in 12 digits -- use ff1 for that."
+            "the 29-byte frame does not fit in 12 digits; use ff1 for that."
         )
+    else:
+        raise AssertionError("in-place aes-ctr-hmac construction succeeded")
 
     print("\nSuccess! Authenticated FTE round-trips and rejects tampering.")
 

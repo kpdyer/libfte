@@ -78,7 +78,7 @@ Both endpoints must use the same regex text and length bounds: equivalent
 patterns can have different fingerprints and therefore different FF1 tweaks.
 
 Two different finite formats can also be connected with explicit `cipher="ff1"`;
-see the [deterministic FTE example](https://github.com/kpdyer/libfte/blob/master/examples/11_deterministic_fte.py).
+see the [deterministic FTE example](https://github.com/kpdyer/libfte/blob/master/examples/07_deterministic_fte.py).
 
 ## Limits and compatibility
 

@@ -26,7 +26,7 @@ class RankedFormat(Protocol[T]):
 ```
 
 The protocol is structural: providers need no inheritance, registration, or
-runtime dependency on libfte. See [08_custom_format.py](../examples/08_custom_format.py)
+runtime dependency on libfte. See [04_custom_format.py](../examples/04_custom_format.py)
 for a complete provider over decimal strings and its use with `FTE`.
 
 ### Metadata

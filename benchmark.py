@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Benchmark suite for libfte (Format-Transforming Encryption).
 
 libfte's ranking engine is pure Python, and this script measures the two costs that matter

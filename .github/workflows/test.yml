@@ -40,14 +40,7 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest -v --cov=fte --cov-report=xml
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
+          python -m pytest -v --cov=fte
 
   # Aggregate gate: single deterministic check for branch protection. It depends
   # on every matrix leg of `test`, so requiring only this context gates on the

@@ -42,9 +42,9 @@ not receive backported patches, so please upgrade to a supported version.
   inherent to FTE; the key protects the plaintext and (with AE) integrity, not
   the choice of format. With a bytes input the frame length also reveals the
   plaintext length.
-- **Wire format**: 0.4.x covertexts are not compatible with 0.3.x and earlier,
-  which used a different construction and frame layout; both endpoints must
-  run 0.4.x.
+- **Wire format**: covertexts from 0.4.0 and later are not compatible with
+  0.3.x and earlier, which used a different construction and frame layout;
+  both endpoints must run 0.4.0 or later.
 
 ## Reporting a Vulnerability
 

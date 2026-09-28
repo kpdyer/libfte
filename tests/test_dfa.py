@@ -53,6 +53,7 @@ def alphabet(size, seed):
 class Tests(unittest.TestCase):
     def test_counts_and_per_length_roundtrip(self):
         dfa = build(r"^[01]+$", 8)
+        self.assertEqual(dfa.num_words(0), 0)  # no empty word
         for length in range(1, 9):
             count = dfa.num_words(length)
             self.assertEqual(count, 2 ** length)
@@ -60,13 +61,6 @@ class Tests(unittest.TestCase):
                 word = dfa.unrank(index, length)
                 self.assertEqual(len(word), length)
                 self.assertEqual(dfa.rank(word), index)
-
-    def test_num_words_counts_one_length(self):
-        # ^[01]+$ has no empty word, so length zero counts zero.
-        dfa = build(r"^[01]+$", 6)
-        self.assertEqual(dfa.num_words(0), 0)
-        for length in range(1, 7):
-            self.assertEqual(dfa.num_words(length), 2 ** length)
 
     def test_unrank_rejects_out_of_range_rank(self):
         dfa = build(r"^[01]+$", 4)

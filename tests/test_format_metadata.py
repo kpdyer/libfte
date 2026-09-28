@@ -2,14 +2,14 @@
 
 Both are additive conventions on the ranked-format contract. ``fingerprint``
 names the exact ordering; ``slice_bounds`` exposes a format's per-length rank
-slices. :class:`~fte.formats.regex.RegexFormat` and
-:class:`~fte.formats.bytes.BytesFormat` provide them.
+slices. :class:`~fte.formats.regex.RegexFormat` provides both;
+``test_bytes_format.py`` covers the :class:`~fte.formats.bytes.BytesFormat`
+fingerprint.
 """
 
 import unittest
 
 import fte
-from fte.formats.bytes import BytesFormat
 
 
 class FingerprintTests(unittest.TestCase):
@@ -27,13 +27,6 @@ class FingerprintTests(unittest.TestCase):
         self.assertNotEqual(base.fingerprint, other_pattern.fingerprint)
         self.assertNotEqual(base.fingerprint, other_length.fingerprint)
         self.assertNotEqual(base.fingerprint, other_range.fingerprint)
-
-    def test_bytes_fingerprint_is_stable_bytes(self):
-        self.assertIsInstance(BytesFormat().fingerprint, bytes)
-        self.assertEqual(BytesFormat().fingerprint, BytesFormat().fingerprint)
-        self.assertNotEqual(
-            BytesFormat().fingerprint, fte.RegexFormat(r"^[0-9]+$", length=9).fingerprint
-        )
 
 
 class SliceBoundsTests(unittest.TestCase):

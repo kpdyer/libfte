@@ -41,7 +41,7 @@ def _engine(vector, key=None):
     return fte.FTE(
         input_format=fin,
         output_format=fout,
-        cipher=vector["cipher"] or "ff1",
+        cipher="ff1",
         key=bytes.fromhex(vector["key_hex"]) if key is None else key,
     )
 
@@ -76,25 +76,6 @@ class FrozenVectors(unittest.TestCase):
                 self.assertEqual(eng.preserve_length, vector["preserve_length"])
                 self.assertEqual(eng.encrypt(plaintext, tweak=tweak), covertext)
                 self.assertEqual(eng.decrypt(covertext, tweak=tweak), plaintext)
-
-    def test_legacy_inference_keeps_frozen_covertexts(self):
-        for vector in _load_vectors():
-            if vector["cipher"] is not None:
-                continue
-            with self.subTest(input_pattern=vector["input_pattern"],
-                              length_kw=vector["input_length_kw"]):
-                explicit = _engine(vector)
-                with self.assertWarns(DeprecationWarning):
-                    legacy = fte.FTE(
-                        input_format=explicit.input_format,
-                        output_format=explicit.output_format,
-                        key=bytes.fromhex(vector["key_hex"]),
-                    )
-                plaintext = bytes.fromhex(vector["plaintext_hex"])
-                covertext = bytes.fromhex(vector["covertext_hex"])
-                tweak = bytes.fromhex(vector["tweak_hex"])
-                self.assertEqual(legacy.encrypt(plaintext, tweak=tweak), covertext)
-                self.assertEqual(legacy.decrypt(covertext, tweak=tweak), plaintext)
 
     def test_vectors_cover_both_length_modes(self):
         modes = {v["preserve_length"] for v in _load_vectors()}

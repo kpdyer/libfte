@@ -1,5 +1,5 @@
 {
-  "comment": "Frozen wire vectors for the deterministic (cipher='ff1') path: rank -> libffx FF1 -> unrank, with the tweak derived from the 'fte:v2:ff1:1|' namespace, both format fingerprints, the length mode, and (when length is preserved) the value's length. Each covertext was produced by fte.FTE(input_format=..., output_format=..., cipher=..., key=...).encrypt(plaintext, tweak=...) and, because the path is deterministic, must keep being produced and decrypted byte for byte. cipher null means inferred from equal formats.",
+  "comment": "Frozen wire vectors for the deterministic (cipher='ff1') path: rank -> libffx FF1 -> unrank, with the tweak derived from the 'fte:v2:ff1:1|' namespace, both format fingerprints, the length mode, and (when length is preserved) the value's length. Each covertext was produced by fte.FTE(input_format=..., output_format=..., cipher='ff1', key=...).encrypt(plaintext, tweak=...) and, because the path is deterministic, must keep being produced and decrypted byte for byte.",
   "vectors": [
     {
       "input_pattern": "^[0-9]+$",
@@ -10,7 +10,6 @@
       "output_length_kw": {
         "length": 16
       },
-      "cipher": null,
       "preserve_length": true,
       "key_hex": "000102030405060708090a0b0c0d0e0f",
       "tweak_hex": "",
@@ -26,7 +25,6 @@
       "output_length_kw": {
         "length": 16
       },
-      "cipher": null,
       "preserve_length": true,
       "key_hex": "000102030405060708090a0b0c0d0e0f",
       "tweak_hex": "6163636f756e74732e6e756d626572",
@@ -44,7 +42,6 @@
         "min_length": 6,
         "max_length": 9
       },
-      "cipher": null,
       "preserve_length": true,
       "key_hex": "000102030405060708090a0b0c0d0e0f1011121314151617",
       "tweak_hex": "",
@@ -62,7 +59,6 @@
         "min_length": 6,
         "max_length": 9
       },
-      "cipher": null,
       "preserve_length": true,
       "key_hex": "000102030405060708090a0b0c0d0e0f1011121314151617",
       "tweak_hex": "6f72646572732e6163636f756e74",
@@ -80,7 +76,6 @@
         "min_length": 5,
         "max_length": 8
       },
-      "cipher": null,
       "preserve_length": true,
       "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "tweak_hex": "636f6c3a656d61696c",
@@ -96,7 +91,6 @@
       "output_length_kw": {
         "length": 16
       },
-      "cipher": "ff1",
       "preserve_length": false,
       "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "tweak_hex": "62617463682d32303236",
@@ -112,7 +106,6 @@
       "output_length_kw": {
         "length": 8
       },
-      "cipher": "ff1",
       "preserve_length": false,
       "key_hex": "000102030405060708090a0b0c0d0e0f",
       "tweak_hex": "",

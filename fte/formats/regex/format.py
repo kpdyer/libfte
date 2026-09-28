@@ -306,9 +306,8 @@ class RegexFormat:
         "max_length",
         "cardinality",
         "_dfa",
-        "_offsets",
-        "_counts",
         "_starts",
+        "_counts",
         "_fingerprint",
     )
 
@@ -354,15 +353,15 @@ class RegexFormat:
             ) from exc
 
         # Order the language's slice by length first, then lexicographically
-        # within a length. Record where each length starts in the combined rank
-        # space.
-        offsets = {}
-        counts = {}
+        # within a length. Record, in length order, where each length starts in
+        # the combined rank space and how many words it holds.
+        starts = []
+        counts = []
         cumulative = 0
         for word_length in range(lo, hi + 1):
             count = dfa.num_words(word_length)
-            offsets[word_length] = cumulative
-            counts[word_length] = count
+            starts.append(cumulative)
+            counts.append(count)
             cumulative += count
         if cumulative == 0:
             raise ValueError(
@@ -374,10 +373,8 @@ class RegexFormat:
         self.max_length = hi
         self.cardinality = cumulative
         self._dfa = dfa
-        self._offsets = offsets
+        self._starts = starts
         self._counts = counts
-        # The same offsets in length order, for unrank to bisect.
-        self._starts = list(offsets.values())
         self._fingerprint = hashlib.sha256(
             b"fte:regex:1|"
             + pattern.encode("utf-8")
@@ -414,7 +411,8 @@ class RegexFormat:
                 f"length {length} outside "
                 f"[{self.min_length}, {self.max_length}]"
             )
-        return self._offsets[length], self._counts[length]
+        i = length - self.min_length
+        return self._starts[i], self._counts[i]
 
     def rank(self, value: bytes, /) -> int:
         """Return the rank of a canonical covertext ``value``."""
@@ -427,7 +425,7 @@ class RegexFormat:
                 f"value length {n} outside "
                 f"[{self.min_length}, {self.max_length}]"
             )
-        return self._offsets[n] + self._dfa.rank(value)
+        return self._starts[n - self.min_length] + self._dfa.rank(value)
 
     def unrank(self, index: int, /) -> bytes:
         """Return the canonical covertext at ``index``."""

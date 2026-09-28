@@ -48,15 +48,15 @@ _FORMAT_CODES = {2: "b", 8: "o", 16: "x"}
 _FREE_TAIL_MIN_COL = 7
 
 
-class InvalidFSTFormat(Exception):
+class InvalidFSTFormat(ValueError):
     """Raised when the AT&T FST input is malformed."""
 
 
-class InvalidRankInput(Exception):
+class InvalidRankInput(ValueError):
     """Raised when a string cannot be ranked in the language."""
 
 
-class InvalidUnrankInput(Exception):
+class InvalidUnrankInput(ValueError):
     """Raised when a rank is outside the valid range."""
 
 

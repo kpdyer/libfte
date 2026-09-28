@@ -49,5 +49,5 @@ class BytesFormat:
             raise ValueError("index must be a non-negative integer")
         return frame.rank_to_bytes(index)
 
-    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+    def __repr__(self) -> str:
         return "BytesFormat()"

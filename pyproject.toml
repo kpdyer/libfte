@@ -34,7 +34,10 @@ classifiers = [
 ]
 dependencies = [
     "cryptography>=50.0.0",
-    "regex2dfa>=0.2.0",
+    # 0.2.1 compiles some alternations to the wrong language (e.g. 256
+    # words of length 9 for ^(a|ab|abc)+$ instead of 149), which silently
+    # changes RegexFormat's ranking.
+    "regex2dfa>=0.2.2",
     # The built-in cipher="ff1" (format-preserving, deterministic,
     # zero-expansion) is libffx's FF1; pure Python.
     "libffx>=2.0.0",
@@ -52,7 +55,8 @@ Repository = "https://github.com/kpdyer/libfte"
 Documentation = "https://github.com/kpdyer/libfte#readme"
 
 [tool.setuptools.dynamic]
-version = {file = "fte/_version.txt"}
+# Read statically from the __version__ literal; nothing is imported.
+version = {attr = "fte.__version__"}
 
 [tool.setuptools.packages.find]
 # Tests live in the top-level tests/ directory, outside the fte package, so
@@ -60,11 +64,12 @@ version = {file = "fte/_version.txt"}
 include = ["fte*"]
 
 [tool.setuptools.package-data]
-fte = ["_version.txt", "py.typed", "formats/regex/README.md"]
+fte = ["py.typed", "formats/regex/README.md"]
 
-# All tests live in the top-level tests/ directory.
+# The suite in tests/ plus the docstring examples in fte/.
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "fte"]
+addopts = "--doctest-modules"
 
 [tool.coverage.run]
 source = ["fte"]
@@ -73,7 +78,6 @@ source = ["fte"]
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
-    "raise NotImplementedError",
     "raise AssertionError",
     '^\s*\.\.\.\s*$',
 ]

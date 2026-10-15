@@ -163,8 +163,11 @@ class Tests(unittest.TestCase):
 
     def test_rank_rejects_non_member(self):
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=4)
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError):
             fmt.rank(b"zzzz")  # 'z' is not in the hex alphabet
+        pairs = fte.RegexFormat(r"^(ab)+$", min_length=2, max_length=4)
+        with self.assertRaises(ValueError):
+            pairs.rank(b"aba")  # in the alphabet, but not a word of the language
 
     def test_multistate_dfa_roundtrips(self):
         # ``^(0|1)[a-z]+$`` compiles to a multi-state, non-dense DFA, exercising

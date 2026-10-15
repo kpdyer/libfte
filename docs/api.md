@@ -6,27 +6,23 @@ Use the names exported by `fte`: `FTE`, `RegexFormat`, `BytesFormat`,
 `RankedFormat`, and the [engine exceptions](#exceptions), including `FTEError`.
 Their documented constructors, methods, and properties form the stable public
 API. `fte.__version__` reports the installed version. The provider aliases in
-`fte.formats` and `fte.formats.regex.RegexFormat` remain supported.
+`fte.formats` and `fte.formats.regex.RegexFormat` remain supported. Modules and
+names beginning with `_` are private implementation details.
 
-Direct imports from `fte.frame` and `fte.formats.regex.dfa` are deprecated.
-Both modules retain their existing exported functions, classes, and exceptions
-during migration and emit `DeprecationWarning` when first imported. They will
-be removed in a future breaking release; ordinary public API use does not
-import them or emit these warnings. To show deprecation warnings while testing,
-run Python with `-W default::DeprecationWarning`.
+### Upgrading from 0.4
 
-| Deprecated use | Migration |
-|----------------|-----------|
+0.5.0 removes or changes these 0.4.0 APIs. Ranking, fingerprints, and
+encrypted-frame bytes are unchanged.
+
+| 0.4 | 0.5 |
+|-----|-----|
 | `fte.frame.bytes_to_rank()` / `rank_to_bytes()` | `fte.BytesFormat().rank()` / `.unrank()` |
-| Frame capacity calculations for a configured cipher | Construct `fte.FTE(...)` and read `max_plaintext_bytes`; construction rejects an insufficient format |
-| Raw DFA construction and per-length ranking | Use `fte.RegexFormat` for regex languages, or implement the `fte.RankedFormat` [provider contract](formats.md) |
-
-There is no stable replacement for raw DFA/FST parsing or the remaining frame
-internals. Applications that need these interfaces should pin a release that
-still provides them while moving that functionality into their own provider
-or another maintained dependency. Modules and names beginning with `_` are
-private implementation details, not migration targets. The deprecation does
-not change ranking, fingerprints, or encrypted-frame bytes.
+| `fte.frame` capacity helpers | Construct `fte.FTE(...)` and read `max_plaintext_bytes` |
+| `fte.formats.regex.dfa` | `fte.RegexFormat`, or a custom [provider](formats.md) |
+| No `cipher` for two equal non-bytes formats (inferred FF1) | Pass `cipher="ff1"`; covertexts are unchanged |
+| A cipher object with `encrypt_int()` / `decrypt_int()` | Decrypt with 0.4 and the original object, then re-encrypt with `"ff1"` or `"aes-ctr-hmac"` |
+| `FTE.cipher` reports `"deterministic"` for FF1 | It reports `"ff1"` |
+| Omitting `output_format` raises `ValueError` | It raises `TypeError` |
 
 ## `fte.FTE`
 
@@ -37,9 +33,9 @@ The engine maps `input_format.rank(plaintext)` through a cipher, then calls
 fte.FTE(
     *,
     input_format=None,               # defaults to BytesFormat()
-    output_format=None,              # required; None raises ValueError
+    output_format,                   # required
     key: bytes,
-    cipher: str | object | None = None,
+    cipher: str | None = None,
     max_plaintext_bytes: int | None = None,
 )
 ```
@@ -49,7 +45,7 @@ fte.FTE(
 | `encrypt(plaintext, /, *, tweak=b"")` | Encrypt one input-format value into an output-format value |
 | `decrypt(covertext, /, *, tweak=b"")` | Decrypt one output-format value into an input-format value |
 | `input_format`, `output_format` | The configured formats; read-only |
-| `cipher` | Resolved mode: `"aes-ctr-hmac"` or `"deterministic"` |
+| `cipher` | Resolved cipher: `"aes-ctr-hmac"` or `"ff1"` |
 | `preserve_length` | Whether the deterministic cipher permutes each length slice in place |
 | `max_plaintext_bytes` | Effective bytes-input limit, fixed input-rank width, or `None`; see below |
 
@@ -59,15 +55,10 @@ fte.FTE(
 |-------------------|----------|-----|
 | `"aes-ctr-hmac"` | Randomized, authenticated encryption with a 29-byte frame overhead | 32 bytes: 16 for AES, 16 for HMAC |
 | `"ff1"` | Deterministic rank permutation using `libffx.FF1`, with no nonce or authentication tag | 16, 24, or 32 bytes |
-| Cipher object **(deprecated)** | A custom permutation with `encrypt_int(x, *, domain, tweak)` and `decrypt_int(y, *, domain, tweak)`; construction emits `DeprecationWarning` | The object owns its key; the required bytes `FTE` key argument is unused |
 
-With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`. Select
-`cipher="ff1"` explicitly for deterministic, unauthenticated encryption.
-For compatibility, equal bytes fingerprints still infer `"ff1"`, but successful
-construction emits `DeprecationWarning`; this inference will be removed in a
-future breaking release. Adding `cipher="ff1"` preserves existing ciphertexts,
-keys, tweaks, and length behavior. Other format pairs already require an explicit
-cipher. See the [provider contract](formats.md) for custom formats.
+With `cipher=None`, a `BytesFormat` input selects `"aes-ctr-hmac"`; any other
+input needs an explicit `cipher`. See the [provider contract](formats.md) for
+custom formats.
 
 The deterministic cipher requires finite, fingerprinted formats with input
 cardinality no greater than output cardinality. Its input domain must contain
@@ -83,27 +74,6 @@ input space raises `InvalidCovertextError`.
 cipher binds it to the formats and length mode. Authenticated encryption has no
 associated-data support and rejects a nonempty tweak. Never reuse keys across
 the two ciphers; see [SECURITY.md](../SECURITY.md).
-
-### Migrating custom cipher objects
-
-Passing a cipher object is deprecated. It remains accepted during the migration
-period and produces the same covertexts as before. The deprecation does not
-affect custom [format providers](formats.md).
-
-For new data, choose `cipher="ff1"` for deterministic encryption or
-`cipher="aes-ctr-hmac"` for authenticated encryption, and pass the encryption
-key directly to `FTE`. Authenticated encryption also requires enough output
-capacity for its frame; it cannot replace every deterministic configuration.
-
-A custom object can implement a different permutation, own a different key, or
-interpret tweaks differently from a built-in cipher. Changing its `cipher`
-argument to `"ff1"` is therefore **not generally ciphertext compatible**.
-Retain the original implementation, its key, format definitions, and tweaks to
-decrypt existing data. Migrate by decrypting with that configuration and
-encrypting with a separately configured named cipher. Keep track of which
-configuration produced each stored value; do not try to identify it by whether
-unauthenticated decryption returns a value in the format. No public replacement
-for arbitrary cipher injection is introduced.
 
 ### Plaintext limits
 
@@ -168,7 +138,7 @@ ranges containing no matching words raise `ValueError`.
 | `pattern` | Original regex text |
 | `min_length`, `max_length` | Inclusive covertext length bounds |
 | `cardinality` | Exact number of matching words in the range |
-| `rank(value, /) -> int` | Rank of a matching bytes or bytearray value |
+| `rank(value, /) -> int` | Rank of a matching bytes or bytearray value; `ValueError` for any other value of the right type |
 | `unrank(index, /) -> bytes` | Word at an integer rank in `range(cardinality)` |
 | `fingerprint` | SHA-256 identifier derived from pattern text and length bounds |
 | `slice_bounds(length, /) -> tuple[int, int]` | Starting rank and word count for one length; `ValueError` outside the bounds |

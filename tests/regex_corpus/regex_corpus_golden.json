@@ -1,14 +1,6 @@
 {
  "alt_letter_digit": {
   "cardinality": "308915776000000",
-  "dfa": {
-   "alphabet": 36,
-   "states": 3,
-   "transitions": 62
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^([a-z][0-9])+$",
   "probes": [
    [
     "0",
@@ -62,14 +54,6 @@
  },
  "alt_star": {
   "cardinality": "128",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 4
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^(a*b)+$",
   "probes": [
    [
     "0",
@@ -119,14 +103,6 @@
  },
  "base64_padded": {
   "cardinality": "19342813113834066795298816",
-  "dfa": {
-   "alphabet": 65,
-   "states": 4,
-   "transitions": 130
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[A-Za-z0-9+/]+==$",
   "probes": [
    [
     "0",
@@ -180,14 +156,6 @@
  },
  "binary_large_1024": {
   "cardinality": "179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137216",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 4
-  },
-  "max_length": 1024,
-  "min_length": 1024,
-  "pattern": "^[01]+$",
   "probes": [
    [
     "0",
@@ -241,14 +209,6 @@
  },
  "class_alnum_space": {
   "cardinality": "15515568475732467854453889",
-  "dfa": {
-   "alphabet": 63,
-   "states": 2,
-   "transitions": 126
-  },
-  "max_length": 14,
-  "min_length": 14,
-  "pattern": "^[a-zA-Z0-9 ]+$",
   "probes": [
    [
     "0",
@@ -302,14 +262,6 @@
  },
  "class_comma": {
   "cardinality": "150094635296999121",
-  "dfa": {
-   "alphabet": 27,
-   "states": 2,
-   "transitions": 54
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z,]+$",
   "probes": [
    [
     "0",
@@ -363,14 +315,6 @@
  },
  "class_dot": {
   "cardinality": "150094635296999121",
-  "dfa": {
-   "alphabet": 27,
-   "states": 2,
-   "transitions": 54
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z.]+$",
   "probes": [
    [
     "0",
@@ -424,14 +368,6 @@
  },
  "class_punct": {
   "cardinality": "282475249",
-  "dfa": {
-   "alphabet": 7,
-   "states": 2,
-   "transitions": 14
-  },
-  "max_length": 10,
-  "min_length": 10,
-  "pattern": "^[!@#%^&*]+$",
   "probes": [
    [
     "0",
@@ -485,14 +421,6 @@
  },
  "class_word_punct": {
   "cardinality": "353814783205469041",
-  "dfa": {
-   "alphabet": 29,
-   "states": 2,
-   "transitions": 58
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z!?.]+$",
   "probes": [
    [
     "0",
@@ -546,14 +474,6 @@
  },
  "cookie_ish": {
   "cardinality": "2293802804367360",
-  "dfa": {
-   "alphabet": 38,
-   "states": 12,
-   "transitions": 81
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^user=[a-z]+;id=[0-9]+$",
   "probes": [
    [
     "0",
@@ -607,14 +527,6 @@
  },
  "deep_nest": {
   "cardinality": "81",
-  "dfa": {
-   "alphabet": 6,
-   "states": 5,
-   "transitions": 9
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^((ab)|(cd)|(ef))+$",
   "probes": [
    [
     "0",
@@ -668,14 +580,6 @@
  },
  "dfa_contains12": {
   "cardinality": "1879443581184",
-  "dfa": {
-   "alphabet": 26,
-   "states": 13,
-   "transitions": 338
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^[a-z]*abcdefghijkl[a-z]*$",
   "probes": [
    [
     "0",
@@ -729,14 +633,6 @@
  },
  "dfa_contains16": {
   "cardinality": "1879443581184",
-  "dfa": {
-   "alphabet": 26,
-   "states": 17,
-   "transitions": 442
-  },
-  "max_length": 24,
-  "min_length": 24,
-  "pattern": "^[a-z]*abcdefghijklmnop[a-z]*$",
   "probes": [
    [
     "0",
@@ -790,14 +686,6 @@
  },
  "dfa_contains3": {
   "cardinality": "54286387499551",
-  "dfa": {
-   "alphabet": 26,
-   "states": 4,
-   "transitions": 104
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z]*abc[a-z]*$",
   "probes": [
    [
     "0",
@@ -851,14 +739,6 @@
  },
  "dfa_contains5": {
   "cardinality": "64254477352",
-  "dfa": {
-   "alphabet": 26,
-   "states": 6,
-   "transitions": 156
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z]*abcde[a-z]*$",
   "probes": [
    [
     "0",
@@ -912,14 +792,6 @@
  },
  "dfa_contains8": {
   "cardinality": "1879443581183",
-  "dfa": {
-   "alphabet": 26,
-   "states": 9,
-   "transitions": 234
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[a-z]*abcdefgh[a-z]*$",
   "probes": [
    [
     "0",
@@ -973,14 +845,6 @@
  },
  "dfa_csv5": {
   "cardinality": "61252255742436108968726368",
-  "dfa": {
-   "alphabet": 27,
-   "states": 10,
-   "transitions": 264
-  },
-  "max_length": 20,
-  "min_length": 9,
-  "pattern": "^[a-z]+,[a-z]+,[a-z]+,[a-z]+,[a-z]+$",
   "probes": [
    [
     "0",
@@ -1034,14 +898,6 @@
  },
  "dfa_date_iso": {
   "cardinality": "74400",
-  "dfa": {
-   "alphabet": 11,
-   "states": 15,
-   "transitions": 65
-  },
-  "max_length": 10,
-  "min_length": 10,
-  "pattern": "^(19|20)[0-9][0-9]-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
   "probes": [
    [
     "0",
@@ -1095,14 +951,6 @@
  },
  "dfa_dot_contains8": {
   "cardinality": "166020696663385964543",
-  "dfa": {
-   "alphabet": 256,
-   "states": 9,
-   "transitions": 2304
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^.*abcdefgh.*$",
   "probes": [
    [
     "0",
@@ -1156,14 +1004,6 @@
  },
  "dfa_dot_ends2": {
   "cardinality": "281474976710656",
-  "dfa": {
-   "alphabet": 256,
-   "states": 3,
-   "transitions": 768
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^.*ab$",
   "probes": [
    [
     "0",
@@ -1217,14 +1057,6 @@
  },
  "dfa_dot_ends4": {
   "cardinality": "79228162514264337593543950336",
-  "dfa": {
-   "alphabet": 256,
-   "states": 5,
-   "transitions": 1280
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^.*abcd$",
   "probes": [
    [
     "0",
@@ -1278,14 +1110,6 @@
  },
  "dfa_dot_ends8": {
   "cardinality": "79228162514264337593543950336",
-  "dfa": {
-   "alphabet": 256,
-   "states": 9,
-   "transitions": 2304
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^.*abcdefgh$",
   "probes": [
    [
     "0",
@@ -1339,14 +1163,6 @@
  },
  "dfa_dot_mixed": {
   "cardinality": "75488345194496",
-  "dfa": {
-   "alphabet": 256,
-   "states": 8,
-   "transitions": 1102
-  },
-  "max_length": 7,
-  "min_length": 7,
-  "pattern": "^.[a-z].[a-z].[a-z].$",
   "probes": [
    [
     "0",
@@ -1400,14 +1216,6 @@
  },
  "dfa_hexcolor": {
   "cardinality": "16777216",
-  "dfa": {
-   "alphabet": 17,
-   "states": 8,
-   "transitions": 97
-  },
-  "max_length": 7,
-  "min_length": 7,
-  "pattern": "^#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]$",
   "probes": [
    [
     "0",
@@ -1461,14 +1269,6 @@
  },
  "dfa_hostname4": {
   "cardinality": "655414808940302544629201680",
-  "dfa": {
-   "alphabet": 27,
-   "states": 8,
-   "transitions": 211
-  },
-  "max_length": 20,
-  "min_length": 7,
-  "pattern": "^[a-z]+\\.[a-z]+\\.[a-z]+\\.[a-z]+$",
   "probes": [
    [
     "0",
@@ -1522,14 +1322,6 @@
  },
  "dfa_http_verb": {
   "cardinality": "7933807955866884",
-  "dfa": {
-   "alphabet": 40,
-   "states": 20,
-   "transitions": 75
-  },
-  "max_length": 16,
-  "min_length": 6,
-  "pattern": "^(GET|POST|PUT|DELETE|HEAD|PATCH) /[a-z]+$",
   "probes": [
    [
     "0",
@@ -1583,14 +1375,6 @@
  },
  "dfa_ipv4": {
   "cardinality": "4294967296",
-  "dfa": {
-   "alphabet": 11,
-   "states": 24,
-   "transitions": 199
-  },
-  "max_length": 15,
-  "min_length": 7,
-  "pattern": "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$",
   "probes": [
    [
     "0",
@@ -1644,14 +1428,6 @@
  },
  "dfa_keywords": {
   "cardinality": "22",
-  "dfa": {
-   "alphabet": 22,
-   "states": 67,
-   "transitions": 87
-  },
-  "max_length": 8,
-  "min_length": 2,
-  "pattern": "^(if|else|elif|while|for|return|break|continue|def|class|import|from|pass|raise|yield|lambda|with|try|except|finally|global|assert)$",
   "probes": [
    [
     "0",
@@ -1693,14 +1469,6 @@
  },
  "dfa_lit16": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 16,
-   "states": 17,
-   "transitions": 16
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^abcdefghijklmnop$",
   "probes": [
    [
     "0",
@@ -1710,14 +1478,6 @@
  },
  "dfa_lit24": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 24,
-   "states": 25,
-   "transitions": 24
-  },
-  "max_length": 24,
-  "min_length": 24,
-  "pattern": "^abcdefghijklmnopqrstuvwx$",
   "probes": [
    [
     "0",
@@ -1727,14 +1487,6 @@
  },
  "dfa_lit32": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 32,
-   "states": 33,
-   "transitions": 32
-  },
-  "max_length": 32,
-  "min_length": 32,
-  "pattern": "^abcdefghijklmnopqrstuvwxyzABCDEF$",
   "probes": [
    [
     "0",
@@ -1744,14 +1496,6 @@
  },
  "dfa_lit48": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 26,
-   "states": 49,
-   "transitions": 48
-  },
-  "max_length": 48,
-  "min_length": 48,
-  "pattern": "^abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv$",
   "probes": [
    [
     "0",
@@ -1761,14 +1505,6 @@
  },
  "dfa_lit8": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 8,
-   "states": 9,
-   "transitions": 8
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^abcdefgh$",
   "probes": [
    [
     "0",
@@ -1778,14 +1514,6 @@
  },
  "dfa_mac": {
   "cardinality": "281474976710656",
-  "dfa": {
-   "alphabet": 17,
-   "states": 18,
-   "transitions": 197
-  },
-  "max_length": 17,
-  "min_length": 17,
-  "pattern": "^[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]$",
   "probes": [
    [
     "0",
@@ -1839,14 +1567,6 @@
  },
  "dfa_mod3_bin": {
   "cardinality": "262144",
-  "dfa": {
-   "alphabet": 2,
-   "states": 4,
-   "transitions": 8
-  },
-  "max_length": 18,
-  "min_length": 18,
-  "pattern": "^([01][01][01])+$",
   "probes": [
    [
     "0",
@@ -1900,14 +1620,6 @@
  },
  "dfa_mod4_az": {
   "cardinality": "43608742899428874059776",
-  "dfa": {
-   "alphabet": 26,
-   "states": 5,
-   "transitions": 130
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^([a-z][a-z][a-z][a-z])+$",
   "probes": [
    [
     "0",
@@ -1961,14 +1673,6 @@
  },
  "dfa_mod5_dig": {
   "cardinality": "100000000000000000000",
-  "dfa": {
-   "alphabet": 10,
-   "states": 6,
-   "transitions": 60
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^([0-9][0-9][0-9][0-9][0-9])+$",
   "probes": [
    [
     "0",
@@ -2022,14 +1726,6 @@
  },
  "dfa_mod7_bin": {
   "cardinality": "2097152",
-  "dfa": {
-   "alphabet": 2,
-   "states": 8,
-   "transitions": 16
-  },
-  "max_length": 21,
-  "min_length": 21,
-  "pattern": "^([01][01][01][01][01][01][01])+$",
   "probes": [
    [
     "0",
@@ -2083,14 +1779,6 @@
  },
  "dfa_months": {
   "cardinality": "12",
-  "dfa": {
-   "alphabet": 21,
-   "states": 40,
-   "transitions": 50
-  },
-  "max_length": 9,
-  "min_length": 3,
-  "pattern": "^(january|february|march|april|may|june|july|august|september|october|november|december)$",
   "probes": [
    [
     "0",
@@ -2136,14 +1824,6 @@
  },
  "dfa_nato10": {
   "cardinality": "10",
-  "dfa": {
-   "alphabet": 19,
-   "states": 41,
-   "transitions": 49
-  },
-  "max_length": 7,
-  "min_length": 3,
-  "pattern": "^(alpha|bravo|charlie|delta|echo|foxtrot|golf|hotel|india|juliet)$",
   "probes": [
    [
     "0",
@@ -2189,14 +1869,6 @@
  },
  "dfa_nato26": {
   "cardinality": "26",
-  "dfa": {
-   "alphabet": 26,
-   "states": 99,
-   "transitions": 123
-  },
-  "max_length": 8,
-  "min_length": 2,
-  "pattern": "^(alpha|bravo|charlie|delta|echo|foxtrot|golf|hotel|india|juliet|kilo|lima|mike|november|oscar|papa|quebec|romeo|sierra|tango|uniform|victor|whiskey|xray|yankee|zulu)$",
   "probes": [
    [
     "0",
@@ -2250,14 +1922,6 @@
  },
  "dfa_nato5": {
   "cardinality": "5",
-  "dfa": {
-   "alphabet": 13,
-   "states": 21,
-   "transitions": 24
-  },
-  "max_length": 7,
-  "min_length": 3,
-  "pattern": "^(alpha|bravo|charlie|delta|echo)$",
   "probes": [
    [
     "0",
@@ -2283,14 +1947,6 @@
  },
  "dfa_nested_deep": {
   "cardinality": "65536",
-  "dfa": {
-   "alphabet": 8,
-   "states": 5,
-   "transitions": 10
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^((a|b)(c|d)(e|f)(g|h))+$",
   "probes": [
    [
     "0",
@@ -2344,14 +2000,6 @@
  },
  "dfa_percentage": {
   "cardinality": "101",
-  "dfa": {
-   "alphabet": 11,
-   "states": 6,
-   "transitions": 35
-  },
-  "max_length": 4,
-  "min_length": 2,
-  "pattern": "^(100|[1-9][0-9]|[0-9])%$",
   "probes": [
    [
     "0",
@@ -2405,14 +2053,6 @@
  },
  "dfa_pfe_end10_bin": {
   "cardinality": "134217728",
-  "dfa": {
-   "alphabet": 2,
-   "states": 1024,
-   "transitions": 2048
-  },
-  "max_length": 28,
-  "min_length": 28,
-  "pattern": "^[01]*1[01][01][01][01][01][01][01][01][01]$",
   "probes": [
    [
     "0",
@@ -2466,14 +2106,6 @@
  },
  "dfa_pfe_end12_bin": {
   "cardinality": "536870912",
-  "dfa": {
-   "alphabet": 2,
-   "states": 4096,
-   "transitions": 8192
-  },
-  "max_length": 30,
-  "min_length": 30,
-  "pattern": "^[01]*1[01][01][01][01][01][01][01][01][01][01][01]$",
   "probes": [
    [
     "0",
@@ -2527,14 +2159,6 @@
  },
  "dfa_pfe_end3_az": {
   "cardinality": "3670344486987776",
-  "dfa": {
-   "alphabet": 26,
-   "states": 8,
-   "transitions": 208
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z]*a[a-z][a-z]$",
   "probes": [
    [
     "0",
@@ -2588,14 +2212,6 @@
  },
  "dfa_pfe_end4_b4": {
   "cardinality": "4194304",
-  "dfa": {
-   "alphabet": 4,
-   "states": 16,
-   "transitions": 64
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[0-3]*0[0-3][0-3][0-3]$",
   "probes": [
    [
     "0",
@@ -2649,14 +2265,6 @@
  },
  "dfa_pfe_end4_bin": {
   "cardinality": "524288",
-  "dfa": {
-   "alphabet": 2,
-   "states": 16,
-   "transitions": 32
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^[01]*1[01][01][01]$",
   "probes": [
    [
     "0",
@@ -2710,14 +2318,6 @@
  },
  "dfa_pfe_end5_az": {
   "cardinality": "3670344486987776",
-  "dfa": {
-   "alphabet": 26,
-   "states": 32,
-   "transitions": 832
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z]*a[a-z][a-z][a-z][a-z]$",
   "probes": [
    [
     "0",
@@ -2771,14 +2371,6 @@
  },
  "dfa_pfe_end6_bin": {
   "cardinality": "8388608",
-  "dfa": {
-   "alphabet": 2,
-   "states": 64,
-   "transitions": 128
-  },
-  "max_length": 24,
-  "min_length": 24,
-  "pattern": "^[01]*1[01][01][01][01][01]$",
   "probes": [
    [
     "0",
@@ -2832,14 +2424,6 @@
  },
  "dfa_pfe_end7_az": {
   "cardinality": "2481152873203736576",
-  "dfa": {
-   "alphabet": 26,
-   "states": 128,
-   "transitions": 3328
-  },
-  "max_length": 14,
-  "min_length": 14,
-  "pattern": "^[a-z]*a[a-z][a-z][a-z][a-z][a-z][a-z]$",
   "probes": [
    [
     "0",
@@ -2893,14 +2477,6 @@
  },
  "dfa_pfe_end8_bin": {
   "cardinality": "134217728",
-  "dfa": {
-   "alphabet": 2,
-   "states": 256,
-   "transitions": 512
-  },
-  "max_length": 28,
-  "min_length": 28,
-  "pattern": "^[01]*1[01][01][01][01][01][01][01]$",
   "probes": [
    [
     "0",
@@ -2954,14 +2530,6 @@
  },
  "dfa_pfe_end9_bin": {
   "cardinality": "134217728",
-  "dfa": {
-   "alphabet": 2,
-   "states": 512,
-   "transitions": 1024
-  },
-  "max_length": 28,
-  "min_length": 28,
-  "pattern": "^[01]*1[01][01][01][01][01][01][01][01]$",
   "probes": [
    [
     "0",
@@ -3015,14 +2583,6 @@
  },
  "dfa_phone_us": {
   "cardinality": "10000000000",
-  "dfa": {
-   "alphabet": 11,
-   "states": 13,
-   "transitions": 102
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[0-9][0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]$",
   "probes": [
    [
     "0",
@@ -3076,14 +2636,6 @@
  },
  "dfa_print_contains": {
   "cardinality": "6302494096024334375",
-  "dfa": {
-   "alphabet": 95,
-   "states": 6,
-   "transitions": 570
-  },
-  "max_length": 14,
-  "min_length": 14,
-  "pattern": "^[ -~]*token[ -~]*$",
   "probes": [
    [
     "0",
@@ -3137,14 +2689,6 @@
  },
  "dfa_semver": {
   "cardinality": "59890260631000",
-  "dfa": {
-   "alphabet": 11,
-   "states": 6,
-   "transitions": 62
-  },
-  "max_length": 14,
-  "min_length": 5,
-  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
   "probes": [
    [
     "0",
@@ -3198,14 +2742,6 @@
  },
  "dfa_time_hms": {
   "cardinality": "86400",
-  "dfa": {
-   "alphabet": 11,
-   "states": 10,
-   "transitions": 51
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
   "probes": [
    [
     "0",
@@ -3259,14 +2795,6 @@
  },
  "dfa_urlquery": {
   "cardinality": "2645347524131300267975905459230992128",
-  "dfa": {
-   "alphabet": 30,
-   "states": 11,
-   "transitions": 265
-  },
-  "max_length": 28,
-  "min_length": 13,
-  "pattern": "^/[a-z]+\\?[a-z]+=[a-z]+&[a-z]+=[a-z]+$",
   "probes": [
    [
     "0",
@@ -3320,14 +2848,6 @@
  },
  "dfa_uuid5": {
   "cardinality": "4928806328971529570881634304",
-  "dfa": {
-   "alphabet": 17,
-   "states": 10,
-   "transitions": 164
-  },
-  "max_length": 24,
-  "min_length": 9,
-  "pattern": "^[0-9a-f]+-[0-9a-f]+-[0-9a-f]+-[0-9a-f]+-[0-9a-f]+$",
   "probes": [
    [
     "0",
@@ -3381,14 +2901,6 @@
  },
  "dfa_varloop": {
   "cardinality": "162",
-  "dfa": {
-   "alphabet": 14,
-   "states": 12,
-   "transitions": 18
-  },
-  "max_length": 12,
-  "min_length": 2,
-  "pattern": "^(ab|cde|fghi|jklmn)+$",
   "probes": [
    [
     "0",
@@ -3442,14 +2954,6 @@
  },
  "domain_3label": {
   "cardinality": "117269491575655369242617315328",
-  "dfa": {
-   "alphabet": 27,
-   "states": 6,
-   "transitions": 158
-  },
-  "max_length": 21,
-  "min_length": 21,
-  "pattern": "^[a-z]+\\.[a-z]+\\.[a-z]+$",
   "probes": [
    [
     "0",
@@ -3503,14 +3007,6 @@
  },
  "dot_hostname": {
   "cardinality": "29091690834943303131136",
-  "dfa": {
-   "alphabet": 27,
-   "states": 4,
-   "transitions": 106
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[a-z]+(\\.[a-z]+)+$",
   "probes": [
    [
     "0",
@@ -3564,14 +3060,6 @@
  },
  "dot_middle": {
   "cardinality": "173056",
-  "dfa": {
-   "alphabet": 256,
-   "states": 4,
-   "transitions": 308
-  },
-  "max_length": 3,
-  "min_length": 3,
-  "pattern": "^[a-z].[a-z]$",
   "probes": [
    [
     "0",
@@ -3625,14 +3113,6 @@
  },
  "dot_plus_short": {
   "cardinality": "4294967296",
-  "dfa": {
-   "alphabet": 256,
-   "states": 2,
-   "transitions": 512
-  },
-  "max_length": 4,
-  "min_length": 4,
-  "pattern": "^.+$",
   "probes": [
    [
     "0",
@@ -3686,14 +3166,6 @@
  },
  "email_ish": {
   "cardinality": "29773834478444838912",
-  "dfa": {
-   "alphabet": 28,
-   "states": 8,
-   "transitions": 109
-  },
-  "max_length": 18,
-  "min_length": 18,
-  "pattern": "^[a-z]+@[a-z]+\\.com$",
   "probes": [
    [
     "0",
@@ -3747,14 +3219,6 @@
  },
  "explicit_3": {
   "cardinality": "17576",
-  "dfa": {
-   "alphabet": 26,
-   "states": 4,
-   "transitions": 78
-  },
-  "max_length": 3,
-  "min_length": 3,
-  "pattern": "^[a-z][a-z][a-z]$",
   "probes": [
    [
     "0",
@@ -3808,14 +3272,6 @@
  },
  "explicit_mixed": {
   "cardinality": "6760",
-  "dfa": {
-   "alphabet": 36,
-   "states": 4,
-   "transitions": 62
-  },
-  "max_length": 3,
-  "min_length": 3,
-  "pattern": "^[a-z][0-9][a-z]$",
   "probes": [
    [
     "0",
@@ -3869,14 +3325,6 @@
  },
  "filename": {
   "cardinality": "36703444869877760",
-  "dfa": {
-   "alphabet": 27,
-   "states": 4,
-   "transitions": 105
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z]+\\.[a-z]+$",
   "probes": [
    [
     "0",
@@ -3930,14 +3378,6 @@
  },
  "finite_catdog": {
   "cardinality": "2",
-  "dfa": {
-   "alphabet": 6,
-   "states": 6,
-   "transitions": 6
-  },
-  "max_length": 3,
-  "min_length": 3,
-  "pattern": "^(cat|dog)$",
   "probes": [
    [
     "0",
@@ -3951,14 +3391,6 @@
  },
  "finite_literal": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 4,
-   "states": 6,
-   "transitions": 5
-  },
-  "max_length": 5,
-  "min_length": 5,
-  "pattern": "^hello$",
   "probes": [
    [
     "0",
@@ -3968,14 +3400,6 @@
  },
  "finite_pair": {
   "cardinality": "2",
-  "dfa": {
-   "alphabet": 4,
-   "states": 4,
-   "transitions": 4
-  },
-  "max_length": 2,
-  "min_length": 2,
-  "pattern": "^(ab|cd)$",
   "probes": [
    [
     "0",
@@ -3989,14 +3413,6 @@
  },
  "finite_two": {
   "cardinality": "2",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 2
-  },
-  "max_length": 1,
-  "min_length": 1,
-  "pattern": "^(a|b)$",
   "probes": [
    [
     "0",
@@ -4010,14 +3426,6 @@
  },
  "flat_b10_digits": {
   "cardinality": "1000000000000000000000000",
-  "dfa": {
-   "alphabet": 10,
-   "states": 2,
-   "transitions": 20
-  },
-  "max_length": 24,
-  "min_length": 24,
-  "pattern": "^[0-9]+$",
   "probes": [
    [
     "0",
@@ -4071,14 +3479,6 @@
  },
  "flat_b25": {
   "cardinality": "23283064365386962890625",
-  "dfa": {
-   "alphabet": 25,
-   "states": 2,
-   "transitions": 50
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[a-y]+$",
   "probes": [
    [
     "0",
@@ -4132,14 +3532,6 @@
  },
  "flat_b26_lower": {
   "cardinality": "1901722457268488241418827816020396748021170176",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 32,
-  "min_length": 32,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -4193,14 +3585,6 @@
  },
  "flat_b26_upper": {
   "cardinality": "43608742899428874059776",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[A-Z]+$",
   "probes": [
    [
     "0",
@@ -4254,14 +3638,6 @@
  },
  "flat_b3": {
   "cardinality": "3486784401",
-  "dfa": {
-   "alphabet": 3,
-   "states": 2,
-   "transitions": 6
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^[a-c]+$",
   "probes": [
    [
     "0",
@@ -4315,14 +3691,6 @@
  },
  "flat_b36": {
   "cardinality": "7958661109946400884391936",
-  "dfa": {
-   "alphabet": 36,
-   "states": 2,
-   "transitions": 72
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[0-9a-z]+$",
   "probes": [
    [
     "0",
@@ -4376,14 +3744,6 @@
  },
  "flat_b52_letters": {
   "cardinality": "2857942574656970690381479936",
-  "dfa": {
-   "alphabet": 52,
-   "states": 2,
-   "transitions": 104
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[A-Za-z]+$",
   "probes": [
    [
     "0",
@@ -4437,14 +3797,6 @@
  },
  "flat_b5_vowels": {
   "cardinality": "95367431640625",
-  "dfa": {
-   "alphabet": 5,
-   "states": 2,
-   "transitions": 10
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^[aeiou]+$",
   "probes": [
    [
     "0",
@@ -4498,14 +3850,6 @@
  },
  "flat_b62_alnum": {
   "cardinality": "47672401706823533450263330816",
-  "dfa": {
-   "alphabet": 62,
-   "states": 2,
-   "transitions": 124
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[A-Za-z0-9]+$",
   "probes": [
    [
     "0",
@@ -4559,14 +3903,6 @@
  },
  "flat_b6_gap": {
   "cardinality": "3656158440062976",
-  "dfa": {
-   "alphabet": 6,
-   "states": 2,
-   "transitions": 12
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^[a-cx-z]+$",
   "probes": [
    [
     "0",
@@ -4620,14 +3956,6 @@
  },
  "flat_b7": {
   "cardinality": "1628413597910449",
-  "dfa": {
-   "alphabet": 7,
-   "states": 2,
-   "transitions": 14
-  },
-  "max_length": 18,
-  "min_length": 18,
-  "pattern": "^[a-g]+$",
   "probes": [
    [
     "0",
@@ -4681,14 +4009,6 @@
  },
  "flat_b9": {
   "cardinality": "1853020188851841",
-  "dfa": {
-   "alphabet": 9,
-   "states": 2,
-   "transitions": 18
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[a-i]+$",
   "probes": [
    [
     "0",
@@ -4742,14 +4062,6 @@
  },
  "flat_b95_print": {
   "cardinality": "540360087662636962890625",
-  "dfa": {
-   "alphabet": 95,
-   "states": 2,
-   "transitions": 190
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[ -~]+$",
   "probes": [
    [
     "0",
@@ -4803,14 +4115,6 @@
  },
  "group_plus": {
   "cardinality": "64",
-  "dfa": {
-   "alphabet": 3,
-   "states": 3,
-   "transitions": 5
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^((a|b)c)+$",
   "probes": [
    [
     "0",
@@ -4860,14 +4164,6 @@
  },
  "hex_large_512": {
   "cardinality": "32317006071311007300714876688669951960444102669715484032130345427524655138867890893197201411522913463688717960921898019494119559150490921095088152386448283120630877367300996091750197750389652106796057638384067568276792218642619756161838094338476170470581645852036305042887575891541065808607552399123930385521914333389668342420684974786564569494856176035326322058077805659331026192708460314150258592864177116725943603718461857357598351152301645904403697613233287231227125684710820209725157101726931323469678542580656697935045997268352998638215525166389437335543602135433229604645318478604952148193555853611059596230656",
-  "dfa": {
-   "alphabet": 16,
-   "states": 2,
-   "transitions": 32
-  },
-  "max_length": 512,
-  "min_length": 512,
-  "pattern": "^[0-9a-f]+$",
   "probes": [
    [
     "0",
@@ -4921,14 +4217,6 @@
  },
  "hostport": {
   "cardinality": "2293802804367360",
-  "dfa": {
-   "alphabet": 37,
-   "states": 4,
-   "transitions": 73
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z]+:[0-9]+$",
   "probes": [
    [
     "0",
@@ -4982,14 +4270,6 @@
  },
  "http_req_line": {
   "cardinality": "208827064576",
-  "dfa": {
-   "alphabet": 35,
-   "states": 16,
-   "transitions": 66
-  },
-  "max_length": 22,
-  "min_length": 22,
-  "pattern": "^GET /[a-z]+ HTTP/1\\.1$",
   "probes": [
    [
     "0",
@@ -5043,14 +4323,6 @@
  },
  "ipv4_ish": {
   "cardinality": "165000000000000",
-  "dfa": {
-   "alphabet": 11,
-   "states": 8,
-   "transitions": 83
-  },
-  "max_length": 15,
-  "min_length": 15,
-  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
   "probes": [
    [
     "0",
@@ -5104,14 +4376,6 @@
  },
  "kv_query": {
   "cardinality": "590670333254006887275363450224640",
-  "dfa": {
-   "alphabet": 28,
-   "states": 8,
-   "transitions": 211
-  },
-  "max_length": 24,
-  "min_length": 24,
-  "pattern": "^[a-z]+=[a-z]+&[a-z]+=[a-z]+$",
   "probes": [
    [
     "0",
@@ -5165,14 +4429,6 @@
  },
  "len_sweep_1": {
   "cardinality": "26",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 1,
-  "min_length": 1,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -5226,14 +4482,6 @@
  },
  "len_sweep_1024": {
   "cardinality": "856462440594910974126383997844315402712041334063820299186978033057261519339825832916086671806664735203842138862050969600580587469629125343761101695172064864955467592937940927335286601521597322592671312592789103510036927641579731771538794307907714868691833451658407274480109049431878147341329317761296265533273554671297147115529032757425243061756197616662239000723841715460320615713269960558375779670593811111581325674818150190186585083230201308726161071820415642456468561029825488188303882974922047102249310578555081323429715612617564526003912625848952823188284132923077635690644940969064192703455979721324214861785078990953740040708252163088540706385181734429866511871457558446002236039387056866027542184641865880365785649585745815961837724878456508381857152548659925928149073942701909365241954059352504446083980986430037147489033852852345848565404858357618134489212386230763546410356076637212448886285681999146873318362367752497590002191818222967079998352120466413949962513451756129012892455856595930928426933831727490122353117051419134093588495657375819682112613581588661273374878957560316365693322598440822548904928653290275229183826305281919620758898716997621803235034258895163598617837089658507893205133980594199984888627103423604056061600260370593200486449558748686745671161555709664515928454255905714252809426761671234477704884080907195777622659018314660046263631769733186324363997494000009855970732154916915886952979737512356509044730494976",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 1024,
-  "min_length": 1024,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -5287,14 +4535,6 @@
  },
  "len_sweep_2": {
   "cardinality": "676",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 2,
-  "min_length": 2,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -5348,14 +4588,6 @@
  },
  "len_sweep_256": {
   "cardinality": "171071270401117046474021258979311754959578850909434192734281218208041739279454906850302786111764310960364752841610433302089048925884603868468216639694025869503513956291020854554677358942886865467099565322891877906437779229289260234700208260350455533044530945505480506398028859212262679220313892936616222926189193913651301818362385516908978469107259185390237515776",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 256,
-  "min_length": 256,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -5409,14 +4641,6 @@
  },
  "len_sweep_64": {
   "cardinality": "3616548304479297085365330736464680499909051895704748593486634912486670341490423472351870976",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 64,
-  "min_length": 64,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -5470,14 +4694,6 @@
  },
  "len_sweep_8": {
   "cardinality": "208827064576",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -5531,14 +4747,6 @@
  },
  "loop_mixed_len": {
   "cardinality": "34",
-  "dfa": {
-   "alphabet": 2,
-   "states": 3,
-   "transitions": 5
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^(a|bb)+$",
   "probes": [
    [
     "0",
@@ -5588,14 +4796,6 @@
  },
  "mac_ish": {
   "cardinality": "281474976710656",
-  "dfa": {
-   "alphabet": 17,
-   "states": 6,
-   "transitions": 66
-  },
-  "max_length": 17,
-  "min_length": 17,
-  "pattern": "^([0-9a-f][0-9a-f]:)+[0-9a-f][0-9a-f]$",
   "probes": [
    [
     "0",
@@ -5649,14 +4849,6 @@
  },
  "mixed_upper_lower": {
   "cardinality": "2857942574656970690381479936",
-  "dfa": {
-   "alphabet": 52,
-   "states": 2,
-   "transitions": 104
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[a-zA-Z]+$",
   "probes": [
    [
     "0",
@@ -5710,14 +4902,6 @@
  },
  "nested_plus": {
   "cardinality": "256",
-  "dfa": {
-   "alphabet": 2,
-   "states": 3,
-   "transitions": 5
-  },
-  "max_length": 10,
-  "min_length": 10,
-  "pattern": "^(a+b+)+$",
   "probes": [
    [
     "0",
@@ -5771,14 +4955,6 @@
  },
  "nonuniform_abba": {
   "cardinality": "6",
-  "dfa": {
-   "alphabet": 2,
-   "states": 4,
-   "transitions": 4
-  },
-  "max_length": 8,
-  "min_length": 3,
-  "pattern": "^ab+a$",
   "probes": [
    [
     "0",
@@ -5808,14 +4984,6 @@
  },
  "nonuniform_abc": {
   "cardinality": "128",
-  "dfa": {
-   "alphabet": 3,
-   "states": 3,
-   "transitions": 5
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^a(b|c)+$",
   "probes": [
    [
     "0",
@@ -5865,14 +5033,6 @@
  },
  "nonuniform_ac": {
   "cardinality": "65536",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 4
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^[ac]+$",
   "probes": [
    [
     "0",
@@ -5926,14 +5086,6 @@
  },
  "nonuniform_prefixed": {
   "cardinality": "149",
-  "dfa": {
-   "alphabet": 3,
-   "states": 4,
-   "transitions": 6
-  },
-  "max_length": 9,
-  "min_length": 9,
-  "pattern": "^(a|ab|abc)+$",
   "probes": [
    [
     "0",
@@ -5983,14 +5135,6 @@
  },
  "nonuniform_x_yy": {
   "cardinality": "34",
-  "dfa": {
-   "alphabet": 2,
-   "states": 3,
-   "transitions": 5
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^(x|yy)+$",
   "probes": [
    [
     "0",
@@ -6040,14 +5184,6 @@
  },
  "opt_colour": {
   "cardinality": "2",
-  "dfa": {
-   "alphabet": 5,
-   "states": 7,
-   "transitions": 7
-  },
-  "max_length": 6,
-  "min_length": 5,
-  "pattern": "^colou?r$",
   "probes": [
    [
     "0",
@@ -6061,14 +5197,6 @@
  },
  "opt_group": {
   "cardinality": "2",
-  "dfa": {
-   "alphabet": 6,
-   "states": 7,
-   "transitions": 7
-  },
-  "max_length": 6,
-  "min_length": 3,
-  "pattern": "^(abc)?xyz$",
   "probes": [
    [
     "0",
@@ -6082,14 +5210,6 @@
  },
  "opt_mid": {
   "cardinality": "2",
-  "dfa": {
-   "alphabet": 3,
-   "states": 4,
-   "transitions": 4
-  },
-  "max_length": 3,
-  "min_length": 2,
-  "pattern": "^ab?c$",
   "probes": [
    [
     "0",
@@ -6103,14 +5223,6 @@
  },
  "opt_scheme": {
   "cardinality": "12812904",
-  "dfa": {
-   "alphabet": 28,
-   "states": 10,
-   "transitions": 61
-  },
-  "max_length": 12,
-  "min_length": 11,
-  "pattern": "^https?://[a-z]+$",
   "probes": [
    [
     "0",
@@ -6164,14 +5276,6 @@
  },
  "parity_aa": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 1,
-   "states": 3,
-   "transitions": 3
-  },
-  "max_length": 10,
-  "min_length": 10,
-  "pattern": "^(aa)+$",
   "probes": [
    [
     "0",
@@ -6181,14 +5285,6 @@
  },
  "path_multi": {
   "cardinality": "2696179592540462895360",
-  "dfa": {
-   "alphabet": 27,
-   "states": 3,
-   "transitions": 54
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^(/[a-z]+)+$",
   "probes": [
    [
     "0",
@@ -6242,14 +5338,6 @@
  },
  "periodic_2": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 2,
-   "states": 3,
-   "transitions": 3
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^(ab)+$",
   "probes": [
    [
     "0",
@@ -6259,14 +5347,6 @@
  },
  "periodic_3": {
   "cardinality": "1",
-  "dfa": {
-   "alphabet": 3,
-   "states": 4,
-   "transitions": 4
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^(abc)+$",
   "probes": [
    [
     "0",
@@ -6276,14 +5356,6 @@
  },
  "plus_of_opt": {
   "cardinality": "34",
-  "dfa": {
-   "alphabet": 2,
-   "states": 3,
-   "transitions": 4
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^(ab?)+$",
   "probes": [
    [
     "0",
@@ -6333,14 +5405,6 @@
  },
  "pow2_b16_hex": {
   "cardinality": "340282366920938463463374607431768211456",
-  "dfa": {
-   "alphabet": 16,
-   "states": 2,
-   "transitions": 32
-  },
-  "max_length": 32,
-  "min_length": 32,
-  "pattern": "^[0-9a-f]+$",
   "probes": [
    [
     "0",
@@ -6394,14 +5458,6 @@
  },
  "pow2_b256_dot": {
   "cardinality": "340282366920938463463374607431768211456",
-  "dfa": {
-   "alphabet": 256,
-   "states": 2,
-   "transitions": 512
-  },
-  "max_length": 16,
-  "min_length": 16,
-  "pattern": "^.+$",
   "probes": [
    [
     "0",
@@ -6455,14 +5511,6 @@
  },
  "pow2_b2_binary": {
   "cardinality": "18446744073709551616",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 4
-  },
-  "max_length": 64,
-  "min_length": 64,
-  "pattern": "^[01]+$",
   "probes": [
    [
     "0",
@@ -6516,14 +5564,6 @@
  },
  "pow2_b32": {
   "cardinality": "1329227995784915872903807060280344576",
-  "dfa": {
-   "alphabet": 32,
-   "states": 2,
-   "transitions": 64
-  },
-  "max_length": 24,
-  "min_length": 24,
-  "pattern": "^[0-9a-v]+$",
   "probes": [
    [
     "0",
@@ -6577,14 +5617,6 @@
  },
  "pow2_b4": {
   "cardinality": "1208925819614629174706176",
-  "dfa": {
-   "alphabet": 4,
-   "states": 2,
-   "transitions": 8
-  },
-  "max_length": 40,
-  "min_length": 40,
-  "pattern": "^[0-3]+$",
   "probes": [
    [
     "0",
@@ -6638,14 +5670,6 @@
  },
  "pow2_b64_base64": {
   "cardinality": "1329227995784915872903807060280344576",
-  "dfa": {
-   "alphabet": 64,
-   "states": 2,
-   "transitions": 128
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^[0-9A-Za-z+/]+$",
   "probes": [
    [
     "0",
@@ -6699,14 +5723,6 @@
  },
  "pow2_b8_octal": {
   "cardinality": "79228162514264337593543950336",
-  "dfa": {
-   "alphabet": 8,
-   "states": 2,
-   "transitions": 16
-  },
-  "max_length": 32,
-  "min_length": 32,
-  "pattern": "^[0-7]+$",
   "probes": [
    [
     "0",
@@ -6760,14 +5776,6 @@
  },
  "prefix_var": {
   "cardinality": "208827064576",
-  "dfa": {
-   "alphabet": 32,
-   "states": 8,
-   "transitions": 58
-  },
-  "max_length": 14,
-  "min_length": 14,
-  "pattern": "^PREFIX[a-z]+$",
   "probes": [
    [
     "0",
@@ -6821,14 +5829,6 @@
  },
  "skew_1234": {
   "cardinality": "108",
-  "dfa": {
-   "alphabet": 4,
-   "states": 8,
-   "transitions": 14
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^(a|bb|ccc|dddd)+$",
   "probes": [
    [
     "0",
@@ -6882,14 +5882,6 @@
  },
  "skew_geom": {
   "cardinality": "108",
-  "dfa": {
-   "alphabet": 2,
-   "states": 5,
-   "transitions": 9
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^(a|ba|bba|bbba)+$",
   "probes": [
    [
     "0",
@@ -6943,14 +5935,6 @@
  },
  "skew_longtail": {
   "cardinality": "28",
-  "dfa": {
-   "alphabet": 2,
-   "states": 6,
-   "transitions": 7
-  },
-  "max_length": 10,
-  "min_length": 5,
-  "pattern": "^(a|aaaab)+$",
   "probes": [
    [
     "0",
@@ -7000,14 +5984,6 @@
  },
  "space_two_words": {
   "cardinality": "36703444869877760",
-  "dfa": {
-   "alphabet": 27,
-   "states": 4,
-   "transitions": 105
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^[a-z]+ [a-z]+$",
   "probes": [
    [
     "0",
@@ -7061,14 +6037,6 @@
  },
  "star_then_lit": {
   "cardinality": "1024",
-  "dfa": {
-   "alphabet": 3,
-   "states": 2,
-   "transitions": 3
-  },
-  "max_length": 11,
-  "min_length": 11,
-  "pattern": "^(a|b)*c$",
   "probes": [
    [
     "0",
@@ -7122,14 +6090,6 @@
  },
  "tab_sep": {
   "cardinality": "38018896285081920",
-  "dfa": {
-   "alphabet": 27,
-   "states": 4,
-   "transitions": 105
-  },
-  "max_length": 12,
-  "min_length": 7,
-  "pattern": "^[a-z]+\\t[a-z]+$",
   "probes": [
    [
     "0",
@@ -7183,14 +6143,6 @@
  },
  "union_ab": {
   "cardinality": "1048576",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 4
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^(a|b)+$",
   "probes": [
    [
     "0",
@@ -7244,14 +6196,6 @@
  },
  "union_difflen": {
   "cardinality": "24",
-  "dfa": {
-   "alphabet": 3,
-   "states": 5,
-   "transitions": 9
-  },
-  "max_length": 6,
-  "min_length": 6,
-  "pattern": "^(a|bb|ccc)+$",
   "probes": [
    [
     "0",
@@ -7297,14 +6241,6 @@
  },
  "union_nested": {
   "cardinality": "1048576",
-  "dfa": {
-   "alphabet": 4,
-   "states": 2,
-   "transitions": 8
-  },
-  "max_length": 10,
-  "min_length": 10,
-  "pattern": "^((a|b)|(c|d))+$",
   "probes": [
    [
     "0",
@@ -7358,14 +6294,6 @@
  },
  "union_overlap": {
   "cardinality": "64",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 4
-  },
-  "max_length": 6,
-  "min_length": 6,
-  "pattern": "^(0|1|00|11)+$",
   "probes": [
    [
     "0",
@@ -7415,14 +6343,6 @@
  },
  "union_pairs": {
   "cardinality": "81",
-  "dfa": {
-   "alphabet": 6,
-   "states": 5,
-   "transitions": 9
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^(ab|cd|ef)+$",
   "probes": [
    [
     "0",
@@ -7476,14 +6396,6 @@
  },
  "union_shared_prefix": {
   "cardinality": "9",
-  "dfa": {
-   "alphabet": 5,
-   "states": 4,
-   "transitions": 6
-  },
-  "max_length": 6,
-  "min_length": 6,
-  "pattern": "^(abc|abd|abe)+$",
   "probes": [
    [
     "0",
@@ -7525,14 +6437,6 @@
  },
  "union_singles": {
   "cardinality": "531441",
-  "dfa": {
-   "alphabet": 3,
-   "states": 2,
-   "transitions": 6
-  },
-  "max_length": 12,
-  "min_length": 12,
-  "pattern": "^(a|b|c)+$",
   "probes": [
    [
     "0",
@@ -7586,14 +6490,6 @@
  },
  "union_words_eq": {
   "cardinality": "27",
-  "dfa": {
-   "alphabet": 7,
-   "states": 6,
-   "transitions": 10
-  },
-  "max_length": 9,
-  "min_length": 9,
-  "pattern": "^(cat|dog|bat)+$",
   "probes": [
    [
     "0",
@@ -7639,14 +6535,6 @@
  },
  "url_path_html": {
   "cardinality": "18141237046162411608866816",
-  "dfa": {
-   "alphabet": 28,
-   "states": 10,
-   "transitions": 111
-  },
-  "max_length": 24,
-  "min_length": 24,
-  "pattern": "^/[a-z]+/[a-z]+\\.html$",
   "probes": [
    [
     "0",
@@ -7700,14 +6588,6 @@
  },
  "uuid_hexgroups": {
   "cardinality": "276701161105643274240",
-  "dfa": {
-   "alphabet": 17,
-   "states": 4,
-   "transitions": 65
-  },
-  "max_length": 17,
-  "min_length": 17,
-  "pattern": "^[0-9a-f]+-[0-9a-f]+$",
   "probes": [
    [
     "0",
@@ -7761,14 +6641,6 @@
  },
  "var_alnum_10_20": {
   "cardinality": "715971350555965203658970115415518208",
-  "dfa": {
-   "alphabet": 62,
-   "states": 2,
-   "transitions": 124
-  },
-  "max_length": 20,
-  "min_length": 10,
-  "pattern": "^[A-Za-z0-9]+$",
   "probes": [
    [
     "0",
@@ -7822,14 +6694,6 @@
  },
  "var_binary_1_32": {
   "cardinality": "8589934590",
-  "dfa": {
-   "alphabet": 2,
-   "states": 2,
-   "transitions": 4
-  },
-  "max_length": 32,
-  "min_length": 1,
-  "pattern": "^[01]+$",
   "probes": [
    [
     "0",
@@ -7883,14 +6747,6 @@
  },
  "var_digits_1_1": {
   "cardinality": "10",
-  "dfa": {
-   "alphabet": 10,
-   "states": 2,
-   "transitions": 20
-  },
-  "max_length": 1,
-  "min_length": 1,
-  "pattern": "^[0-9]+$",
   "probes": [
    [
     "0",
@@ -7936,14 +6792,6 @@
  },
  "var_hex_8_16": {
   "cardinality": "19676527011670523904",
-  "dfa": {
-   "alphabet": 16,
-   "states": 2,
-   "transitions": 32
-  },
-  "max_length": 16,
-  "min_length": 8,
-  "pattern": "^[0-9a-f]+$",
   "probes": [
    [
     "0",
@@ -7997,14 +6845,6 @@
  },
  "var_lower_4_8": {
   "cardinality": "217180128880",
-  "dfa": {
-   "alphabet": 26,
-   "states": 2,
-   "transitions": 52
-  },
-  "max_length": 8,
-  "min_length": 4,
-  "pattern": "^[a-z]+$",
   "probes": [
    [
     "0",
@@ -8058,14 +6898,6 @@
  },
  "var_suffix": {
   "cardinality": "208827064576",
-  "dfa": {
-   "alphabet": 31,
-   "states": 8,
-   "transitions": 58
-  },
-  "max_length": 14,
-  "min_length": 14,
-  "pattern": "^[a-z]+SUFFIX$",
   "probes": [
    [
     "0",
@@ -8119,14 +6951,6 @@
  },
  "var_words_3_12": {
   "cardinality": "55",
-  "dfa": {
-   "alphabet": 9,
-   "states": 9,
-   "transitions": 13
-  },
-  "max_length": 12,
-  "min_length": 3,
-  "pattern": "^(cat|dog|bird)+$",
   "probes": [
    [
     "0",
@@ -8176,14 +7000,6 @@
  },
  "version_str": {
   "cardinality": "5000000",
-  "dfa": {
-   "alphabet": 12,
-   "states": 5,
-   "transitions": 42
-  },
-  "max_length": 8,
-  "min_length": 8,
-  "pattern": "^v[0-9]+\\.[0-9]+$",
   "probes": [
    [
     "0",
@@ -8237,14 +7053,6 @@
  },
  "words_spaced": {
   "cardinality": "18503563944657215566125195264",
-  "dfa": {
-   "alphabet": 27,
-   "states": 4,
-   "transitions": 106
-  },
-  "max_length": 20,
-  "min_length": 20,
-  "pattern": "^([a-z]+ )+[a-z]+$",
   "probes": [
    [
     "0",

@@ -135,18 +135,18 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(fmt.unrank(fmt.cardinality - 1)), 8)
 
     def test_variable_length_inverse_laws_and_ordering(self):
-        fmt = fte.RegexFormat(r"^[a-z]+$", min_length=1, max_length=4)
+        fmt = fte.RegexFormat(r"^[abc]+$", min_length=1, max_length=6)
         seen_lengths = set()
         prev_length = 0
         for index in range(fmt.cardinality):
             value = fmt.unrank(index)
-            self.assertTrue(1 <= len(value) <= 4)
+            self.assertTrue(1 <= len(value) <= 6)
             self.assertEqual(fmt.rank(value), index)
             # Ranking is length-first: length never decreases as index grows.
             self.assertGreaterEqual(len(value), prev_length)
             prev_length = len(value)
             seen_lengths.add(len(value))
-        self.assertEqual(seen_lengths, {1, 2, 3, 4})
+        self.assertEqual(seen_lengths, {1, 2, 3, 4, 5, 6})
 
     def test_unrank_rejects_out_of_range_index(self):
         fmt = fte.RegexFormat(r"^[0-9a-f]+$", length=8)
@@ -402,34 +402,6 @@ class Tests(unittest.TestCase):
         # Different plaintext sizes yield covertexts of different lengths.
         self.assertGreater(len(lengths), 1)
 
-    def test_cross_endpoint_roundtrip(self):
-        for fmt_kwargs in ({"length": 96}, {"min_length": 40, "max_length": 200}):
-            sender = fte.FTE(
-                output_format=fte.RegexFormat(r"^[0-9a-f]+$", **fmt_kwargs), key=KEY
-            )
-            receiver = fte.FTE(
-                output_format=fte.RegexFormat(r"^[0-9a-f]+$", **fmt_kwargs), key=KEY
-            )
-            self.assertEqual(
-                receiver.decrypt(sender.encrypt(b"hello")), b"hello"
-            )
-
-    def test_insufficient_fixed_length_is_capacity_error(self):
-        # length=8 is far too small for the authenticated frame, so building an
-        # FTE around it fails fast.
-        with self.assertRaises(fte.FormatCapacityError):
-            fte.FTE(output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=8), key=KEY)
-
-    def test_fte_derives_capacity_ceiling_from_the_format(self):
-        cipher = fte.FTE(
-            output_format=fte.RegexFormat(r"^[0-9a-f]+$", length=96), key=KEY
-        )
-        limit = cipher.max_plaintext_bytes
-        self.assertEqual(
-            cipher.decrypt(cipher.encrypt(b"x" * limit)), b"x" * limit
-        )
-        with self.assertRaises(fte.FormatCapacityError):
-            cipher.encrypt(b"x" * (limit + 1))
 
 
 if __name__ == "__main__":

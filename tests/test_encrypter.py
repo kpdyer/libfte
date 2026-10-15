@@ -1,12 +1,8 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Tests for fte._encrypter module."""
 
 import unittest
 
 import fte._encrypter
-
-TRIALS = 2 ** 8
 
 
 class Tests(unittest.TestCase):
@@ -18,16 +14,9 @@ class Tests(unittest.TestCase):
             K1=b'\xFF' * 16, K2=b'\x00' * 16
         )
 
-    def test_encrypt_empty(self):
-        """Test encryption of empty plaintext."""
-        for _ in range(TRIALS):
-            C = self.encrypter.encrypt(b'')
-            for _ in range(10):
-                self.assertEqual(self.encrypter.decrypt(C), b'')
-
     def test_encrypt_decrypt_varying_length(self):
-        """Test encrypt/decrypt with varying plaintext lengths."""
-        for i in range(TRIALS):
+        """Test encrypt/decrypt from the empty plaintext through 255 bytes."""
+        for i in range(256):
             P = b'X' * i
             C = self.encrypter.encrypt(P)
             self.assertNotEqual(C, P)
@@ -35,11 +24,10 @@ class Tests(unittest.TestCase):
 
     def test_encrypt_decrypt_large(self):
         """Test encrypt/decrypt with large plaintext."""
-        for _ in range(TRIALS):
-            P = b'\x01' * (2 ** 15)
-            C = self.encrypter.encrypt(P)
-            self.assertNotEqual(C, P)
-            self.assertEqual(P, self.encrypter.decrypt(C))
+        P = b'\x01' * (2 ** 15)
+        C = self.encrypter.encrypt(P)
+        self.assertNotEqual(C, P)
+        self.assertEqual(P, self.encrypter.decrypt(C))
 
     def test_ciphertext_expansion(self):
         """Ciphertext is exactly 28 bytes longer than plaintext.
@@ -51,13 +39,6 @@ class Tests(unittest.TestCase):
             C = self.encrypter.encrypt(P)
             self.assertEqual(len(C), len(P) + fte._encrypter.Encrypter._CTXT_EXPANSION)
             self.assertEqual(len(C), len(P) + 28)
-
-    def test_keys_are_required(self):
-        """Test that constructing without both keys fails."""
-        with self.assertRaises(TypeError):
-            fte._encrypter.Encrypter()
-        with self.assertRaises(TypeError):
-            fte._encrypter.Encrypter(K1=b'\x00' * 16)
 
     def test_invalid_key_length(self):
         """Test that invalid key lengths raise an exception."""

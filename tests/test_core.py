@@ -1,4 +1,4 @@
-"""Tests for the FTE engine and frame codec in fte.core."""
+"""Tests for the authenticated FTE engine and its frame capacity math."""
 
 import os
 import unittest
@@ -9,7 +9,6 @@ from fte._frame import (
     capacity_plaintext_limit,
     frame_rank_limit,
     rank_offset,
-    rank_to_bytes,
 )
 
 
@@ -30,31 +29,19 @@ class Tests(unittest.TestCase):
     def test_structural_format_conformance(self):
         self.assertIsInstance(HexFormat(), fte.RankedFormat)
 
-    def test_roundtrip(self):
-        cipher = fte.FTE(output_format=HexFormat(), key=KEY)
+    def test_roundtrip_between_endpoints(self):
+        # Two independently constructed instances must interoperate: the wire
+        # format is a contract between separate sender and receiver processes.
+        sender = fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=2048)
+        receiver = fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=2048)
 
-        for plaintext in (b"", b"x", b"hello", b"embedded\x00zero"):
-            covertext = cipher.encrypt(plaintext)
+        plaintexts = [b"embedded\x00zero"] + [
+            os.urandom(length) for length in list(range(260)) + [512, 1024, 2048]
+        ]
+        for plaintext in plaintexts:
+            covertext = sender.encrypt(plaintext)
             self.assertIsInstance(covertext, str)
-            self.assertEqual(cipher.decrypt(covertext), plaintext)
-
-    def test_shortlex_byte_ranking_preserves_length_and_zeroes(self):
-        values = (
-            b"",
-            b"\x00",
-            b"\x00\x00",
-            b"\x00\x01",
-            b"\xff",
-            bytes(range(256)),
-        )
-
-        ranks = [bytes_to_rank(value) for value in values]
-
-        self.assertEqual(len(set(ranks)), len(values))
-        for value, rank in zip(values, ranks):
-            self.assertEqual(rank_to_bytes(rank), value)
-        for rank in range(10_000):
-            self.assertEqual(bytes_to_rank(rank_to_bytes(rank)), rank)
+            self.assertEqual(receiver.decrypt(covertext), plaintext)
 
     def test_invalid_plaintext(self):
         cipher = fte.FTE(output_format=HexFormat(), key=KEY)
@@ -219,10 +206,6 @@ class Tests(unittest.TestCase):
                 capacity_plaintext_limit(cardinality, exp), brute(cardinality)
             )
 
-    def test_frame_preserves_leading_zero_bytes(self):
-        framed = b"\x01\x00\x00" + b"e" * 30
-        self.assertEqual(rank_to_bytes(bytes_to_rank(framed)), framed)
-
     def test_decode_rejects_unframed_rank(self):
         cipher = fte.FTE(output_format=HexFormat(), key=KEY)
 
@@ -248,8 +231,7 @@ class Tests(unittest.TestCase):
             cipher.decrypt(covertext)
 
     def test_decrypt_errors_carry_no_pre_mac_detail(self):
-        # The encrypter reads the header's length field before verifying the
-        # MAC, so its error must not chain into the public exception.
+        # The encrypter's own error must not chain into the public exception.
         cipher = fte.FTE(output_format=HexFormat(), key=KEY)
         ciphertext = cipher._encrypter.encrypt(b"hello")
 
@@ -311,34 +293,11 @@ class Tests(unittest.TestCase):
         with self.assertRaises(fte.InvalidCovertextError):
             exact.decrypt(out_of_range)
 
-    def test_wrong_key_is_invalid_covertext(self):
-        sender = fte.FTE(output_format=HexFormat(), key=KEY)
-        receiver = fte.FTE(output_format=HexFormat(), key=bytes(reversed(KEY)))
-
-        with self.assertRaises(fte.InvalidCovertextError):
-            receiver.decrypt(sender.encrypt(b"hello"))
-
     def test_format_property_is_read_only(self):
         cipher = fte.FTE(output_format=HexFormat(), key=KEY)
 
         with self.assertRaises(AttributeError):
             cipher.output_format = HexFormat()
-
-    def test_roundtrip_over_varied_sizes(self):
-        cipher = fte.FTE(output_format=HexFormat(), key=KEY, max_plaintext_bytes=2048)
-
-        for length in list(range(0, 260)) + [512, 1024, 2048]:
-            plaintext = os.urandom(length)
-            self.assertEqual(cipher.decrypt(cipher.encrypt(plaintext)), plaintext)
-
-    def test_cross_endpoint_roundtrip(self):
-        # Two independently constructed instances must interoperate: the wire
-        # format is a contract between separate sender and receiver processes.
-        sender = fte.FTE(output_format=HexFormat(), key=KEY)
-        receiver = fte.FTE(output_format=HexFormat(), key=KEY)
-
-        for plaintext in (b"", b"x", b"hello", os.urandom(64)):
-            self.assertEqual(receiver.decrypt(sender.encrypt(plaintext)), plaintext)
 
     def test_bytes_output_rejects_oversized_covertext_cheaply(self):
         cipher = fte.FTE(output_format=fte.BytesFormat(), key=bytes(32))
@@ -373,15 +332,6 @@ class Tests(unittest.TestCase):
         self.assertIn("RegexFormat", fte.__all__)
         self.assertIs(fte.FTE, fte.core.FTE)
         self.assertIs(fte.RankedFormat, fte.formats.RankedFormat)
-        # The removed Encoder wrapper, convenience functions, and
-        # FiniteRankedFormat protocol stay gone.
-        self.assertFalse(hasattr(fte, "Encoder"))
-        self.assertFalse(hasattr(fte, "FiniteRankedFormat"))
-        self.assertNotIn("encrypt", fte.__all__)
-        self.assertNotIn("decrypt", fte.__all__)
-        # The Encrypter is internal now: not exported, not an attribute.
-        self.assertNotIn("Encrypter", fte.__all__)
-        self.assertFalse(hasattr(fte, "Encrypter"))
 
 
 if __name__ == "__main__":

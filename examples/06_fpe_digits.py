@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Example: Format-preserving encryption of a 9-digit identifier.
+"""Format-preserving encryption of a 9-digit identifier.
 
 The deterministic cipher (``ff1``) uses the same input and output format,
-preserving length in place. A 9-digit
-number encrypts to another 9-digit number, so the ciphertext still fits a
-fixed-width field (an account number, a customer id, a batch of tickets).
+preserving length in place. A 9-digit number encrypts to another 9-digit
+number, so the ciphertext still fits a fixed-width field (an account number, a
+customer id, a batch of tickets).
 
 The transform is deterministic and unauthenticated: equal plaintexts map to
 equal covertexts, so pass a distinct per-record ``tweak`` (a column name, a row

@@ -126,7 +126,7 @@ serialized at the same width `W`, the smallest integer with
 `256**W >= input_format.cardinality`. The property reports `W`; the constructor
 rejects an explicit `max_plaintext_bytes`. The output must fit every `W + 29`
 byte frame, and decryption rejects payloads of any other width. See the
-[structured-input example](../examples/09_authenticated_fte.py).
+[structured-input example](../examples/05_authenticated_fte.py).
 
 For the deterministic cipher, `max_plaintext_bytes` is `None`; format cardinality
 and any length slices define the domain.

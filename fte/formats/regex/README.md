@@ -158,4 +158,4 @@ fingerprint and therefore the encryption mapping.
 in [_dfa.py](_dfa.py). The DFA implementation is private. To implement another
 format, see the
 [provider contract](../../../docs/formats.md) and
-[custom provider example](../../../examples/08_custom_format.py).
+[custom provider example](../../../examples/04_custom_format.py).

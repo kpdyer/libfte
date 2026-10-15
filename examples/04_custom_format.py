@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Example: Writing a custom format provider.
+"""Write a custom format provider.
 
 FTE's one extension point is the ranked format: any object with reversible
 ``rank()`` / ``unrank()`` methods. No inheritance or registration is needed,

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Example: Deterministic FTE across two different formats.
+"""Deterministic FTE across two different formats.
 
 The ``ff1`` cipher maps between different input and output formats. A 12-digit
 decimal string is encrypted as a 16-character hex string. The transform is
@@ -49,9 +48,10 @@ def main():
     stray = hex_out.unrank(hex_out.cardinality - 1)
     try:
         cipher.decrypt(stray, tweak=b"batch-2026")
-        print("unexpected: stray covertext decrypted")
     except InvalidCovertextError:
         print("A hex value outside the input's image is rejected as expected.")
+    else:
+        raise AssertionError("a stray covertext decrypted")
 
     print("\nSuccess! The deterministic map round-trips every 12-digit input.")
 

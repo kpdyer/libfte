@@ -92,8 +92,8 @@ see the [deterministic FTE example](https://github.com/kpdyer/libfte/blob/master
   symbols; choose a length close to what the message needs.
 - Treat patterns and length bounds as trusted configuration. Keep each
   covertext intact: normalization, editing, or concatenation changes its rank.
-- Version 0.4.x uses a different wire format from 0.3.x and earlier. Both
-  endpoints must use compatible versions and ranked-format orderings.
+- Versions 0.4.0 and later use a different wire format from 0.3.x and earlier.
+  Both endpoints must use compatible versions and ranked-format orderings.
 
 See the [security model and reporting policy](https://github.com/kpdyer/libfte/blob/master/SECURITY.md)
 for key usage, nonce limits, and decryption behavior.
